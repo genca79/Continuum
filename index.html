@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MPE Continuum: Rounding Rate Edition</title>
+    <title>MPE Continuum: Infinite Glide Edition</title>
     <style>
         body { margin: 0; background: #050505; color: #ff3333; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
         #ui { 
             position: absolute; top: 0; left: 0; right: 0; 
             background: rgba(10, 10, 10, 0.98); padding: 12px; 
             border-bottom: 2px solid #411; display: flex; flex-wrap: wrap; gap: 12px; 
-            z-index: 100; transform: translateY(-92%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100; transform: translateY(-92%); transition: 0.3s ease;
         }
         #ui:hover, #ui.active { transform: translateY(0); }
         .box { display: flex; flex-direction: column; flex: 1; min-width: 90px; }
-        label { font-size: 8px; text-transform: uppercase; color: #666; margin-bottom: 3px; letter-spacing: 0.5px; }
+        label { font-size: 8px; text-transform: uppercase; color: #666; margin-bottom: 3px; }
         select, input { background: #151515; color: #f44; border: 1px solid #333; padding: 4px; font-size: 11px; border-radius: 3px; outline: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
         .btn-group { position: absolute; bottom: 10px; right: 10px; display: flex; gap: 8px; }
-        button { background: #1a0505; color: #f88; border: 1px solid #411; padding: 6px 12px; border-radius: 4px; font-size: 10px; text-transform: uppercase; }
+        button { background: #1a0505; color: #f88; border: 1px solid #411; padding: 6px 12px; border-radius: 4px; font-size: 10px; }
     </style>
 </head>
 <body>
@@ -26,15 +26,15 @@
 <div id="ui">
     <div class="box" style="flex:1.5"><label>MIDI Out</label><select id="midiOutSelect"></select></div>
     <div class="box">
-        <label>Rounding Rate (Snap)</label>
-        <input type="range" id="roundSlider" min="0" max="50" step="1" value="15">
+        <label>Smoothing Glide</label>
+        <input type="range" id="roundSlider" min="0" max="50" step="1" value="10">
     </div>
     <div class="box">
         <label>Sensibilità Area</label>
         <input type="range" id="sensSlider" min="0.1" max="2.0" step="0.1" value="0.7">
     </div>
     <div class="box" style="flex:0.5">
-        <label>PB Range</label>
+        <label>PB Range (Ableton)</label>
         <input type="number" id="pbRange" value="48">
     </div>
 </div>
@@ -48,7 +48,7 @@
 
 <script>
 /**
- * LOGICA CONTINUUM ROUNDING RATE
+ * LOGICA MPE: GLIDE CONTINUO A LUNGO RAGGIO
  */
 const canvas = document.getElementById('surface');
 const ctx = canvas.getContext('2d');
@@ -68,37 +68,42 @@ function setupMIDI() {
 }
 
 function calculateMPE(e, voiceState = null) {
-    const x = e.clientX;
-    const y = e.clientY;
     const range = parseInt(document.getElementById('pbRange').value) || 48;
     const sens = parseFloat(document.getElementById('sensSlider').value);
-    const roundingThreshold = parseInt(document.getElementById('roundSlider').value);
+    const rounding = parseInt(document.getElementById('roundSlider').value);
 
-    // Nota base e decimale
-    const exactNote = 48 + (x / canvas.width) * 24; 
-    const roundedNote = Math.round(exactNote);
+    // 1. Calcolo posizione esatta sulla tastiera (2 Ottave: 24 note)
+    const currentExactNote = 48 + (e.clientX / canvas.width) * 24; 
     
-    let detune = exactNote - roundedNote;
+    let detune = 0;
+    let noteToPlay = Math.round(currentExactNote);
 
-    // --- LOGICA ROUNDING RATE (STILE HAKEN) ---
+    // 2. LOGICA GLIDE INFINITO
     if (voiceState) {
-        const distFromStart = Math.abs(x - voiceState.startX);
-        // Se il movimento è inferiore alla soglia, blocca l'intonazione sulla nota iniziale
-        if (!voiceState.isGliding && distFromStart < roundingThreshold) {
-            detune = voiceState.startNote - Math.round(voiceState.startNote);
+        // Calcoliamo la distanza dalla nota con cui abbiamo iniziato
+        detune = currentExactNote - voiceState.initialNote;
+        
+        // Applichiamo un piccolo "smoothing" iniziale se l'utente non si è mosso abbastanza
+        const distFromStart = Math.abs(e.clientX - voiceState.startX);
+        if (!voiceState.isGliding && distFromStart < rounding) {
+            detune = 0; // Rimaniamo intonati finché non "strappiamo" verso il glide
         } else {
-            voiceState.isGliding = true; // Una volta superata la soglia, il glide diventa fluido
+            voiceState.isGliding = true;
         }
+        
+        // Usiamo sempre la nota iniziale come riferimento MIDI per il canale
+        noteToPlay = voiceState.initialNote; 
     }
 
+    // 3. Pitch Bend a 14-bit basato sulla distanza reale
     const pbValue = Math.floor(8192 + (detune * (8192 / range)));
 
-    // Pressione basata su area di contatto per Motorola
+    // 4. Pressione basata su Area
     const touchArea = (e.width + e.height) / 2 || 20;
     const pressValue = Math.floor(Math.min((touchArea / 45) * sens, 1.0) * 127);
-    const slideValue = Math.floor((1 - (y / canvas.height)) * 127);
+    const slideValue = Math.floor((1 - (e.clientY / canvas.height)) * 127);
 
-    return { roundedNote, pbValue, slideValue, pressValue, x, y, exactNote };
+    return { noteToPlay, pbValue, slideValue, pressValue, x: e.clientX, y: e.clientY, exactNote: currentExactNote };
 }
 
 canvas.addEventListener('pointerdown', e => {
@@ -106,20 +111,20 @@ canvas.addEventListener('pointerdown', e => {
     const chan = mpeChannels.shift();
     if (!chan || !midiOutput) return;
 
-    // Al tocco iniziale, salviamo la posizione per il rounding
     const m = calculateMPE(e);
-    
+    const startNote = Math.round(m.exactNote);
+
+    // Invia segnali iniziali
     midiOutput.send([0xB0 + chan - 1, 74, m.slideValue]);
-    midiOutput.send([0xE0 + chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
-    midiOutput.send([0x90 + chan - 1, m.roundedNote, 80]); 
+    midiOutput.send([0xE0 + chan - 1, 0x00, 0x40]); // PB al centro (8192)
+    midiOutput.send([0x90 + chan - 1, startNote, 80]); 
 
     activeVoices.set(e.pointerId, { 
         chan, 
         startX: e.clientX,
-        startNote: m.exactNote,
+        initialNote: startNote, // Punto di ancoraggio per il Glide
         isGliding: false,
-        currentNote: m.roundedNote, 
-        color: `hsl(${chan * 24}, 80%, 50%)`,
+        color: `hsl(${chan * 24}, 85%, 50%)`,
         ...m 
     });
 });
@@ -131,6 +136,7 @@ canvas.addEventListener('pointermove', e => {
 
     const m = calculateMPE(e, v);
     
+    // Invia Pitch Bend relativo alla nota iniziale
     midiOutput.send([0xE0 + v.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
     midiOutput.send([0xB0 + v.chan - 1, 74, m.slideValue]);
     midiOutput.send([0xD0 + v.chan - 1, m.pressValue]);
@@ -141,7 +147,7 @@ canvas.addEventListener('pointermove', e => {
 canvas.addEventListener('pointerup', e => {
     const v = activeVoices.get(e.pointerId);
     if (!v) return;
-    if (midiOutput) midiOutput.send([0x80 + v.chan - 1, v.currentNote, 0]);
+    if (midiOutput) midiOutput.send([0x80 + v.chan - 1, v.noteToPlay, 0]);
     mpeChannels.push(v.chan);
     mpeChannels.sort((a, b) => a - b);
     activeVoices.delete(e.pointerId);
@@ -150,25 +156,18 @@ canvas.addEventListener('pointerup', e => {
 function draw() {
     ctx.fillStyle = '#050505';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
     const noteW = canvas.width / 24;
     for (let i = 0; i <= 24; i++) {
         const x = i * noteW;
-        const isOctave = (48 + i) % 12 === 0;
-        ctx.strokeStyle = isOctave ? '#422' : '#151515';
-        ctx.lineWidth = isOctave ? 2 : 1;
+        ctx.strokeStyle = (48 + i) % 12 === 0 ? '#422' : '#151515';
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
     }
-
     activeVoices.forEach(v => {
-        // Cerchi compatti: base 8px + pressione
         const radius = 8 + (v.pressValue / 127) * 35; 
-        
         ctx.shadowBlur = 15; ctx.shadowColor = v.color;
         ctx.fillStyle = v.color;
         ctx.beginPath(); ctx.arc(v.x, v.y, radius, 0, Math.PI * 2); ctx.fill();
-        
-        ctx.shadowBlur = 0; ctx.fillStyle = "rgba(255,255,255,0.7)"; ctx.font = "10px Arial";
+        ctx.shadowBlur = 0; ctx.fillStyle = "white"; ctx.font = "10px Arial";
         ctx.fillText(`CH ${v.chan}`, v.x - 12, v.y - radius - 8);
     });
     requestAnimationFrame(draw);
