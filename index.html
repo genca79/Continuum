@@ -3,177 +3,203 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MPE Continuum Controller PRO</title>
+    <title>Motorola MPE Continuum Ultra</title>
     <style>
-        body { margin: 0; background: #0a0a0a; color: #ff3333; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
+        body { margin: 0; background: #0a0a0a; color: #ff4444; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; touch-action: none; }
         
-        /* Dashboard a scomparsa */
         #ui { 
             position: absolute; top: 0; left: 0; right: 0; 
-            background: rgba(15, 15, 15, 0.95); padding: 10px 20px; 
-            border-bottom: 2px solid #4a1010; display: flex; gap: 20px; 
-            z-index: 100; transform: translateY(-85%); transition: 0.3s; 
+            background: rgba(20, 20, 20, 0.96); padding: 15px; 
+            border-bottom: 2px solid #6a1515; display: flex; flex-wrap: wrap; gap: 15px; 
+            z-index: 100; transform: translateY(-92%); transition: transform 0.3s ease-out; 
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
         }
-        #ui:hover { transform: translateY(0); }
+        #ui:hover, #ui.active { transform: translateY(0); }
         
-        .box { display: flex; flex-direction: column; min-width: 100px; }
-        label { font-size: 9px; text-transform: uppercase; color: #888; margin-bottom: 4px; }
-        select, input { background: #222; color: #ff3333; border: 1px solid #444; padding: 4px; font-size: 12px; border-radius: 3px; outline: none; }
+        .box { display: flex; flex-direction: column; flex: 1; min-width: 90px; }
+        label { font-size: 10px; text-transform: uppercase; color: #888; margin-bottom: 5px; letter-spacing: 1px; }
+        select, input[type=number] { background: #222; color: #ff4444; border: 1px solid #444; padding: 6px; font-size: 13px; border-radius: 4px; outline: none; }
+        
+        input[type=range] { -webkit-appearance: none; width: 100%; height: 6px; background: #333; border-radius: 3px; outline: none; margin-top: 5px; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; background: #ff4444; border-radius: 50%; cursor: pointer; }
+
+        /* Stile per il checkbox di quantizzazione */
+        .check-box { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+        #quantizeCheck { width: 18px; height: 18px; accent-color: #ff4444; }
+
+        .btn-group { position: absolute; bottom: 15px; right: 15px; display: flex; gap: 10px; z-index: 90; }
+        button { background: #331010; color: #ffaaaa; border: 1px solid #6a1515; padding: 8px 12px; border-radius: 4px; font-size: 11px; text-transform: uppercase; cursor: pointer; }
         
         canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
-        #debug-info { position: absolute; bottom: 10px; right: 10px; font-size: 10px; color: #444; pointer-events: none; }
+        #status-bar { position: absolute; bottom: 15px; left: 15px; font-size: 11px; color: #666; pointer-events: none; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <div class="box"><label>MIDI Output Device</label><select id="midiOutSelect"></select></div>
-    <div class="box"><label>Pitch Bend Range (st)</label><input type="number" id="pbRange" value="48"></div>
-    <div class="box"><label>Base Note (MIDI)</label><input type="number" id="baseNote" value="48"></div>
-    <div id="status" style="margin-top: 15px; font-size: 10px;">Inizializzazione...</div>
+    <div class="box" style="flex: 2;"><label>MIDI Output Device</label><select id="midiOutSelect"><option>Searching...</option></select></div>
+    <div class="box"><label>PB Range (st)</label><input type="number" id="pbRange" value="48"></div>
+    <div class="box">
+        <label>Sensibilità Pressione</label>
+        <input type="range" id="sensSlider" min="0.5" max="3.0" step="0.1" value="1.5">
+    </div>
+    <div class="box">
+        <label>Glide</label>
+        <div class="check-box">
+            <input type="checkbox" id="quantizeCheck">
+            <span style="font-size: 11px;">Quantizza Note</span>
+        </div>
+    </div>
 </div>
 
 <canvas id="surface"></canvas>
-<div id="debug-info">Premi F12 per Console Log | MPE Standard</div>
+<div id="status-bar">Trascina giù per le opzioni | MPE Mode</div>
+
+<div class="btn-group">
+    <button id="rescanBtn">Rescan MIDI</button>
+    <button id="fsBtn">Full Screen</button>
+</div>
 
 <script>
 /**
- * ARCHITETTURA DI TRASMISSIONE MPE
+ * WEB MPE ENGINE - MOTOROLA EDGE 40 PRO OPTIMIZED
  */
+
 const canvas = document.getElementById('surface');
 const ctx = canvas.getContext('2d');
 let midiOutput = null;
+const activeVoices = new Map(); 
+const mpeChannels = Array.from({length: 15}, (_, i) => i + 2);
 
-const activeVoices = new Map(); // pointerId -> { chan, note, color, x, y, press }
-const mpeChannels = Array.from({length: 15}, (_, i) => i + 2); // Canali 2-16
-
-// Inizializzazione MIDI
 function setupMIDI() {
+    const select = document.getElementById('midiOutSelect');
     if (navigator.requestMIDIAccess) {
-        navigator.requestMIDIAccess().then(access => {
+        navigator.requestMIDIAccess({ sysex: true, software: true }).then(access => {
             const outputs = Array.from(access.outputs.values());
-            const select = document.getElementById('midiOutSelect');
-            select.innerHTML = outputs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
-            midiOutput = outputs[0] || null;
-            if(midiOutput) document.getElementById('status').innerText = "MIDI READY: " + midiOutput.name;
+            if (outputs.length === 0) {
+                select.innerHTML = "<option>Nessun dispositivo</option>";
+            } else {
+                select.innerHTML = outputs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+                midiOutput = outputs[0];
+                document.getElementById('status-bar').innerText = `Ready: ${midiOutput.name}`;
+            }
             select.onchange = () => midiOutput = access.outputs.get(select.value);
         });
-    } else {
-        document.getElementById('status').innerText = "Browser non supporta Web MIDI";
     }
 }
 
-// Calcolo parametri MPE
-function calculateMPE(x, y, pressure) {
-    const base = parseInt(document.getElementById('baseNote').value) || 48;
-    const pbRange = parseInt(document.getElementById('pbRange').value) || 48;
-    const totalNotes = 24; // 2 ottave
+function calculateMPE(x, y, rawPressure) {
+    const range = parseInt(document.getElementById('pbRange').value) || 48;
+    const sensitivity = parseFloat(document.getElementById('sensSlider').value) || 1.5;
+    const quantize = document.getElementById('quantizeCheck').checked;
 
-    const exactNote = base + (x / canvas.width) * totalNotes;
+    const totalNotes = 24; 
+    const exactNote = 48 + (x / canvas.width) * totalNotes; 
     const roundedNote = Math.round(exactNote);
-    const detune = exactNote - roundedNote;
+    
+    // Logica di Quantizzazione
+    // Se quantizzato, detune è 0, quindi pbValue è sempre 8192 (centro)
+    const detune = quantize ? 0 : (exactNote - roundedNote);
+    const pbValue = Math.floor(8192 + (detune * (8192 / range)));
 
-    // Pitch Bend a 14-bit (8192 è il centro)
-    const pbValue = Math.floor(8192 + (detune * (8192 / pbRange)));
-    // Slide (CC74)
     const slideValue = Math.floor((1 - (y / canvas.height)) * 127);
-    // Pressure (se assente, 0.5 per mouse)
-    const pressValue = Math.floor((pressure || 0.5) * 127);
+    let calibratedPressure = Math.min((rawPressure || 0.01) * sensitivity, 1.0);
+    const pressValue = Math.floor(calibratedPressure * 127);
 
     return { roundedNote, pbValue, slideValue, pressValue, x, y };
 }
 
-// Gestione Pointer Events (Mouse + Touch)
 canvas.addEventListener('pointerdown', e => {
+    e.preventDefault();
     const channel = mpeChannels.shift();
     if (!channel || !midiOutput) return;
 
     const m = calculateMPE(e.clientX, e.clientY, e.pressure);
     
-    // Sequenza MPE: CC74 -> PitchBend -> NoteOn
     midiOutput.send([0xB0 + channel - 1, 74, m.slideValue]);
     midiOutput.send([0xE0 + channel - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
-    midiOutput.send([0x90 + channel - 1, m.roundedNote, 100]);
+    midiOutput.send([0x90 + channel - 1, m.roundedNote, 64]); 
+    midiOutput.send([0xD0 + channel - 1, m.pressValue]); 
 
     activeVoices.set(e.pointerId, { 
         chan: channel, 
         note: m.roundedNote, 
-        color: `hsl(${channel * 24}, 100%, 60%)`,
+        color: `hsl(${channel * 25}, 90%, 55%)`, // Colore unico per dito
         ...m 
     });
-    
-    console.log(`Note On: CH ${channel} | Note: ${m.roundedNote}`);
 });
 
 canvas.addEventListener('pointermove', e => {
+    e.preventDefault();
     const v = activeVoices.get(e.pointerId);
     if (!v || !midiOutput) return;
 
     const m = calculateMPE(e.clientX, e.clientY, e.pressure);
     
-    // Aggiornamento continuo
     midiOutput.send([0xE0 + v.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
     midiOutput.send([0xB0 + v.chan - 1, 74, m.slideValue]);
-    midiOutput.send([0xD0 + v.chan - 1, m.pressValue]); // Channel Pressure
+    midiOutput.send([0xD0 + v.chan - 1, m.pressValue]);
 
-    Object.assign(v, m); // Aggiorna posizione per grafica
-    console.log(`Glide CH ${v.chan}: PB Value ${m.pbValue}`); // Debug Glide
+    Object.assign(v, m); 
 });
 
 canvas.addEventListener('pointerup', e => {
     const v = activeVoices.get(e.pointerId);
-    if (!v || !midiOutput) return;
-
-    midiOutput.send([0x80 + v.chan - 1, v.note, 0]); // Note Off
+    if (!v) return;
+    if (midiOutput) midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
     mpeChannels.push(v.chan);
     mpeChannels.sort((a, b) => a - b);
     activeVoices.delete(e.pointerId);
 });
 
-/**
- * RENDER GRAFICO (ASPETTO CONTINUUM)
- */
 function draw() {
-    // Sfondo Continuum (Rosso scuro)
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, '#1a0505'); gradient.addColorStop(0.5, '#2b0a0a'); gradient.addColorStop(1, '#1a0505');
-    ctx.fillStyle = gradient;
+    const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    g.addColorStop(0, '#1a0505'); g.addColorStop(1, '#0f0202');
+    ctx.fillStyle = g;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const noteWidth = canvas.width / 24;
-    const base = parseInt(document.getElementById('baseNote').value) || 48;
-
-    // Marcatori Tastiera
+    const noteW = canvas.width / 24;
     for (let i = 0; i <= 24; i++) {
-        const x = i * noteWidth;
-        const currentNote = (base + i) % 12;
-        
-        ctx.lineWidth = (currentNote === 0) ? 3 : 1;
-        ctx.strokeStyle = (currentNote === 0) ? '#ff3333' : 'rgba(255,255,255,0.1)';
-        
+        const x = i * noteW;
+        const n = (48 + i) % 12;
+        ctx.lineWidth = (n === 0) ? 2 : 1;
+        ctx.strokeStyle = (n === 0) ? '#ff4444' : 'rgba(255,255,255,0.1)';
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
     }
 
-    // Cerchi Colorati (Feedback visivo per dito/mouse)
     activeVoices.forEach(v => {
-        ctx.shadowBlur = 40;
+        // Il diametro varia in base alla pressione (pressValue 0-127)
+        const radius = 30 + (v.pressValue / 127) * 80;
+
+        ctx.shadowBlur = 35;
         ctx.shadowColor = v.color;
         ctx.fillStyle = v.color;
         
         ctx.beginPath();
-        // Dimensione del cerchio basata sulla pressione
-        ctx.arc(v.x, v.y, 35 + (v.pressValue / 3), 0, Math.PI * 2);
+        ctx.arc(v.x, v.y, radius, 0, Math.PI * 2);
         ctx.fill();
         
-        // Indicatore Canale MIDI
         ctx.shadowBlur = 0;
-        ctx.fillStyle = "rgba(255,255,255,0.8)";
-        ctx.font = "bold 13px Arial";
-        ctx.fillText(`CH ${v.chan}`, v.x - 18, v.y - 70);
+        ctx.fillStyle = "white";
+        ctx.font = "bold 14px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`CH ${v.chan}`, v.x, v.y - radius - 12);
     });
 
     requestAnimationFrame(draw);
 }
+
+document.getElementById('fsBtn').onclick = () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+};
+document.getElementById('rescanBtn').onclick = setupMIDI;
+
+const ui = document.getElementById('ui');
+canvas.addEventListener('pointerdown', (e) => {
+    if(e.clientY < 50) ui.classList.add('active');
+    else ui.classList.remove('active');
+});
 
 window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
 window.onresize();
