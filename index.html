@@ -3,19 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MPE Ultra: Chord Engine & Scale Mode</title>
+    <title>MPE Ultra: Pro Octave & Snap</title>
     <style>
         body { margin: 0; background: #050505; color: #ff3333; font-family: sans-serif; overflow: hidden; touch-action: none; }
         #ui { 
             position: absolute; top: 0; left: 0; right: 0; 
-            background: rgba(10, 10, 10, 0.98); padding: 8px; 
+            background: rgba(10, 10, 10, 0.98); padding: 10px; 
             border-bottom: 2px solid #500; display: flex; flex-wrap: wrap; gap: 8px; 
-            z-index: 100; transform: translateY(-93%); transition: 0.3s;
+            z-index: 100; transform: translateY(-93%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         #ui:hover, #ui.active { transform: translateY(0); }
         .box { display: flex; flex-direction: column; flex: 1; min-width: 80px; }
         label { font-size: 8px; text-transform: uppercase; color: #666; margin-bottom: 2px; }
         select, input { background: #151515; color: #f33; border: 1px solid #333; padding: 4px; font-size: 11px; border-radius: 3px; outline: none; }
+        
+        /* Stile Frecce Ottava */
+        .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #151515; border: 1px solid #333; border-radius: 3px; height: 26px; }
+        .oct-btn { background: #2a0a0a; color: #f88; border: none; width: 30px; height: 100%; cursor: pointer; font-weight: bold; font-size: 14px; }
+        .oct-btn:active { background: #ff4444; color: white; }
+        #octVal { font-size: 11px; color: #f44; width: 25px; text-align: center; }
+
         canvas { display: block; width: 100vw; height: 100vh; }
         .footer { position: absolute; bottom: 8px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #444; }
         .btn { pointer-events: auto; background: #200; color: #f88; border: 1px solid #411; padding: 4px 8px; border-radius: 3px; cursor: pointer; }
@@ -35,50 +42,55 @@
             <select id="scaleType">
                 <option value="major">Major</option><option value="minor">Minor</option>
                 <option value="pentatonic">Pentatonic</option><option value="dorian">Dorian</option>
-                <option value="phrygian">Phrygian</option><option value="lydian">Lydian</option>
                 <option value="mixolydian">Mixolydian</option><option value="harmonicMinor">Harmonic Min</option>
             </select>
+        </div>
+    </div>
+    <div class="box" style="flex:0.7">
+        <label>Ottava</label>
+        <div class="oct-ctrl">
+            <button class="oct-btn" onclick="changeOctave(-1)">&lt;</button>
+            <span id="octVal">0</span>
+            <button class="oct-btn" onclick="changeOctave(1)">&gt;</button>
         </div>
     </div>
     <div class="box">
         <label>Chord Mode</label>
         <select id="chordMode">
-            <option value="1">Single Note</option>
-            <option value="3">Triads</option>
-            <option value="4">7th Chords</option>
+            <option value="1">Single</option><option value="3">Triads</option><option value="4">7ths</option>
         </select>
     </div>
-    <div class="box" style="flex:0.6">
-        <label>Ottava</label>
-        <select id="octaveShift">
-            <option value="-1">-1</option><option value="0" selected>0</option><option value="1">+1</option>
-        </select>
-    </div>
-    <div class="box" style="flex:0.5"><label>Link Y-Z</label><input type="checkbox" id="linkPressToY"></div>
+    <div class="box" style="flex:0.5"><label>Snap</label><input type="range" id="roundRate" min="0" max="80" value="15"></div>
+    <div class="box" style="flex:0.4"><label>Link YZ</label><input type="checkbox" id="linkPressToY"></div>
 </div>
 
 <canvas id="surface"></canvas>
 <div class="footer">
-    <div>MPE CHORD ENGINE ACTIVE | MOTOROLA EDGE 40 PRO</div>
-    <button class="btn" onclick="document.documentElement.requestFullscreen()">FS</button>
+    <div>MPE ARROW OCTAVE MODE | MOTOROLA EDGE 40 PRO</div>
+    <button class="btn" onclick="document.documentElement.requestFullscreen()">FULL SCREEN</button>
 </div>
 
 <script>
 /**
- * MPE ENGINE V5: DIATONIC CHORDS & SCALE MAPPING
+ * MPE ENGINE V6: OCTAVE ARROWS & RE-INTEGRATED SNAP
  */
 const canvas = document.getElementById('surface');
 const ctx = canvas.getContext('2d');
 let midiOutput = null;
 const activeTouches = new Map(); 
-const mpeChannels = Array.from({length: 15}, (_, i) => i + 2); // Canali 2-16
+const mpeChannels = Array.from({length: 15}, (_, i) => i + 2);
+let currentOctave = 0; // Stato dell'ottava
 
 const SCALES = {
     major: [0,2,4,5,7,9,11], minor: [0,2,3,5,7,8,10],
     pentatonic: [0,2,4,7,9], dorian: [0,2,3,5,7,9,10],
-    phrygian: [0,1,3,5,7,8,10], lydian: [0,2,4,6,7,9,11],
     mixolydian: [0,2,4,5,7,9,10], harmonicMinor: [0,2,3,5,7,8,11]
 };
+
+function changeOctave(delta) {
+    currentOctave = Math.max(-2, Math.min(2, currentOctave + delta));
+    document.getElementById('octVal').innerText = (currentOctave > 0 ? "+" : "") + currentOctave;
+}
 
 function setupMIDI() {
     if (navigator.requestMIDIAccess) {
@@ -99,7 +111,7 @@ function getNotesInScale() {
     for (let oct = 0; oct < 10; oct++) {
         intervals.forEach(i => notes.push(oct * 12 + root + i));
     }
-    return notes.filter(n => n >= 0 && n <= 127);
+    return notes;
 }
 
 function getNearestScaleNote(midiNote) {
@@ -107,42 +119,47 @@ function getNearestScaleNote(midiNote) {
     return scaleNotes.reduce((prev, curr) => Math.abs(curr - midiNote) < Math.abs(prev - midiNote) ? curr : prev);
 }
 
-function getChordNotes(rootNote) {
-    const scaleNotes = getNotesInScale();
-    const chordSize = parseInt(document.getElementById('chordMode').value);
-    const rootIdx = scaleNotes.indexOf(rootNote);
-    if (rootIdx === -1) return [rootNote];
-    
-    let chord = [];
-    for (let i = 0; i < chordSize; i++) {
-        const idx = rootIdx + (i * 2); // Terze diatoniche
-        if (idx < scaleNotes.length) chord.push(scaleNotes[idx]);
-    }
-    return chord;
-}
-
-function getMPEData(e, initialNote = null) {
-    const range = 48; // PB Range Ableton
-    const oct = parseInt(document.getElementById('octaveShift').value);
-    const baseMIDI = 48 + (oct * 12);
+function getMPEData(e, voice = null) {
+    const range = 48; // Pitch Bend Range
+    const round = parseInt(document.getElementById('roundRate').value);
+    const baseMIDI = 48 + (currentOctave * 12); // Base MIDI influenzata dalle frecce
 
     const currentExact = baseMIDI + (e.clientX / canvas.width) * 24;
-    const detune = initialNote ? (currentExact - initialNote) : 0;
-    const pbValue = Math.floor(8192 + (detune * (8192 / range)));
+    let detune = 0;
 
+    if (voice) {
+        detune = currentExact - voice.initialExact;
+        // Logica SNAP ROUNDING
+        if (!voice.isGliding && Math.abs(e.clientX - voice.startX) < round) {
+            detune = 0;
+        } else {
+            voice.isGliding = true;
+        }
+    }
+
+    const pbValue = Math.floor(8192 + (detune * (8192 / range)));
     const slide = Math.floor(Math.max(0, Math.min(1, 1 - (e.clientY / canvas.height))) * 127);
     let press = document.getElementById('linkPressToY').checked ? slide : Math.floor(Math.min(((e.width + e.height) / 80), 1.0) * 127);
 
-    return { pbValue, slide, press, x: e.clientX, y: e.clientY };
+    return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: currentExact };
 }
 
 canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
     if (!midiOutput) return;
 
-    const baseExact = 48 + (parseInt(document.getElementById('octaveShift').value) * 12) + (e.clientX / canvas.width) * 24;
+    const baseExact = 48 + (currentOctave * 12) + (e.clientX / canvas.width) * 24;
     const rootNote = getNearestScaleNote(baseExact);
-    const chordNotes = getChordNotes(rootNote);
+    const chordSize = parseInt(document.getElementById('chordMode').value);
+    
+    // Generazione Accordi Diatonici
+    const scaleNotes = getNotesInScale();
+    const rootIdx = scaleNotes.indexOf(rootNote);
+    let chordNotes = [];
+    for(let i=0; i<chordSize; i++) {
+        const idx = rootIdx + (i*2);
+        if(idx < scaleNotes.length) chordNotes.push(scaleNotes[idx]);
+    }
     
     let voices = [];
     chordNotes.forEach(note => {
@@ -157,23 +174,20 @@ canvas.addEventListener('pointerdown', e => {
     });
 
     activeTouches.set(e.pointerId, { 
-        voices, initialExact: rootNote, startX: e.clientX,
-        color: `hsl(${voices[0]?.chan * 25 || 0}, 85%, 50%)`,
-        lastM: getMPEData(e)
+        voices, initialExact: rootNote, startX: e.clientX, isGliding: false,
+        color: `hsl(${voices[0]?.chan * 25 || 0}, 85%, 50%)`, lastM: getMPEData(e)
     });
 });
 
 canvas.addEventListener('pointermove', e => {
     const t = activeTouches.get(e.pointerId);
     if (!t || !midiOutput) return;
-
-    const m = getMPEData(e, t.initialExact);
+    const m = getMPEData(e, t);
     t.lastM = m;
-
     t.voices.forEach(v => {
-        midiOutput.send([0xE0 + v.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]); // Glide
-        midiOutput.send([0xB0 + v.chan - 1, 74, m.slide]); // Slide
-        midiOutput.send([0xD0 + v.chan - 1, m.press]); // Press
+        midiOutput.send([0xE0 + v.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
+        midiOutput.send([0xB0 + v.chan - 1, 74, m.slide]);
+        midiOutput.send([0xD0 + v.chan - 1, m.press]);
     });
 });
 
@@ -193,7 +207,7 @@ function draw() {
     ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     const noteW = canvas.width / 24;
     const root = parseInt(document.getElementById('rootNote').value);
-    const baseMIDI = 48 + (parseInt(document.getElementById('octaveShift').value) * 12);
+    const baseMIDI = 48 + (currentOctave * 12);
 
     for (let i = 0; i <= 24; i++) {
         const n = baseMIDI + i;
@@ -205,14 +219,13 @@ function draw() {
     }
 
     activeTouches.forEach(t => {
-        const radius = 10 + (t.lastM.press / 127) * 30;
+        const radius = 8 + (t.lastM.press / 127) * 25;
+        ctx.shadowBlur = 10; ctx.shadowColor = t.color;
         ctx.fillStyle = t.color;
         ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
-        
-        // Disegna le note "fantasma" dell'accordo
         t.voices.slice(1).forEach((v, i) => {
-            ctx.strokeStyle = t.color; ctx.globalAlpha = 0.4;
-            ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius + (i+1)*15, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeStyle = t.color; ctx.globalAlpha = 0.3;
+            ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius + (i+1)*12, 0, Math.PI * 2); ctx.stroke();
             ctx.globalAlpha = 1.0;
         });
     });
