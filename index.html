@@ -4,25 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>MPE Continuum: Pro Edition FIXED</title>
-    <style>
-        body { margin: 0; background: #020202; color: #ff3333; font-family: sans-serif; overflow: hidden; touch-action: none; }
-        #ui { 
-            position: absolute; top: 0; left: 0; right: 0; 
-            background: rgba(10, 10, 10, 0.98); padding: 8px; 
-            border-bottom: 2px solid #500; display: flex; flex-wrap: wrap; gap: 8px; 
-            z-index: 100; transform: translateY(-93%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        #ui:hover, #ui.active { transform: translateY(0); }
-        .box { display: flex; flex-direction: column; flex: 1; min-width: 80px; }
-        label { font-size: 8px; text-transform: uppercase; color: #666; margin-bottom: 2px; }
-        select, input { background: #111; color: #f33; border: 1px solid #333; padding: 4px; font-size: 11px; border-radius: 3px; outline: none; }
-        .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #111; border: 1px solid #333; border-radius: 3px; height: 24px; }
-        .oct-btn { background: #200; color: #f88; border: none; width: 28px; height: 100%; cursor: pointer; font-weight: bold; }
-        #octVal { font-size: 11px; color: #f44; width: 25px; text-align: center; }
-        canvas { display: block; width: 100vw; height: 100vh; }
-        .footer { position: absolute; bottom: 8px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #444; }
-        .btn { pointer-events: auto; background: #200; color: #f88; border: 1px solid #411; padding: 4px 8px; border-radius: 3px; cursor: pointer; }
-    </style>
+   <style>
+    body { margin: 0; background: #000; color: #eee; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; touch-action: none; }
+    #ui { 
+        position: absolute; top: 0; left: 0; right: 0; 
+        background: rgba(25, 25, 25, 0.95); padding: 12px; 
+        border-bottom: 2px solid #ff3333; display: flex; flex-wrap: wrap; gap: 10px; 
+        z-index: 100; transform: translateY(-92%); transition: 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.8);
+    }
+    #ui:hover, #ui.active { transform: translateY(0); }
+    .box { display: flex; flex-direction: column; flex: 1; min-width: 90px; }
+    label { font-size: 10px; text-transform: uppercase; color: #ffaa00; margin-bottom: 4px; font-weight: bold; }
+    select, input { background: #333; color: #fff; border: 1px solid #555; padding: 6px; font-size: 12px; border-radius: 4px; }
+    
+    .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #333; border: 1px solid #ff3333; border-radius: 4px; height: 30px; }
+    .oct-btn { background: #440000; color: #fff; border: none; width: 35px; height: 100%; cursor: pointer; font-size: 16px; }
+    #octVal { font-size: 14px; color: #fff; font-weight: bold; width: 30px; text-align: center; }
+
+    canvas { display: block; width: 100vw; height: 100vh; }
+</style>
 </head>
 <body>
 
@@ -103,6 +104,8 @@ const SCALES = {
     diminished: [0, 2, 3, 5, 6, 8, 9, 11]
 };
 
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    
 function changeOctave(delta) {
     currentOctave = Math.max(-2, Math.min(2, currentOctave + delta));
     document.getElementById('octVal').innerText = (currentOctave > 0 ? "+" : "") + currentOctave;
@@ -210,39 +213,71 @@ canvas.addEventListener('pointerup', e => {
 });
 
 function draw() {
-    ctx.fillStyle = '#020202'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Sfondo scuro profondo
+    ctx.fillStyle = '#000'; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
     const noteW = canvas.width / 24;
     const root = parseInt(document.getElementById('rootNote').value);
     const baseMIDI = 48 + (currentOctave * 12);
+    const scale = SCALES[document.getElementById('scaleType').value] || SCALES.chromatic;
 
-    for (let i = 0; i <= 24; i++) {
+    // Disegno dei Tasti (Griglia)
+    for (let i = 0; i < 24; i++) {
         const n = baseMIDI + i;
         const x = i * noteW;
-        ctx.strokeStyle = (n % 12 === root) ? '#511' : '#111';
-        ctx.lineWidth = (n % 12 === root) ? 2 : 1;
+        const noteInOctave = (n - root) % 12 < 0 ? (n - root) % 12 + 12 : (n - root) % 12;
+        const inScale = scale.includes(noteInOctave);
+        const isRoot = (n % 12 === root);
+
+        // 1. Colorazione di fondo per note in scala
+        if (inScale) {
+            ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)';
+            ctx.fillRect(x, 0, noteW, canvas.height);
+        }
+
+        // 2. Linee divisorie con contrasto variabile
+        ctx.strokeStyle = isRoot ? '#ff3333' : (inScale ? '#444' : '#1a1a1a');
+        ctx.lineWidth = isRoot ? 3 : 1;
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+
+        // 3. Etichette Note (Visibili in basso)
+        if (inScale || isRoot) {
+            ctx.fillStyle = isRoot ? '#ff3333' : '#888';
+            ctx.font = isRoot ? 'bold 12px Arial' : '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, canvas.height - 20);
+            // Aggiunge l'ottava vicino al Do
+            if (n % 12 === 0) ctx.fillText('C' + (Math.floor(n/12)-1), x + noteW/2, canvas.height - 35);
+        }
     }
 
+    // Disegno Tocchi e Oscilloscopio (rimane invariato ma con glow aumentato)
     activeTouches.forEach(t => {
-        const radius = 10 + (t.lastM.press / 127) * 20;
+        const radius = 12 + (t.lastM.press / 127) * 25;
         t.phase += 0.2 + (t.vibratoSpeed * 0.05);
         const amp = 5 + t.vibratoSpeed;
         
         ctx.beginPath();
         ctx.strokeStyle = t.color;
-        ctx.lineWidth = 2;
-        for (let ox = -40; ox <= 40; ox += 2) {
+        ctx.lineWidth = 3;
+        for (let ox = -50; ox <= 50; ox += 2) {
             const oy = Math.sin(ox * 0.2 + t.phase) * amp;
-            if (ox === -40) ctx.moveTo(t.lastM.x + ox, t.lastM.y + oy);
+            if (ox === -50) ctx.moveTo(t.lastM.x + ox, t.lastM.y + oy);
             else ctx.lineTo(t.lastM.x + ox, t.lastM.y + oy);
         }
         ctx.stroke();
 
-        ctx.shadowBlur = 15; ctx.shadowColor = t.color;
+        ctx.shadowBlur = 25; ctx.shadowColor = t.color;
         ctx.fillStyle = t.color;
         ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
+        
+        // Etichetta Canale MPE sopra il dito
+        ctx.fillStyle = "#fff"; ctx.font = "bold 11px Arial";
+        ctx.fillText(`CH${t.voices[0].chan}`, t.lastM.x, t.lastM.y - radius - 15);
     });
+    
     requestAnimationFrame(draw);
 }
 
