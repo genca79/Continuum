@@ -131,25 +131,42 @@ function setupMIDI() {
 
 function getMPEData(e, voice = null) {
     const numOct = parseInt(document.getElementById('visibleOctaves').value);
-    const round = parseInt(document.getElementById('roundRate').value);
+    const round = parseInt(document.getElementById('roundRate').value) / 100; // Trasformato in sensibilità 0-1
     const baseMIDI = 48 + (currentOctave * 12);
     const totalNotes = numOct * 12;
+    
+    // Posizione esatta del dito in termini di note (es: 48.5 è a metà tra Do e Do#)
     const currentExact = baseMIDI + (e.clientX / canvas.width) * totalNotes;
     
-    let detune = 0;
+    let finalExact = currentExact;
+
     if (voice) {
-        detune = currentExact - voice.initialExact;
-        if (!voice.isGliding && Math.abs(e.clientX - voice.startX) < round) detune = 0;
-        else voice.isGliding = true;
-        voice.vibratoSpeed = Math.abs(e.clientX - voice.lastX) * 3;
+        // --- LOGICA SNAP MAGNETICO ALL'ARRIVO ---
+        const nearestNote = Math.round(currentExact); // La nota intera più vicina
+        const distanceToNote = Math.abs(currentExact - nearestNote);
+
+        // Se lo Snap è attivo e siamo vicini al centro di una nota
+        // Più round è alto, più la "zona magnetica" è ampia
+        if (distanceToNote < round) {
+            // Applichiamo una curva di "attrazione" verso la nota intera
+            const force = 1 - (distanceToNote / round);
+            finalExact = currentExact + (nearestNote - currentExact) * force;
+        }
+
+        // Calcolo del detune finale rispetto alla nota di partenza
+        var detune = finalExact - voice.initialExact;
+        
+        // Calcolo velocità per l'oscilloscopio
+        voice.vibratoSpeed = Math.abs(e.clientX - voice.lastX) * 2.8;
         voice.lastX = e.clientX;
     }
 
+    // Trasformazione in valore MIDI Pitch Bend (14-bit)
     const pbValue = Math.floor(8192 + (detune * (8192 / 48)));
     const slide = Math.floor(Math.max(0, Math.min(1, 1 - (e.clientY / canvas.height))) * 127);
     let press = document.getElementById('linkPressToY').checked ? slide : Math.floor(Math.min(((e.width + e.height) / 75), 1.0) * 127);
 
-    return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: currentExact };
+    return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: finalExact };
 }
 
 canvas.addEventListener('pointerdown', e => {
