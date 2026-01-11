@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GENCA MPE Ultra: Auto-Grab Edition</title>
+    <title>GENCA MPE Ultra: Phantom Grab</title>
     <style>
+        /* STESSO CSS DELLA VERSIONE PRECEDENTE */
         body { margin: 0; background: #000; color: #eee; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
         #ui { 
             position: absolute; top: 0; left: 0; right: 0; 
@@ -48,9 +49,10 @@
 </div>
 
 <canvas id="surface"></canvas>
-<div class="footer"><div>AUTO-GRAB ENGINE V9 | SAMSUNG S11 ULTRA</div><div>MPE CHANNELS 2-16 ACTIVE</div></div>
+<div class="footer"><div>PHANTOM GRAB ENGINE ACTIVE | SAMSUNG S11 ULTRA</div><div>TOUCH THE GREEN CIRCLES TO TAKE CONTROL</div></div>
 
 <script>
+// --- STESSA LOGICA DI SETUP E GESTIONE MIDI ---
 const canvas = document.getElementById('surface');
 const ctx = canvas.getContext('2d');
 let midiOutput = null;
@@ -93,7 +95,6 @@ function setupMIDI() {
     }
 }
 
-// LOGICA AUTO-GRAB: Ricezione note da Arturia
 function handleExternalMIDI(message) {
     const [status, note, velocity] = message.data;
     const type = status & 0xf0;
@@ -102,6 +103,7 @@ function handleExternalMIDI(message) {
         const chan = mpeChannels.shift();
         if (chan) {
             midiOutput.send([0x90 + chan - 1, note, velocity]);
+            // Memorizziamo la velocity originale per disegnare il cerchio fantasma della giusta dimensione
             physicalNotes.set(note, { chan, velocity, grabbed: false });
         }
     } else if (type === 0x80 || (type === 0x90 && velocity === 0)) {
@@ -142,6 +144,7 @@ function getMPEData(e, voice = null) {
     return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: finalExact };
 }
 
+// --- POINTER EVENTS (GRAB LOGIC RIMANE UGUALE) ---
 canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
     if (!midiOutput || e.clientY < 70) return;
@@ -149,7 +152,6 @@ canvas.addEventListener('pointerdown', e => {
     const m = getMPEData(e);
     const noteUnderFinger = Math.round(m.exact);
 
-    // AUTO-GRAB CHECK
     if (physicalNotes.has(noteUnderFinger)) {
         const pNote = physicalNotes.get(noteUnderFinger);
         pNote.grabbed = true;
@@ -221,6 +223,7 @@ document.getElementById('fsBtn').onclick = (e) => {
     else document.exitFullscreen();
 };
 
+// --- DRAW FUNCTION AGGIORNATA PER I CERCHI FANTASMA ---
 function draw() {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     const numOct = parseInt(document.getElementById('visibleOctaves').value);
@@ -228,22 +231,26 @@ function draw() {
     const root = parseInt(document.getElementById('rootNote').value);
     const baseMIDI = 48 + (currentOctave * 12);
     const scale = SCALES[document.getElementById('scaleType').value];
+    const time = Date.now();
 
+    // 1. DISEGNO GRIGLIA (Pulita, senza sfondo verde)
     for (let i = 0; i < (numOct * 12); i++) {
         const n = baseMIDI + i;
         const x = i * noteW;
         const noteInOctave = (n - root) % 12 < 0 ? (n - root) % 12 + 12 : (n - root) % 12;
         const inScale = scale.includes(noteInOctave);
         const isRoot = (n % 12 === root);
-        const isPhysicallyActive = Array.from(physicalNotes.keys()).includes(n);
+        // Controllo se la nota è fisica
+        const pNoteData = physicalNotes.get(n);
+        const isPhysicallyActive = pNoteData !== undefined;
 
-        if (inScale || isPhysicallyActive) {
-            ctx.fillStyle = isPhysicallyActive ? 'rgba(0, 255, 70, 0.25)' : (isRoot ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.08)');
+        if (inScale) {
+            ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.08)';
             ctx.fillRect(x, 0, noteW, canvas.height);
         }
 
-        ctx.strokeStyle = isPhysicallyActive ? '#00ff44' : (isRoot ? '#ff0000' : (inScale ? '#444' : '#111'));
-        ctx.lineWidth = (isRoot || isPhysicallyActive) ? 3 : 1;
+        ctx.strokeStyle = isRoot ? '#ff0000' : (inScale ? '#444' : '#111');
+        ctx.lineWidth = isRoot ? 3 : 1;
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
 
         if (inScale || isRoot) {
@@ -253,8 +260,35 @@ function draw() {
             ctx.textAlign = 'center';
             ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, canvas.height - 40);
         }
+
+        // --- DISEGNO CERCHIO FANTASMA ---
+        // Se la nota è fisica E non è ancora stata presa dal touch
+        if (isPhysicallyActive && !pNoteData.grabbed) {
+            const centerX = x + noteW / 2;
+            const centerY = canvas.height / 2; // Appare al centro dello schermo
+            // La dimensione dipende dalla velocity con cui hai suonato la tastiera fisica
+            const radius = 20 + (pNoteData.velocity / 127) * 25; 
+            
+            // Effetto pulsazione
+            const pulse = Math.sin(time / 150) * 5;
+
+            ctx.beginPath();
+            ctx.strokeStyle = '#00ff44'; // Verde brillante
+            ctx.lineWidth = 4;
+            ctx.arc(centerX, centerY, radius + pulse, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.shadowBlur = 20; ctx.shadowColor = '#00ff44';
+            ctx.fillStyle = 'rgba(0, 255, 70, 0.3)'; // Riempimento semi-trasparente
+            ctx.beginPath(); ctx.arc(centerX, centerY, radius + pulse, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = "#fff"; ctx.font = "bold 12px Arial"; ctx.textAlign = 'center';
+            ctx.fillText("GRAB ME", centerX, centerY - radius - 15);
+        }
     }
 
+    // 2. DISEGNO TOCCHI REALI (Come prima)
     activeTouches.forEach(t => {
         const radius = 15 + (t.lastM.press / 127) * 25;
         t.phase += 0.2 + (t.vibratoSpeed * 0.06);
@@ -269,8 +303,8 @@ function draw() {
         ctx.fillStyle = t.color;
         ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
-        ctx.fillStyle = "#fff"; ctx.font = "bold 16px Arial";
-        ctx.fillText(t.isGrab ? "GRAB" : `CH${t.voices[0].chan}`, t.lastM.x, t.lastM.y - radius - 25);
+        ctx.fillStyle = "#fff"; ctx.font = "bold 16px Arial"; ctx.textAlign = 'center';
+        ctx.fillText(t.isGrab ? "GRABBED!" : `CH${t.voices[0].chan}`, t.lastM.x, t.lastM.y - radius - 25);
     });
     requestAnimationFrame(draw);
 }
