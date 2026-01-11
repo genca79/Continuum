@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GENCA MPE Ultra Continuum: Multi-Octave</title>
+    <title>GENCA MPE Ultra Continuum: Multi-Octave Pro</title>
     <style>
-        body { margin: 0; background: #000; color: #eee; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
-        
+        body { margin: 0; background: #000; color: #eee; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; touch-action: none; }
         #ui { 
             position: absolute; top: 0; left: 0; right: 0; 
             background: rgba(20, 20, 20, 0.98); padding: 10px; 
@@ -14,15 +13,12 @@
             z-index: 100; transform: translateY(-93%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         #ui:hover, #ui.active { transform: translateY(0); }
-        
         .box { display: flex; flex-direction: column; flex: 1; min-width: 80px; }
         label { font-size: 9px; text-transform: uppercase; color: #ffaa00; margin-bottom: 3px; font-weight: bold; }
         select, input { background: #2a2a2a; color: #fff; border: 1px solid #444; padding: 5px; font-size: 11px; border-radius: 4px; outline: none; }
-        
         .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #2a2a2a; border: 1px solid #ff3333; border-radius: 4px; height: 28px; }
         .oct-btn { background: #300; color: #fff; border: none; width: 30px; height: 100%; cursor: pointer; font-weight: bold; }
         #octVal { font-size: 12px; color: #fff; width: 25px; text-align: center; }
-
         canvas { display: block; width: 100vw; height: 100vh; }
         .footer { position: absolute; bottom: 8px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #444; }
         .menu-btn { background: #300; color: #fff; border: 1px solid #ff3333; padding: 5px; border-radius: 4px; cursor: pointer; font-size: 10px; }
@@ -87,9 +83,6 @@
 </div>
 
 <script>
-/**
- * MPE ENGINE V8: DYNAMIC VIEWPORT & OCTAVE SCALING
- */
 const canvas = document.getElementById('surface');
 const ctx = canvas.getContext('2d');
 let midiOutput = null;
@@ -140,8 +133,6 @@ function getMPEData(e, voice = null) {
     const numOct = parseInt(document.getElementById('visibleOctaves').value);
     const round = parseInt(document.getElementById('roundRate').value);
     const baseMIDI = 48 + (currentOctave * 12);
-    
-    // X -> Pitch (Scalato sulle ottave visibili)
     const totalNotes = numOct * 12;
     const currentExact = baseMIDI + (e.clientX / canvas.width) * totalNotes;
     
@@ -168,15 +159,13 @@ canvas.addEventListener('pointerdown', e => {
     const m = getMPEData(e);
     const root = parseInt(document.getElementById('rootNote').value);
     const scale = SCALES[document.getElementById('scaleType').value];
-    
-    // Trova la nota della scala più vicina
     const scaleNotes = [];
     for(let i=0; i<127; i++) {
-        if(scale.includes((i-root)%12 < 0 ? (i-root)%12+12 : (i-root)%12)) scaleNotes.push(i);
+        const noteInOctave = (i - root) % 12 < 0 ? (i - root) % 12 + 12 : (i - root) % 12;
+        if(scale.includes(noteInOctave)) scaleNotes.push(i);
     }
     const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
 
-    // Accordi
     const chordSize = parseInt(document.getElementById('chordMode').value);
     const rootIdx = scaleNotes.indexOf(rootNote);
     let voices = [];
@@ -236,6 +225,7 @@ function draw() {
     const baseMIDI = 48 + (currentOctave * 12);
     const scale = SCALES[document.getElementById('scaleType').value];
 
+    // 1. DISEGNO TASTIERA
     for (let i = 0; i < (numOct * 12); i++) {
         const n = baseMIDI + i;
         const x = i * noteW;
@@ -243,59 +233,56 @@ function draw() {
         const inScale = scale.includes(noteInOctave);
         const isRoot = (n % 12 === root);
 
-        // --- COPIA DA QUI PER I COLORI ---
-if (inScale) {
-    // Colore di fondo molto più visibile per le note in scala
-    ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.15)';
-    ctx.fillRect(x, 0, noteW, canvas.height);
-}
+        if (inScale) {
+            ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.15)';
+            ctx.fillRect(x, 0, noteW, canvas.height);
+        }
 
-// Linee divisorie più luminose
-ctx.strokeStyle = isRoot ? '#ff0000' : (inScale ? '#666' : '#222');
-ctx.lineWidth = isRoot ? 3 : 1; // Root ancora più spessa
-ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-        
-       // --- COPIA DA QUI PER LE ETICHETTE ---
-if (inScale || isRoot) {
-    ctx.fillStyle = isRoot ? '#ff4444' : '#ffffff'; // Bianco puro per note in scala
-    
-    // Font ingrandito (da 10px a 18px per tablet)
-    const fontSize = Math.max(12, Math.floor(noteW * 0.4)); // Si adatta alla larghezza del tasto
-    ctx.font = `bold ${fontSize}px Segoe UI, Arial`;
-    
-    ctx.textAlign = 'center';
-    // Alziamo la posizione dell'etichetta (40px dal fondo invece di 15px)
-    ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, canvas.height - 40);
+        ctx.strokeStyle = isRoot ? '#ff0000' : (inScale ? '#666' : '#222');
+        ctx.lineWidth = isRoot ? 3 : 1;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
 
-    // Se è un DO, aggiungiamo anche l'ottava in piccolo sopra il nome
-    if (n % 12 === 0) {
-        ctx.font = `${fontSize * 0.6}px Arial`;
-        ctx.fillText('C' + (Math.floor(n/12)-1), x + noteW/2, canvas.height - 65);
+        if (inScale || isRoot) {
+            ctx.fillStyle = isRoot ? '#ff4444' : '#ffffff';
+            const fontSize = Math.max(12, Math.floor(noteW * 0.45));
+            ctx.font = `bold ${fontSize}px Segoe UI, Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, canvas.height - 40);
+
+            if (n % 12 === 0) {
+                ctx.font = `${fontSize * 0.6}px Arial`;
+                ctx.fillText('C' + (Math.floor(n/12)-1), x + noteW/2, canvas.height - 65);
+            }
+        }
     }
-}
 
+    // 2. DISEGNO TOCCHI (MPE GLOW)
     activeTouches.forEach(t => {
         const radius = 12 + (t.lastM.press / 127) * 22;
         t.phase += 0.2 + (t.vibratoSpeed * 0.06);
-        ctx.beginPath(); ctx.strokeStyle = t.color; ctx.lineWidth = 3;
+        
+        ctx.beginPath();
+        ctx.strokeStyle = t.color;
+        ctx.lineWidth = 3;
         for (let ox = -50; ox <= 50; ox += 2) {
             const oy = Math.sin(ox * 0.15 + t.phase) * (4 + t.vibratoSpeed);
             if (ox === -50) ctx.moveTo(t.lastM.x + ox, t.lastM.y + oy);
             else ctx.lineTo(t.lastM.x + ox, t.lastM.y + oy);
         }
         ctx.stroke();
-       // --- COPIA DA QUI PER IL GLOW ---
-ctx.shadowBlur = 30; // Aumentato da 20 a 30
-ctx.shadowColor = t.color;
-ctx.fillStyle = t.color;
-ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
-ctx.shadowBlur = 0; // Reset per non rallentare il resto del disegno
 
-// Etichetta Canale MPE più grande
-ctx.fillStyle = "#fff";
-ctx.font = "bold 14px Arial";
-ctx.fillText(`CH${t.voices[0].chan}`, t.lastM.x, t.lastM.y - radius - 20);
+        ctx.shadowBlur = 30;
+        ctx.shadowColor = t.color;
+        ctx.fillStyle = t.color;
+        ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 14px Arial";
+        ctx.textAlign = 'center';
+        ctx.fillText(`CH${t.voices[0].chan}`, t.lastM.x, t.lastM.y - radius - 20);
     });
+
     requestAnimationFrame(draw);
 }
 
