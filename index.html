@@ -3,36 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GENCA MPE Ultra: Hybrid Motion</title>
+    <title>GENCA MPE Ultra: Professional Hybrid</title>
     <style>
         body { margin: 0; background: #000; color: #eee; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
         #ui { 
             position: absolute; top: 0; left: 0; right: 0; 
-            background: rgba(15, 15, 15, 0.98); padding: 12px; 
-            border-bottom: 2px solid #ff0000; display: flex; flex-wrap: wrap; gap: 10px; 
-            z-index: 100; transform: translateY(-94%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(15, 15, 15, 0.98); padding: 10px; 
+            border-bottom: 2px solid #ff0000; display: flex; flex-wrap: wrap; gap: 8px; 
+            z-index: 100; transform: translateY(-92%); transition: 0.3s ease-out;
         }
         #ui:hover, #ui.active { transform: translateY(0); }
-        .box { display: flex; flex-direction: column; flex: 1; min-width: 100px; }
-        label { font-size: 10px; text-transform: uppercase; color: #ffaa00; margin-bottom: 4px; font-weight: bold; }
-        select, input { background: #222; color: #fff; border: 1px solid #444; padding: 8px; font-size: 12px; border-radius: 5px; outline: none; }
-        .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #222; border: 1px solid #ff3333; border-radius: 5px; height: 35px; }
-        .oct-btn { background: #400; color: #fff; border: none; width: 40px; height: 100%; cursor: pointer; font-weight: bold; font-size: 18px; }
-        #octVal { font-size: 14px; color: #fff; width: 30px; text-align: center; font-weight: bold; }
+        .box { display: flex; flex-direction: column; flex: 1; min-width: 90px; }
+        label { font-size: 9px; text-transform: uppercase; color: #ffaa00; margin-bottom: 3px; font-weight: bold; }
+        select, input { background: #222; color: #fff; border: 1px solid #444; padding: 6px; font-size: 11px; border-radius: 4px; outline: none; }
+        .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #222; border: 1px solid #ff3333; border-radius: 4px; }
+        .oct-btn { background: #400; color: #fff; border: none; width: 30px; height: 28px; cursor: pointer; font-weight: bold; }
+        #octVal { font-size: 12px; width: 25px; text-align: center; }
         canvas { display: block; width: 100vw; height: 100vh; }
-        .footer { position: absolute; bottom: 10px; left: 15px; right: 15px; display: flex; justify-content: space-between; pointer-events: none; font-size: 10px; color: #555; }
-        .menu-btn { background: #400; color: #fff; border: 1px solid #ff3333; padding: 8px; border-radius: 5px; cursor: pointer; font-size: 11px; font-weight: bold; }
+        .footer { position: absolute; bottom: 10px; left: 15px; right: 15px; display: flex; justify-content: space-between; pointer-events: none; font-size: 10px; color: #ffaa00; }
+        .menu-btn { background: #400; color: #fff; border: 1px solid #ff3333; padding: 6px; border-radius: 4px; cursor: pointer; font-size: 10px; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <div class="box" style="flex:1.5"><label>MIDI IN (Arturia)</label><select id="midiInSelect"><option>Nessun Input</option></select></div>
-    <div class="box" style="flex:1.5"><label>MIDI OUT (Ableton)</label><select id="midiOutSelect"></select></div>
+    <div class="box" style="flex:1.5"><label>MIDI IN</label><select id="midiInSelect"><option value="">Seleziona Input...</option></select></div>
+    <div class="box" style="flex:1.5"><label>MIDI OUT</label><select id="midiOutSelect"><option value="">Seleziona Output...</option></select></div>
     <div class="box">
         <label>Scala & Root</label>
-        <div style="display:flex; gap:4px;">
-            <select id="rootNote" style="width:55px;">
+        <div style="display:flex; gap:3px;">
+            <select id="rootNote" style="width:50px;">
                 <option value="0">C</option><option value="1">C#</option><option value="2">D</option><option value="3">D#</option><option value="4">E</option><option value="5">F</option><option value="6">F#</option><option value="7">G</option><option value="8">G#</option><option value="9">A</option><option value="10">A#</option><option value="11">B</option>
             </select>
             <select id="scaleType">
@@ -40,15 +40,15 @@
             </select>
         </div>
     </div>
-    <div class="box" style="flex:0.8"><label>Ottave Visibili</label><select id="visibleOctaves"><option value="1">1 Oct</option><option value="2" selected>2 Oct</option><option value="3">3 Oct</option><option value="4">4 Oct</option></select></div>
-    <div class="box" style="flex:0.8"><label>Trasponi</label><div class="oct-ctrl"><button class="oct-btn" onclick="changeOctave(-1)">-</button><span id="octVal">0</span><button class="oct-btn" onclick="changeOctave(1)">+</button></div></div>
-    <div class="box" style="flex:0.6"><label>Snap</label><input type="range" id="roundRate" min="0" max="80" value="25"></div>
-    <div class="box" style="flex:0.5"><label>Link YZ</label><input type="checkbox" id="linkPressToY"></div>
-    <div class="box" style="flex:0.5"><label>Display</label><button id="fsBtn" class="menu-btn">FS</button></div>
+    <div class="box" style="flex:0.6"><label>Accordi</label><select id="chordMode"><option value="1">Off</option><option value="2">3rd</option><option value="3">Triad</option></select></div>
+    <div class="box" style="flex:0.6"><label>Ottave</label><select id="visibleOctaves"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option></select></div>
+    <div class="box" style="flex:0.7"><label>Trasponi</label><div class="oct-ctrl"><button class="oct-btn" onclick="changeOctave(-1)">-</button><span id="octVal">0</span><button class="oct-btn" onclick="changeOctave(1)">+</button></div></div>
+    <div class="box" style="flex:0.5"><label>Snap</label><input type="range" id="roundRate" min="0" max="80" value="25"></div>
+    <div class="box" style="flex:0.4"><label>FS</label><button id="fsBtn" class="menu-btn">FS</button></div>
 </div>
 
 <canvas id="surface"></canvas>
-<div class="footer"><div>HYBRID ENGINE: KEYBOARD + TOUCH ACTIVE</div><div>SAMSUNG S11 ULTRA MPE</div></div>
+<div class="footer"><div id="midiStatus">CHECKING MIDI...</div><div>MPE ENGINE V10</div></div>
 
 <script>
 const canvas = document.getElementById('surface');
@@ -71,23 +71,27 @@ function changeOctave(delta) {
     document.getElementById('octVal').innerText = (currentOctave > 0 ? "+" : "") + currentOctave;
 }
 
+function updateStatus(msg) { document.getElementById('midiStatus').innerText = msg; }
+
 function setupMIDI() {
     if (navigator.requestMIDIAccess) {
         navigator.requestMIDIAccess({ sysex: true }).then(access => {
+            updateStatus("MIDI READY");
             const outputs = Array.from(access.outputs.values());
             const inputs = Array.from(access.inputs.values());
+            
             const outSel = document.getElementById('midiOutSelect');
-            outSel.innerHTML = outputs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
-            midiOutput = outputs[0] || null;
-            outSel.onchange = () => midiOutput = access.outputs.get(outSel.value);
+            outSel.innerHTML = `<option value="">Scegli Output...</option>` + outputs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+            outSel.onchange = () => { midiOutput = access.outputs.get(outSel.value); updateStatus(midiOutput ? "OUT: "+midiOutput.name : "OUT DISCONNETED"); };
+
             const inSel = document.getElementById('midiInSelect');
-            inSel.innerHTML = `<option value="">Nessun Input</option>` + inputs.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+            inSel.innerHTML = `<option value="">Scegli Input...</option>` + inputs.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
             inSel.onchange = () => {
                 if(midiInput) midiInput.onmidimessage = null;
                 midiInput = access.inputs.get(inSel.value);
                 if(midiInput) midiInput.onmidimessage = handleExternalMIDI;
             };
-        });
+        }).catch(() => updateStatus("HTTPS REQUIRED FOR MIDI"));
     }
 }
 
@@ -95,16 +99,15 @@ function handleExternalMIDI(message) {
     const [status, note, velocity] = message.data;
     const type = status & 0xf0;
     if (type === 0x90 && velocity > 0) {
-        if (!midiOutput) return;
         const chan = mpeChannels.shift();
         if (chan) {
-            midiOutput.send([0x90 + chan - 1, note, velocity]);
+            if (midiOutput) midiOutput.send([0x90 + chan - 1, note, velocity]);
             physicalNotes.set(note, { chan, velocity, grabbed: false });
         }
     } else if (type === 0x80 || (type === 0x90 && velocity === 0)) {
         const data = physicalNotes.get(note);
         if (data) {
-            midiOutput.send([0x80 + data.chan - 1, note, 0]);
+            if (midiOutput) midiOutput.send([0x80 + data.chan - 1, note, 0]);
             mpeChannels.push(data.chan);
             mpeChannels.sort((a,b)=>a-b);
             physicalNotes.delete(note);
@@ -119,6 +122,7 @@ function getMPEData(e, voice = null) {
     const totalNotes = numOct * 12;
     const currentExact = baseMIDI + (e.clientX / canvas.width) * totalNotes;
     
+    let detune = 0;
     let finalExact = currentExact;
     if (voice) {
         const nearest = Math.round(currentExact);
@@ -127,48 +131,39 @@ function getMPEData(e, voice = null) {
             const force = 1 - (dist / snapSens);
             finalExact = currentExact + (nearest - currentExact) * force;
         }
-        var detune = finalExact - voice.initialExact;
+        detune = finalExact - voice.initialExact;
         voice.vibratoSpeed = Math.abs(e.clientX - voice.lastX) * 3;
         voice.lastX = e.clientX;
     }
-
     const pbValue = Math.floor(8192 + (detune * (8192 / 48)));
     const slide = Math.floor(Math.max(0, Math.min(1, 1 - (e.clientY / canvas.height))) * 127);
-    let press = document.getElementById('linkPressToY').checked ? slide : Math.floor(Math.min(((e.width + e.height) / 75), 1.0) * 127);
-
+    const press = Math.floor(Math.min(((e.width + e.height) / 70), 1.0) * 127);
     return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: finalExact };
 }
 
 canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
-    if (!midiOutput || e.clientY < 70) return;
-
+    if (e.clientY < 65) return;
     const m = getMPEData(e);
     const noteUnderFinger = Math.round(m.exact);
 
-    // 1. LOGICA AUTO-GRAB (Priorità alla nota dell'Arturia)
+    // 1. AUTO-GRAB
     if (physicalNotes.has(noteUnderFinger) && !physicalNotes.get(noteUnderFinger).grabbed) {
         const pNote = physicalNotes.get(noteUnderFinger);
         pNote.grabbed = true;
-        activeTouches.set(e.pointerId, { 
-            voices: [{ chan: pNote.chan, note: noteUnderFinger }],
-            initialExact: noteUnderFinger, startX: e.clientX, lastX: e.clientX, 
-            isGliding: false, vibratoSpeed: 0, phase: 0, isGrab: true,
-            color: '#00ff44', lastM: m 
-        });
+        activeTouches.set(e.pointerId, { voices: [{ chan: pNote.chan, note: noteUnderFinger }], initialExact: noteUnderFinger, lastX: e.clientX, vibratoSpeed: 0, phase: 0, isGrab: true, color: '#00ff44', lastM: m });
         return;
     }
 
-    // 2. LOGICA TASTIERA DIRETTA (Se non c'è una nota fisica da grabbare)
+    // 2. TASTIERA DIRETTA CON ACCORDI
     const root = parseInt(document.getElementById('rootNote').value);
     const scale = SCALES[document.getElementById('scaleType').value];
     const scaleNotes = [];
     for(let i=0; i<127; i++) {
-        const noteInOctave = (i - root) % 12 < 0 ? (i - root) % 12 + 12 : (i - root) % 12;
-        if(scale.includes(noteInOctave)) scaleNotes.push(i);
+        const nInOct = (i - root) % 12 < 0 ? (i - root) % 12 + 12 : (i - root) % 12;
+        if(scale.includes(nInOct)) scaleNotes.push(i);
     }
     const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
-
     const chordSize = parseInt(document.getElementById('chordMode').value);
     const rootIdx = scaleNotes.indexOf(rootNote);
     let voices = [];
@@ -176,30 +171,29 @@ canvas.addEventListener('pointerdown', e => {
         const chan = mpeChannels.shift();
         if(chan) {
             const note = scaleNotes[rootIdx + (i*2)] || rootNote;
-            midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
-            midiOutput.send([0xE0 + chan - 1, 0, 64]);
-            midiOutput.send([0x90 + chan - 1, note, 90]);
+            if(midiOutput) {
+                midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
+                midiOutput.send([0xE0 + chan - 1, 0, 64]);
+                midiOutput.send([0x90 + chan - 1, note, 90]);
+            }
             voices.push({ chan, note });
         }
     }
-
-    activeTouches.set(e.pointerId, { 
-        voices, initialExact: rootNote, startX: e.clientX, lastX: e.clientX, 
-        isGliding: false, vibratoSpeed: 0, phase: 0, isGrab: false,
-        color: `hsl(${voices[0]?.chan * 25}, 85%, 55%)`, lastM: m
-    });
+    if(voices.length > 0) activeTouches.set(e.pointerId, { voices, initialExact: rootNote, lastX: e.clientX, vibratoSpeed: 0, phase: 0, isGrab: false, color: `hsl(${voices[0].chan * 25}, 85%, 55%)`, lastM: m });
 });
 
 canvas.addEventListener('pointermove', e => {
     const t = activeTouches.get(e.pointerId);
-    if (!t || !midiOutput) return;
+    if (!t) return;
     const m = getMPEData(e, t);
     t.lastM = m;
-    t.voices.forEach(v => {
-        midiOutput.send([0xE0 + v.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
-        midiOutput.send([0xB0 + v.chan - 1, 74, m.slide]);
-        midiOutput.send([0xD0 + v.chan - 1, m.press]);
-    });
+    if (midiOutput) {
+        t.voices.forEach(v => {
+            midiOutput.send([0xE0 + v.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
+            midiOutput.send([0xB0 + v.chan - 1, 74, m.slide]);
+            midiOutput.send([0xD0 + v.chan - 1, m.press]);
+        });
+    }
 });
 
 canvas.addEventListener('pointerup', e => {
@@ -207,23 +201,16 @@ canvas.addEventListener('pointerup', e => {
     if (t) {
         t.voices.forEach(v => {
             if(!t.isGrab) {
-                midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+                if (midiOutput) midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
                 mpeChannels.push(v.chan);
-            } else {
-                // Se era un grab, liberiamo lo stato grabbed della nota fisica
-                if(physicalNotes.has(v.note)) physicalNotes.get(v.note).grabbed = false;
-            }
+            } else { if(physicalNotes.has(v.note)) physicalNotes.get(v.note).grabbed = false; }
         });
         mpeChannels.sort((a,b)=>a-b);
         activeTouches.delete(e.pointerId);
     }
 });
 
-document.getElementById('fsBtn').onclick = (e) => {
-    e.stopPropagation();
-    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-    else document.exitFullscreen();
-};
+document.getElementById('fsBtn').onclick = () => { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); };
 
 function draw() {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -237,48 +224,35 @@ function draw() {
     for (let i = 0; i < (numOct * 12); i++) {
         const n = baseMIDI + i;
         const x = i * noteW;
-        const noteInOctave = (n - root) % 12 < 0 ? (n - root) % 12 + 12 : (n - root) % 12;
-        const inScale = scale.includes(noteInOctave);
+        const noteInOct = (n - root) % 12 < 0 ? (n - root) % 12 + 12 : (n - root) % 12;
+        const inScale = scale.includes(noteInOct);
         const isRoot = (n % 12 === root);
         const pNoteData = physicalNotes.get(n);
 
         if (inScale) {
-            ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 255, 255, 0.08)';
+            ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.1)';
             ctx.fillRect(x, 0, noteW, canvas.height);
         }
         ctx.strokeStyle = isRoot ? '#ff0000' : (inScale ? '#444' : '#111');
-        ctx.lineWidth = isRoot ? 3 : 1;
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-
+        
         if (inScale || isRoot) {
             ctx.fillStyle = isRoot ? '#ff4444' : '#fff';
-            const fontSize = Math.max(12, Math.floor(noteW * 0.45));
-            ctx.font = `bold ${fontSize}px Segoe UI, Arial`;
-            ctx.textAlign = 'center';
-            ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, canvas.height - 40);
+            ctx.font = `bold ${Math.max(10, noteW * 0.4)}px Arial`; ctx.textAlign = 'center';
+            ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, canvas.height - 30);
         }
 
-        // DISEGNO CERCHIO FANTASMA (Solo se la nota Arturia è attiva e NON ancora grabbata)
         if (pNoteData && !pNoteData.grabbed) {
-            const centerX = x + noteW / 2;
-            const centerY = canvas.height / 2;
-            const radius = 25 + (pNoteData.velocity / 127) * 30; 
-            const pulse = Math.sin(time / 150) * 5;
-            ctx.beginPath();
-            ctx.strokeStyle = '#00ff44';
-            ctx.lineWidth = 4;
-            ctx.arc(centerX, centerY, radius + pulse, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.shadowBlur = 20; ctx.shadowColor = '#00ff44';
-            ctx.fillStyle = 'rgba(0, 255, 70, 0.2)';
-            ctx.beginPath(); ctx.arc(centerX, centerY, radius + pulse, 0, Math.PI * 2); ctx.fill();
-            ctx.shadowBlur = 0;
+            const rad = 25 + Math.sin(time/200)*5;
+            ctx.beginPath(); ctx.strokeStyle = '#00ff44'; ctx.lineWidth = 3;
+            ctx.arc(x + noteW/2, canvas.height/2, rad, 0, Math.PI*2); ctx.stroke();
+            ctx.fillStyle = 'rgba(0,255,70,0.2)'; ctx.fill();
         }
     }
 
     activeTouches.forEach(t => {
-        const radius = 15 + (t.lastM.press / 127) * 25;
-        t.phase += 0.2 + (t.vibratoSpeed * 0.06);
+        const radius = 25 + (t.lastM.press / 127) * 20;
+        t.phase += 0.2 + (t.vibratoSpeed * 0.05);
         ctx.beginPath(); ctx.strokeStyle = t.color; ctx.lineWidth = 4;
         for (let ox = -60; ox <= 60; ox += 2) {
             const oy = Math.sin(ox * 0.15 + t.phase) * (5 + t.vibratoSpeed);
@@ -286,16 +260,12 @@ function draw() {
             else ctx.lineTo(t.lastM.x + ox, t.lastM.y + oy);
         }
         ctx.stroke();
-        ctx.shadowBlur = 35; ctx.shadowColor = t.color;
-        ctx.fillStyle = t.color;
-        ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.fillStyle = "#fff"; ctx.font = "bold 16px Arial"; ctx.textAlign = 'center';
-        ctx.fillText(t.isGrab ? "GRABBED" : `CH${t.voices[0].chan}`, t.lastM.x, t.lastM.y - radius - 25);
+        ctx.fillStyle = t.color; ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.font = "bold 14px Arial"; ctx.textAlign = 'center';
+        ctx.fillText(t.isGrab ? "GRABBED" : `CH${t.voices[0].chan}`, t.lastM.x, t.lastM.y - radius - 20);
     });
     requestAnimationFrame(draw);
 }
-
 window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
 window.onresize(); setupMIDI(); draw();
 </script>
