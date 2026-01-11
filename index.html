@@ -23,10 +23,38 @@
     #octVal { font-size: 14px; color: #fff; font-weight: bold; width: 30px; text-align: center; }
 
     canvas { display: block; width: 100vw; height: 100vh; }
+       .fs-btn-container {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    z-index: 110;
+}
+
+.fs-btn {
+    background: #440000;
+    color: #ff3333;
+    border: 2px solid #ff3333;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(255, 51, 51, 0.3);
+    transition: all 0.2s ease;
+}
+
+.fs-btn:active {
+    background: #ff3333;
+    color: #fff;
+    transform: scale(0.95);
+}
 </style>
 </head>
 <body>
-
+<div class="fs-btn-container">
+    <button id="fullScreenBtn" class="fs-btn">Attiva Full Screen</button>
+</div>
 <div id="ui">
     <div class="box" style="flex:1.2"><label>MIDI Out</label><select id="midiOutSelect"></select></div>
     <div class="box">
@@ -283,6 +311,30 @@ function draw() {
 
 window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
 window.onresize(); setupMIDI(); draw();
+    const fsBtn = document.getElementById('fullScreenBtn');
+
+fsBtn.addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+        // Entra in Full Screen
+        document.documentElement.requestFullscreen().then(() => {
+            fsBtn.innerText = "Esci Full Screen";
+        }).catch(err => {
+            console.error(`Errore attivazione Full Screen: ${err.message}`);
+        });
+    } else {
+        // Esci dal Full Screen
+        document.exitFullscreen().then(() => {
+            fsBtn.innerText = "Attiva Full Screen";
+        });
+    }
+});
+
+// Listener per aggiornare il tasto se l'utente esce con il tasto indietro di Android
+document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) {
+        fsBtn.innerText = "Attiva Full Screen";
+    }
+});
 </script>
 </body>
 </html>
