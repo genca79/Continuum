@@ -243,21 +243,36 @@ function draw() {
         const inScale = scale.includes(noteInOctave);
         const isRoot = (n % 12 === root);
 
-        if (inScale) {
-            ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.04)';
-            ctx.fillRect(x, 0, noteW, canvas.height);
-        }
-        ctx.strokeStyle = isRoot ? '#ff3333' : (inScale ? '#333' : '#111');
-        ctx.lineWidth = isRoot ? 2 : 1;
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        // --- COPIA DA QUI PER I COLORI ---
+if (inScale) {
+    // Colore di fondo molto più visibile per le note in scala
+    ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.15)';
+    ctx.fillRect(x, 0, noteW, canvas.height);
+}
+
+// Linee divisorie più luminose
+ctx.strokeStyle = isRoot ? '#ff0000' : (inScale ? '#666' : '#222');
+ctx.lineWidth = isRoot ? 3 : 1; // Root ancora più spessa
+ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
         
-        if (inScale || isRoot) {
-            ctx.fillStyle = isRoot ? '#f33' : '#666';
-            ctx.font = (noteW < 30) ? '8px Arial' : '10px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, canvas.height - 15);
-        }
+       // --- COPIA DA QUI PER LE ETICHETTE ---
+if (inScale || isRoot) {
+    ctx.fillStyle = isRoot ? '#ff4444' : '#ffffff'; // Bianco puro per note in scala
+    
+    // Font ingrandito (da 10px a 18px per tablet)
+    const fontSize = Math.max(12, Math.floor(noteW * 0.4)); // Si adatta alla larghezza del tasto
+    ctx.font = `bold ${fontSize}px Segoe UI, Arial`;
+    
+    ctx.textAlign = 'center';
+    // Alziamo la posizione dell'etichetta (40px dal fondo invece di 15px)
+    ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, canvas.height - 40);
+
+    // Se è un DO, aggiungiamo anche l'ottava in piccolo sopra il nome
+    if (n % 12 === 0) {
+        ctx.font = `${fontSize * 0.6}px Arial`;
+        ctx.fillText('C' + (Math.floor(n/12)-1), x + noteW/2, canvas.height - 65);
     }
+}
 
     activeTouches.forEach(t => {
         const radius = 12 + (t.lastM.press / 127) * 22;
@@ -269,10 +284,17 @@ function draw() {
             else ctx.lineTo(t.lastM.x + ox, t.lastM.y + oy);
         }
         ctx.stroke();
-        ctx.shadowBlur = 20; ctx.shadowColor = t.color;
-        ctx.fillStyle = t.color;
-        ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
-        ctx.shadowBlur = 0;
+       // --- COPIA DA QUI PER IL GLOW ---
+ctx.shadowBlur = 30; // Aumentato da 20 a 30
+ctx.shadowColor = t.color;
+ctx.fillStyle = t.color;
+ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
+ctx.shadowBlur = 0; // Reset per non rallentare il resto del disegno
+
+// Etichetta Canale MPE più grande
+ctx.fillStyle = "#fff";
+ctx.font = "bold 14px Arial";
+ctx.fillText(`CH${t.voices[0].chan}`, t.lastM.x, t.lastM.y - radius - 20);
     });
     requestAnimationFrame(draw);
 }
