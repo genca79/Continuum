@@ -3,35 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MPE Continuum: Pro Pro Edition</title>
+    <title>MPE Continuum: Final Pro Edition</title>
     <style>
         body { margin: 0; background: #000; color: #eee; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; touch-action: none; }
         
-        /* Menu a scomparsa */
+        /* Menu a scomparsa ottimizzato per il pollice */
         #ui { 
             position: absolute; top: 0; left: 0; right: 0; 
-            background: rgba(25, 25, 25, 0.98); padding: 12px; 
+            background: rgba(20, 20, 20, 0.98); padding: 12px; 
             border-bottom: 2px solid #ff3333; display: flex; flex-wrap: wrap; gap: 10px; 
-            z-index: 100; transform: translateY(-92%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.8);
+            z-index: 100; transform: translateY(-93%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.9);
         }
         #ui:hover, #ui.active { transform: translateY(0); }
         
-        .box { display: flex; flex-direction: column; flex: 1; min-width: 90px; }
-        label { font-size: 10px; text-transform: uppercase; color: #ffaa00; margin-bottom: 4px; font-weight: bold; }
-        select, input { background: #333; color: #fff; border: 1px solid #555; padding: 6px; font-size: 12px; border-radius: 4px; outline: none; }
+        .box { display: flex; flex-direction: column; flex: 1; min-width: 85px; }
+        label { font-size: 9px; text-transform: uppercase; color: #ffaa00; margin-bottom: 4px; font-weight: bold; letter-spacing: 0.5px; }
+        select, input { background: #2a2a2a; color: #fff; border: 1px solid #444; padding: 6px; font-size: 12px; border-radius: 4px; outline: none; }
         
-        /* Controlli Ottava */
-        .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #333; border: 1px solid #ff3333; border-radius: 4px; height: 30px; }
-        .oct-btn { background: #440000; color: #fff; border: none; width: 35px; height: 100%; cursor: pointer; font-size: 16px; }
+        /* Selettore Ottave con Frecce */
+        .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #2a2a2a; border: 1px solid #ff3333; border-radius: 4px; height: 32px; }
+        .oct-btn { background: #330000; color: #fff; border: none; width: 35px; height: 100%; cursor: pointer; font-size: 18px; font-weight: bold; }
+        .oct-btn:active { background: #ff3333; }
         #octVal { font-size: 14px; color: #fff; font-weight: bold; width: 30px; text-align: center; }
 
         canvas { display: block; width: 100vw; height: 100vh; }
         
-        .footer { position: absolute; bottom: 8px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #666; }
+        .footer { position: absolute; bottom: 8px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #555; }
         
-        /* Stile pulsante nel menu */
-        .menu-btn { background: #440000; color: #fff; border: 1px solid #ff3333; padding: 6px; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        /* Bottoni speciali nel menu */
+        .menu-btn { background: #330000; color: #fff; border: 1px solid #ff3333; padding: 6px; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold; }
+        .menu-btn:active { background: #ff3333; }
     </style>
 </head>
 <body>
@@ -55,7 +57,8 @@
                 <option value="melodicMinor">Melodic Min</option><option value="pentatonicMaj">Pentatonic Maj</option>
                 <option value="pentatonicMin">Pentatonic Min</option><option value="blues">Blues</option>
                 <option value="hirajoshi">Hirajoshi (Jap)</option><option value="bhairav">Bhairav (Ind)</option>
-                <option value="wholeTone">Whole Tone</option>
+                <option value="arabic">Arabic</option><option value="wholeTone">Whole Tone</option>
+                <option value="diminished">Diminished</option>
             </select>
         </div>
     </div>
@@ -74,15 +77,15 @@
         </select>
     </div>
     <div class="box" style="flex:0.6"><label>Snap</label><input type="range" id="roundRate" min="0" max="80" value="15"></div>
-    <div class="box" style="flex:0.5"><label>Link YZ</label><input type="checkbox" id="linkPressToY"></div>
-    <div class="box" style="flex:0.5"><label>Display</label><button id="fsBtn" class="menu-btn">FS</button></div>
+    <div class="box" style="flex:0.4"><label>Link YZ</label><input type="checkbox" id="linkPressToY"></div>
+    <div class="box" style="flex:0.5"><label>Display</label><button id="fsBtn" class="menu-btn">FS MODE</button></div>
 </div>
 
 <canvas id="surface"></canvas>
 
 <div class="footer">
-    <div>MPE OSCILLOSCOPE | MOTOROLA EDGE 40 PRO</div>
-    <div>SPOSTA GIÙ PER IL MENU</div>
+    <div>MPE OSCILLOSCOPE ACTIVE | MOTOROLA EDGE 40 PRO</div>
+    <div>PANEL: HOVER TOP</div>
 </div>
 
 <script>
@@ -152,21 +155,20 @@ function getMPEData(e, voice = null) {
         if (!voice.isGliding && Math.abs(e.clientX - voice.startX) < round) detune = 0;
         else voice.isGliding = true;
         
-        voice.vibratoSpeed = Math.abs(e.clientX - voice.lastX) * 2.5;
+        voice.vibratoSpeed = Math.abs(e.clientX - voice.lastX) * 2.8;
         voice.lastX = e.clientX;
     }
 
     const pbValue = Math.floor(8192 + (detune * (8192 / 48)));
     const slide = Math.floor(Math.max(0, Math.min(1, 1 - (e.clientY / canvas.height))) * 127);
-    let press = document.getElementById('linkPressToY').checked ? slide : Math.floor(Math.min(((e.width + e.height) / 80), 1.0) * 127);
+    let press = document.getElementById('linkPressToY').checked ? slide : Math.floor(Math.min(((e.width + e.height) / 75), 1.0) * 127);
 
     return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: currentExact };
 }
 
-// TOUCH EVENTS
 canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
-    if (!midiOutput || e.clientY < 50) return; // Non suonare se tocchi vicino al menu
+    if (!midiOutput || e.clientY < 60) return;
 
     const baseExact = 48 + (currentOctave * 12) + (e.clientX / canvas.width) * 24;
     const scaleNotes = getNotesInScale();
@@ -223,14 +225,14 @@ canvas.addEventListener('pointerup', e => {
     }
 });
 
-// FULL SCREEN LOGIC
+// Full Screen Logic integrato nel pulsante del menu
 const fsBtn = document.getElementById('fsBtn');
 fsBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().then(() => fsBtn.innerText = "EXIT");
+        document.documentElement.requestFullscreen().then(() => fsBtn.innerText = "EXIT FS");
     } else {
-        document.exitFullscreen().then(() => fsBtn.innerText = "FS");
+        document.exitFullscreen().then(() => fsBtn.innerText = "FS MODE");
     }
 });
 
@@ -239,7 +241,8 @@ function draw() {
     const noteW = canvas.width / 24;
     const root = parseInt(document.getElementById('rootNote').value);
     const baseMIDI = 48 + (currentOctave * 12);
-    const scale = SCALES[document.getElementById('scaleType').value] || SCALES.chromatic;
+    const scaleName = document.getElementById('scaleType').value;
+    const scale = SCALES[scaleName] || SCALES.chromatic;
 
     for (let i = 0; i < 24; i++) {
         const n = baseMIDI + i;
@@ -265,11 +268,10 @@ function draw() {
     }
 
     activeTouches.forEach(t => {
-        const radius = 12 + (t.lastM.press / 127) * 25;
-        t.phase += 0.2 + (t.vibratoSpeed * 0.05);
+        const radius = 12 + (t.lastM.press / 127) * 22;
+        t.phase += 0.2 + (t.vibratoSpeed * 0.06);
         const amp = 4 + t.vibratoSpeed;
         
-        // Oscilloscopio
         ctx.beginPath();
         ctx.strokeStyle = t.color;
         ctx.lineWidth = 3;
