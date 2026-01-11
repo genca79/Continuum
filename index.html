@@ -3,52 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MPE Continuum: Infinite Glide FIXED</title>
+    <title>MPE Continuum: Scale Quantizer Edition</title>
     <style>
         body { margin: 0; background: #050505; color: #ff3333; font-family: sans-serif; overflow: hidden; touch-action: none; }
         #ui { 
             position: absolute; top: 0; left: 0; right: 0; 
-            background: rgba(10, 10, 10, 0.95); padding: 15px; 
-            border-bottom: 2px solid #500; display: flex; flex-wrap: wrap; gap: 15px; 
-            z-index: 100; transform: translateY(-90%); transition: 0.3s;
+            background: rgba(10, 10, 10, 0.98); padding: 12px; 
+            border-bottom: 2px solid #500; display: flex; flex-wrap: wrap; gap: 10px; 
+            z-index: 100; transform: translateY(-92%); transition: 0.3s;
         }
         #ui:hover { transform: translateY(0); }
-        .box { display: flex; flex-direction: column; flex: 1; min-width: 100px; }
-        label { font-size: 9px; text-transform: uppercase; color: #777; margin-bottom: 4px; }
-        select, input { background: #1a1a1a; color: #f33; border: 1px solid #333; padding: 6px; font-size: 12px; border-radius: 4px; }
+        .box { display: flex; flex-direction: column; flex: 1; min-width: 85px; }
+        label { font-size: 8px; text-transform: uppercase; color: #666; margin-bottom: 3px; }
+        select, input { background: #151515; color: #f33; border: 1px solid #333; padding: 4px; font-size: 11px; border-radius: 3px; }
         canvas { display: block; width: 100vw; height: 100vh; }
-        .footer { position: absolute; bottom: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; }
-        .btn { pointer-events: auto; background: #300; color: #f88; border: 1px solid #611; padding: 8px 12px; border-radius: 4px; font-size: 10px; }
+        .footer { position: absolute; bottom: 8px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; }
+        .btn { pointer-events: auto; background: #200; color: #f88; border: 1px solid #411; padding: 6px 10px; border-radius: 3px; font-size: 9px; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <div class="box"><label>MIDI Out</label><select id="midiOutSelect"></select></div>
-    <div class="box"><label>Rounding (Snap)</label><input type="range" id="roundRate" min="0" max="100" value="20"></div>
-    <div class="box"><label>Sens. Area</label><input type="range" id="sensSlider" min="0.1" max="2.0" step="0.1" value="0.8"></div>
+    <div class="box" style="flex:1.5"><label>MIDI Out</label><select id="midiOutSelect"></select></div>
+    <div class="box">
+        <label>Root & Scala</label>
+        <div style="display:flex; gap:2px;">
+            <select id="rootNote" style="width:45px;">
+                <option value="0">C</option><option value="1">C#</option><option value="2">D</option><option value="3">D#</option>
+                <option value="4">E</option><option value="5">F</option><option value="6">F#</option><option value="7">G</option>
+                <option value="8">G#</option><option value="9">A</option><option value="10">A#</option><option value="11">B</option>
+            </select>
+            <select id="scaleType">
+                <option value="chromatic">Chromatic</option>
+                <option value="major">Major</option>
+                <option value="minor">Natural Minor</option>
+                <option value="pentatonic">Pentatonic Maj</option>
+                <option value="blues">Blues</option>
+                <option value="dorian">Dorian</option>
+            </select>
+        </div>
+    </div>
+    <div class="box"><label>Snap (Rounding)</label><input type="range" id="roundRate" min="0" max="80" value="25"></div>
     <div class="box" style="flex:0.5"><label>PB Range</label><input type="number" id="pbRange" value="48"></div>
 </div>
 
 <canvas id="surface"></canvas>
 
 <div class="footer">
-    <div style="color:#444; font-size:10px;">MOTOROLA EDGE 40 PRO OPTIMIZED</div>
+    <div style="color:#333; font-size:9px;">MOTOROLA EDGE 40 PRO | MPE SCALE MODE</div>
     <div class="btn-group">
         <button class="btn" onclick="setupMIDI()">RESCAN</button>
-        <button class="btn" onclick="document.documentElement.requestFullscreen()">FS</button>
+        <button class="btn" onclick="document.documentElement.requestFullscreen()">FULL SCREEN</button>
     </div>
 </div>
 
 <script>
 /**
- * LOGICA DEFINITIVA MPE INFINITE GLIDE
+ * MPE ENGINE CON QUANTIZZAZIONE ALLA SCALA
  */
 const canvas = document.getElementById('surface');
 const ctx = canvas.getContext('2d');
 let midiOutput = null;
 const activeVoices = new Map(); 
-const mpeChannels = Array.from({length: 15}, (_, i) => i + 2); // Canali 2-16
+const mpeChannels = Array.from({length: 15}, (_, i) => i + 2);
+
+const SCALES = {
+    chromatic: [0,1,2,3,4,5,6,7,8,9,10,11],
+    major: [0,2,4,5,7,9,11],
+    minor: [0,2,3,5,7,8,10],
+    pentatonic: [0,2,4,7,9],
+    blues: [0,3,5,6,7,10],
+    dorian: [0,2,3,5,7,9,10]
+};
+
+function isNoteInScale(midiNote) {
+    const root = parseInt(document.getElementById('rootNote').value);
+    const scale = SCALES[document.getElementById('scaleType').value];
+    const normalized = (midiNote - root) % 12;
+    return scale.includes(normalized < 0 ? normalized + 12 : normalized);
+}
+
+function getNearestScaleNote(midiNote) {
+    if (isNoteInScale(Math.round(midiNote))) return Math.round(midiNote);
+    let low = Math.floor(midiNote), high = Math.ceil(midiNote);
+    while (low > 0 && !isNoteInScale(low)) low--;
+    while (high < 127 && !isNoteInScale(high)) high++;
+    return (midiNote - low < high - midiNote) ? low : high;
+}
 
 function setupMIDI() {
     if (navigator.requestMIDIAccess) {
@@ -61,37 +102,27 @@ function setupMIDI() {
     }
 }
 
-// Calcolo parametri dinamici
 function getMPEParams(e, voice = null) {
     const range = parseInt(document.getElementById('pbRange').value) || 48;
-    const sens = parseFloat(document.getElementById('sensSlider').value);
     const round = parseInt(document.getElementById('roundRate').value);
-
-    // Nota decimale corrente (24 note totali)
     const currentExact = 48 + (e.clientX / canvas.width) * 24;
     
     let detune = 0;
     if (voice) {
-        // Calcolo distanza dalla nota iniziale per il glide infinito
         detune = currentExact - voice.initialExact;
-        
-        // Rounding intelligente
         const pixelDist = Math.abs(e.clientX - voice.startX);
+        
+        // Se non siamo in glide, "calamita" l'intonazione alla nota di scala
         if (!voice.isGliding && pixelDist < round) {
-            detune = 0; // Rimane agganciato alla nota perfetta
+            detune = 0; 
         } else {
-            voice.isGliding = true; // Sblocca il glide fluido
+            voice.isGliding = true;
         }
     }
 
-    // Formula Pitch Bend 14-bit: $8192 + (detune \times (8192/range))$
     const pbValue = Math.floor(8192 + (detune * (8192 / range)));
-    
-    // Pressione basata su area di contatto (Motorola)
     const area = (e.width + e.height) / 2 || 20;
-    const press = Math.floor(Math.min((area / 40) * sens, 1.0) * 127);
-    
-    // Slide verticale (CC74)
+    const press = Math.floor(Math.min((area / 40) * 0.8, 1.0) * 127); //
     const slide = Math.floor((1 - (e.clientY / canvas.height)) * 127);
 
     return { pbValue, press, slide, x: e.clientX, y: e.clientY, exact: currentExact };
@@ -103,21 +134,16 @@ canvas.addEventListener('pointerdown', e => {
     if (!chan || !midiOutput) return;
 
     const m = getMPEParams(e);
-    const startNote = Math.round(m.exact);
+    // Note On quantizzato alla scala scelta
+    const startNote = getNearestScaleNote(m.exact);
 
-    // Reset Pitch Bend e invio Note On
     midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
-    midiOutput.send([0xE0 + chan - 1, 0x00, 0x40]); // Centro
+    midiOutput.send([0xE0 + chan - 1, 0, 64]);
     midiOutput.send([0x90 + chan - 1, startNote, 90]);
 
     activeVoices.set(e.pointerId, { 
-        chan, 
-        startX: e.clientX, 
-        initialExact: startNote, // Punto di ancoraggio fisso
-        isGliding: false,
-        note: startNote,
-        color: `hsl(${chan * 25}, 90%, 55%)`,
-        ...m 
+        chan, startX: e.clientX, initialExact: startNote, isGliding: false, note: startNote,
+        color: `hsl(${chan * 25}, 90%, 55%)`, ...m 
     });
 });
 
@@ -125,52 +151,48 @@ canvas.addEventListener('pointermove', e => {
     e.preventDefault();
     const v = activeVoices.get(e.pointerId);
     if (!v || !midiOutput) return;
-
     const m = getMPEParams(e, v);
-    
-    // Aggiornamento MPE continuo
     midiOutput.send([0xE0 + v.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
-    midiOutput.send([0xB0 + v.chan - 1, 74, m.slide]);
+    midiOutput.send([0xB0 + v.chan - 1, m.slide, 74]);
     midiOutput.send([0xD0 + v.chan - 1, m.press]);
-
     Object.assign(v, m);
 });
 
 canvas.addEventListener('pointerup', e => {
     const v = activeVoices.get(e.pointerId);
-    if (!v) return;
-    if (midiOutput) midiOutput.send([0x80 + v.chan - 1, v.note, 0]); // Note Off
-    mpeChannels.push(v.chan);
-    mpeChannels.sort((a, b) => a - b);
-    activeVoices.delete(e.pointerId);
+    if (v && midiOutput) {
+        midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+        mpeChannels.push(v.chan); mpeChannels.sort((a,b)=>a-b);
+        activeVoices.delete(e.pointerId);
+    }
 });
 
 function draw() {
     ctx.fillStyle = '#050505';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
     const noteW = canvas.width / 24;
     for (let i = 0; i <= 24; i++) {
+        const n = 48 + i;
         const x = i * noteW;
-        ctx.strokeStyle = (48 + i) % 12 === 0 ? '#411' : '#111';
+        const inScale = isNoteInScale(n);
+        // Colora diversamente le note in scala
+        ctx.strokeStyle = inScale ? (n % 12 === parseInt(document.getElementById('rootNote').value) ? '#f00' : '#422') : '#111';
+        ctx.lineWidth = inScale ? 2 : 1;
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
     }
-
     activeVoices.forEach(v => {
-        const radius = 6 + (v.press / 127) * 30; // Cerchi piccoli e reattivi
+        const radius = 6 + (v.press / 127) * 30; 
         ctx.shadowBlur = 15; ctx.shadowColor = v.color;
         ctx.fillStyle = v.color;
         ctx.beginPath(); ctx.arc(v.x, v.y, radius, 0, Math.PI * 2); ctx.fill();
-        ctx.shadowBlur = 0; ctx.fillStyle = "white"; ctx.font = "10px Arial";
-        ctx.fillText(`CH ${v.chan}`, v.x - 12, v.y - radius - 8);
+        ctx.shadowBlur = 0; ctx.fillStyle = "white"; ctx.font = "9px Arial";
+        ctx.fillText(`CH ${v.chan}`, v.x - 12, v.y - radius - 5);
     });
     requestAnimationFrame(draw);
 }
 
 window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
-window.onresize();
-setupMIDI();
-draw();
+window.onresize(); setupMIDI(); draw();
 </script>
 </body>
 </html>
