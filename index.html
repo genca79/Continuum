@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MPE Continuum: Scale Quantizer Edition</title>
+    <title>MPE Ultra: Fixed Slide & Scale</title>
     <style>
         body { margin: 0; background: #050505; color: #ff3333; font-family: sans-serif; overflow: hidden; touch-action: none; }
         #ui { 
@@ -26,40 +26,34 @@
 <div id="ui">
     <div class="box" style="flex:1.5"><label>MIDI Out</label><select id="midiOutSelect"></select></div>
     <div class="box">
-        <label>Root & Scala</label>
+        <label>Scala & Root</label>
         <div style="display:flex; gap:2px;">
             <select id="rootNote" style="width:45px;">
-                <option value="0">C</option><option value="1">C#</option><option value="2">D</option><option value="3">D#</option>
-                <option value="4">E</option><option value="5">F</option><option value="6">F#</option><option value="7">G</option>
-                <option value="8">G#</option><option value="9">A</option><option value="10">A#</option><option value="11">B</option>
+                <option value="0">C</option><option value="2">D</option><option value="4">E</option>
+                <option value="5">F</option><option value="7">G</option><option value="9">A</option><option value="11">B</option>
             </select>
             <select id="scaleType">
                 <option value="chromatic">Chromatic</option>
                 <option value="major">Major</option>
-                <option value="minor">Natural Minor</option>
-                <option value="pentatonic">Pentatonic Maj</option>
-                <option value="blues">Blues</option>
-                <option value="dorian">Dorian</option>
+                <option value="minor">Minor</option>
+                <option value="pentatonic">Pentatonic</option>
             </select>
         </div>
     </div>
-    <div class="box"><label>Snap (Rounding)</label><input type="range" id="roundRate" min="0" max="80" value="25"></div>
+    <div class="box"><label>Snap (Rounding)</label><input type="range" id="roundRate" min="0" max="80" value="20"></div>
     <div class="box" style="flex:0.5"><label>PB Range</label><input type="number" id="pbRange" value="48"></div>
 </div>
 
 <canvas id="surface"></canvas>
 
 <div class="footer">
-    <div style="color:#333; font-size:9px;">MOTOROLA EDGE 40 PRO | MPE SCALE MODE</div>
-    <div class="btn-group">
-        <button class="btn" onclick="setupMIDI()">RESCAN</button>
-        <button class="btn" onclick="document.documentElement.requestFullscreen()">FULL SCREEN</button>
-    </div>
+    <div style="color:#444; font-size:9px;">FIXED CC74 SLIDE | MOTOROLA</div>
+    <button class="btn" onclick="document.documentElement.requestFullscreen()">FULL SCREEN</button>
 </div>
 
 <script>
 /**
- * MPE ENGINE CON QUANTIZZAZIONE ALLA SCALA
+ * CORREZIONE LOGICA MIDI CC74 (SLIDE)
  */
 const canvas = document.getElementById('surface');
 const ctx = canvas.getContext('2d');
@@ -71,10 +65,20 @@ const SCALES = {
     chromatic: [0,1,2,3,4,5,6,7,8,9,10,11],
     major: [0,2,4,5,7,9,11],
     minor: [0,2,3,5,7,8,10],
-    pentatonic: [0,2,4,7,9],
-    blues: [0,3,5,6,7,10],
-    dorian: [0,2,3,5,7,9,10]
+    pentatonic: [0,2,4,7,9]
 };
+
+function setupMIDI() {
+    if (navigator.requestMIDIAccess) {
+        navigator.requestMIDIAccess({ sysex: true }).then(access => {
+            const outputs = Array.from(access.outputs.values());
+            const select = document.getElementById('midiOutSelect');
+            select.innerHTML = outputs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+            midiOutput = outputs[0] || null;
+            select.onchange = () => midiOutput = access.outputs.get(select.value);
+        });
+    }
+}
 
 function isNoteInScale(midiNote) {
     const root = parseInt(document.getElementById('rootNote').value);
@@ -91,41 +95,30 @@ function getNearestScaleNote(midiNote) {
     return (midiNote - low < high - midiNote) ? low : high;
 }
 
-function setupMIDI() {
-    if (navigator.requestMIDIAccess) {
-        navigator.requestMIDIAccess({ sysex: true }).then(access => {
-            const outputs = Array.from(access.outputs.values());
-            const select = document.getElementById('midiOutSelect');
-            select.innerHTML = outputs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
-            midiOutput = outputs[0] || null;
-        });
-    }
-}
-
-function getMPEParams(e, voice = null) {
+function getMPEParams(e, v = null) {
     const range = parseInt(document.getElementById('pbRange').value) || 48;
     const round = parseInt(document.getElementById('roundRate').value);
-    const currentExact = 48 + (e.clientX / canvas.width) * 24;
     
+    // X -> Pitch
+    const exact = 48 + (e.clientX / canvas.width) * 24;
     let detune = 0;
-    if (voice) {
-        detune = currentExact - voice.initialExact;
-        const pixelDist = Math.abs(e.clientX - voice.startX);
-        
-        // Se non siamo in glide, "calamita" l'intonazione alla nota di scala
-        if (!voice.isGliding && pixelDist < round) {
-            detune = 0; 
-        } else {
-            voice.isGliding = true;
-        }
+    if (v) {
+        detune = exact - v.initialExact;
+        const dist = Math.abs(e.clientX - v.startX);
+        if (!v.isGliding && dist < round) detune = 0;
+        else v.isGliding = true;
     }
-
     const pbValue = Math.floor(8192 + (detune * (8192 / range)));
-    const area = (e.width + e.height) / 2 || 20;
-    const press = Math.floor(Math.min((area / 40) * 0.8, 1.0) * 127); //
-    const slide = Math.floor((1 - (e.clientY / canvas.height)) * 127);
 
-    return { pbValue, press, slide, x: e.clientX, y: e.clientY, exact: currentExact };
+    // Y -> Slide (CC 74)
+    // Calcolo corretto: 1.0 in alto, 0.0 in basso
+    const slide = Math.floor(Math.max(0, Math.min(1, 1 - (e.clientY / canvas.height))) * 127);
+
+    // Z -> Pressure (Area)
+    const area = (e.width + e.height) / 2 || 20;
+    const press = Math.floor(Math.min((area / 40) * 0.8, 1.0) * 127);
+
+    return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact };
 }
 
 canvas.addEventListener('pointerdown', e => {
@@ -134,10 +127,10 @@ canvas.addEventListener('pointerdown', e => {
     if (!chan || !midiOutput) return;
 
     const m = getMPEParams(e);
-    // Note On quantizzato alla scala scelta
     const startNote = getNearestScaleNote(m.exact);
 
-    midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
+    // Ordine: CC74 -> PB -> NoteOn
+    midiOutput.send([0xB0 + chan - 1, 74, m.slide]); 
     midiOutput.send([0xE0 + chan - 1, 0, 64]);
     midiOutput.send([0x90 + chan - 1, startNote, 90]);
 
@@ -151,10 +144,14 @@ canvas.addEventListener('pointermove', e => {
     e.preventDefault();
     const v = activeVoices.get(e.pointerId);
     if (!v || !midiOutput) return;
+
     const m = getMPEParams(e, v);
+    
+    // CORRETTO: [Status, Controller, Value]
     midiOutput.send([0xE0 + v.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
-    midiOutput.send([0xB0 + v.chan - 1, m.slide, 74]);
+    midiOutput.send([0xB0 + v.chan - 1, 74, m.slide]); // <-- FISSA: 74 è il controller, m.slide è il valore
     midiOutput.send([0xD0 + v.chan - 1, m.press]);
+
     Object.assign(v, m);
 });
 
@@ -175,17 +172,15 @@ function draw() {
         const n = 48 + i;
         const x = i * noteW;
         const inScale = isNoteInScale(n);
-        // Colora diversamente le note in scala
         ctx.strokeStyle = inScale ? (n % 12 === parseInt(document.getElementById('rootNote').value) ? '#f00' : '#422') : '#111';
         ctx.lineWidth = inScale ? 2 : 1;
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
     }
     activeVoices.forEach(v => {
         const radius = 6 + (v.press / 127) * 30; 
-        ctx.shadowBlur = 15; ctx.shadowColor = v.color;
         ctx.fillStyle = v.color;
         ctx.beginPath(); ctx.arc(v.x, v.y, radius, 0, Math.PI * 2); ctx.fill();
-        ctx.shadowBlur = 0; ctx.fillStyle = "white"; ctx.font = "9px Arial";
+        ctx.fillStyle = "white"; ctx.font = "9px Arial";
         ctx.fillText(`CH ${v.chan}`, v.x - 12, v.y - radius - 5);
     });
     requestAnimationFrame(draw);
