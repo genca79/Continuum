@@ -3,69 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MPE Ultra: Fixed Slide & Scale</title>
+    <title>MPE Ultra: Chord Engine & Scale Mode</title>
     <style>
         body { margin: 0; background: #050505; color: #ff3333; font-family: sans-serif; overflow: hidden; touch-action: none; }
         #ui { 
             position: absolute; top: 0; left: 0; right: 0; 
-            background: rgba(10, 10, 10, 0.98); padding: 12px; 
-            border-bottom: 2px solid #500; display: flex; flex-wrap: wrap; gap: 10px; 
-            z-index: 100; transform: translateY(-92%); transition: 0.3s;
+            background: rgba(10, 10, 10, 0.98); padding: 8px; 
+            border-bottom: 2px solid #500; display: flex; flex-wrap: wrap; gap: 8px; 
+            z-index: 100; transform: translateY(-93%); transition: 0.3s;
         }
-        #ui:hover { transform: translateY(0); }
-        .box { display: flex; flex-direction: column; flex: 1; min-width: 85px; }
-        label { font-size: 8px; text-transform: uppercase; color: #666; margin-bottom: 3px; }
-        select, input { background: #151515; color: #f33; border: 1px solid #333; padding: 4px; font-size: 11px; border-radius: 3px; }
+        #ui:hover, #ui.active { transform: translateY(0); }
+        .box { display: flex; flex-direction: column; flex: 1; min-width: 80px; }
+        label { font-size: 8px; text-transform: uppercase; color: #666; margin-bottom: 2px; }
+        select, input { background: #151515; color: #f33; border: 1px solid #333; padding: 4px; font-size: 11px; border-radius: 3px; outline: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
-        .footer { position: absolute; bottom: 8px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; }
-        .btn { pointer-events: auto; background: #200; color: #f88; border: 1px solid #411; padding: 6px 10px; border-radius: 3px; font-size: 9px; }
+        .footer { position: absolute; bottom: 8px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #444; }
+        .btn { pointer-events: auto; background: #200; color: #f88; border: 1px solid #411; padding: 4px 8px; border-radius: 3px; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <div class="box" style="flex:1.5"><label>MIDI Out</label><select id="midiOutSelect"></select></div>
+    <div class="box" style="flex:1.2"><label>MIDI Out</label><select id="midiOutSelect"></select></div>
     <div class="box">
-        <label>Scala & Root</label>
+        <label>Scala & Tonalità</label>
         <div style="display:flex; gap:2px;">
-            <select id="rootNote" style="width:45px;">
-                <option value="0">C</option><option value="2">D</option><option value="4">E</option>
-                <option value="5">F</option><option value="7">G</option><option value="9">A</option><option value="11">B</option>
+            <select id="rootNote" style="width:40px;">
+                <option value="0">C</option><option value="2">D</option><option value="4">E</option><option value="5">F</option>
+                <option value="7">G</option><option value="9">A</option><option value="11">B</option>
             </select>
             <select id="scaleType">
-                <option value="chromatic">Chromatic</option>
-                <option value="major">Major</option>
-                <option value="minor">Minor</option>
-                <option value="pentatonic">Pentatonic</option>
+                <option value="major">Major</option><option value="minor">Minor</option>
+                <option value="pentatonic">Pentatonic</option><option value="dorian">Dorian</option>
+                <option value="phrygian">Phrygian</option><option value="lydian">Lydian</option>
+                <option value="mixolydian">Mixolydian</option><option value="harmonicMinor">Harmonic Min</option>
             </select>
         </div>
     </div>
-    <div class="box"><label>Snap (Rounding)</label><input type="range" id="roundRate" min="0" max="80" value="20"></div>
-    <div class="box" style="flex:0.5"><label>PB Range</label><input type="number" id="pbRange" value="48"></div>
+    <div class="box">
+        <label>Chord Mode</label>
+        <select id="chordMode">
+            <option value="1">Single Note</option>
+            <option value="3">Triads</option>
+            <option value="4">7th Chords</option>
+        </select>
+    </div>
+    <div class="box" style="flex:0.6">
+        <label>Ottava</label>
+        <select id="octaveShift">
+            <option value="-1">-1</option><option value="0" selected>0</option><option value="1">+1</option>
+        </select>
+    </div>
+    <div class="box" style="flex:0.5"><label>Link Y-Z</label><input type="checkbox" id="linkPressToY"></div>
 </div>
 
 <canvas id="surface"></canvas>
-
 <div class="footer">
-    <div style="color:#444; font-size:9px;">FIXED CC74 SLIDE | MOTOROLA</div>
-    <button class="btn" onclick="document.documentElement.requestFullscreen()">FULL SCREEN</button>
+    <div>MPE CHORD ENGINE ACTIVE | MOTOROLA EDGE 40 PRO</div>
+    <button class="btn" onclick="document.documentElement.requestFullscreen()">FS</button>
 </div>
 
 <script>
 /**
- * CORREZIONE LOGICA MIDI CC74 (SLIDE)
+ * MPE ENGINE V5: DIATONIC CHORDS & SCALE MAPPING
  */
 const canvas = document.getElementById('surface');
 const ctx = canvas.getContext('2d');
 let midiOutput = null;
-const activeVoices = new Map(); 
-const mpeChannels = Array.from({length: 15}, (_, i) => i + 2);
+const activeTouches = new Map(); 
+const mpeChannels = Array.from({length: 15}, (_, i) => i + 2); // Canali 2-16
 
 const SCALES = {
-    chromatic: [0,1,2,3,4,5,6,7,8,9,10,11],
-    major: [0,2,4,5,7,9,11],
-    minor: [0,2,3,5,7,8,10],
-    pentatonic: [0,2,4,7,9]
+    major: [0,2,4,5,7,9,11], minor: [0,2,3,5,7,8,10],
+    pentatonic: [0,2,4,7,9], dorian: [0,2,3,5,7,9,10],
+    phrygian: [0,1,3,5,7,8,10], lydian: [0,2,4,6,7,9,11],
+    mixolydian: [0,2,4,5,7,9,10], harmonicMinor: [0,2,3,5,7,8,11]
 };
 
 function setupMIDI() {
@@ -80,108 +92,129 @@ function setupMIDI() {
     }
 }
 
-function isNoteInScale(midiNote) {
+function getNotesInScale() {
     const root = parseInt(document.getElementById('rootNote').value);
-    const scale = SCALES[document.getElementById('scaleType').value];
-    const normalized = (midiNote - root) % 12;
-    return scale.includes(normalized < 0 ? normalized + 12 : normalized);
+    const intervals = SCALES[document.getElementById('scaleType').value];
+    let notes = [];
+    for (let oct = 0; oct < 10; oct++) {
+        intervals.forEach(i => notes.push(oct * 12 + root + i));
+    }
+    return notes.filter(n => n >= 0 && n <= 127);
 }
 
 function getNearestScaleNote(midiNote) {
-    if (isNoteInScale(Math.round(midiNote))) return Math.round(midiNote);
-    let low = Math.floor(midiNote), high = Math.ceil(midiNote);
-    while (low > 0 && !isNoteInScale(low)) low--;
-    while (high < 127 && !isNoteInScale(high)) high++;
-    return (midiNote - low < high - midiNote) ? low : high;
+    const scaleNotes = getNotesInScale();
+    return scaleNotes.reduce((prev, curr) => Math.abs(curr - midiNote) < Math.abs(prev - midiNote) ? curr : prev);
 }
 
-function getMPEParams(e, v = null) {
-    const range = parseInt(document.getElementById('pbRange').value) || 48;
-    const round = parseInt(document.getElementById('roundRate').value);
+function getChordNotes(rootNote) {
+    const scaleNotes = getNotesInScale();
+    const chordSize = parseInt(document.getElementById('chordMode').value);
+    const rootIdx = scaleNotes.indexOf(rootNote);
+    if (rootIdx === -1) return [rootNote];
     
-    // X -> Pitch
-    const exact = 48 + (e.clientX / canvas.width) * 24;
-    let detune = 0;
-    if (v) {
-        detune = exact - v.initialExact;
-        const dist = Math.abs(e.clientX - v.startX);
-        if (!v.isGliding && dist < round) detune = 0;
-        else v.isGliding = true;
+    let chord = [];
+    for (let i = 0; i < chordSize; i++) {
+        const idx = rootIdx + (i * 2); // Terze diatoniche
+        if (idx < scaleNotes.length) chord.push(scaleNotes[idx]);
     }
+    return chord;
+}
+
+function getMPEData(e, initialNote = null) {
+    const range = 48; // PB Range Ableton
+    const oct = parseInt(document.getElementById('octaveShift').value);
+    const baseMIDI = 48 + (oct * 12);
+
+    const currentExact = baseMIDI + (e.clientX / canvas.width) * 24;
+    const detune = initialNote ? (currentExact - initialNote) : 0;
     const pbValue = Math.floor(8192 + (detune * (8192 / range)));
 
-    // Y -> Slide (CC 74)
-    // Calcolo corretto: 1.0 in alto, 0.0 in basso
     const slide = Math.floor(Math.max(0, Math.min(1, 1 - (e.clientY / canvas.height))) * 127);
+    let press = document.getElementById('linkPressToY').checked ? slide : Math.floor(Math.min(((e.width + e.height) / 80), 1.0) * 127);
 
-    // Z -> Pressure (Area)
-    const area = (e.width + e.height) / 2 || 20;
-    const press = Math.floor(Math.min((area / 40) * 0.8, 1.0) * 127);
-
-    return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact };
+    return { pbValue, slide, press, x: e.clientX, y: e.clientY };
 }
 
 canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
-    const chan = mpeChannels.shift();
-    if (!chan || !midiOutput) return;
+    if (!midiOutput) return;
 
-    const m = getMPEParams(e);
-    const startNote = getNearestScaleNote(m.exact);
+    const baseExact = 48 + (parseInt(document.getElementById('octaveShift').value) * 12) + (e.clientX / canvas.width) * 24;
+    const rootNote = getNearestScaleNote(baseExact);
+    const chordNotes = getChordNotes(rootNote);
+    
+    let voices = [];
+    chordNotes.forEach(note => {
+        const chan = mpeChannels.shift();
+        if (chan) {
+            const m = getMPEData(e);
+            midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
+            midiOutput.send([0xE0 + chan - 1, 0, 64]);
+            midiOutput.send([0x90 + chan - 1, note, 90]);
+            voices.push({ chan, note });
+        }
+    });
 
-    // Ordine: CC74 -> PB -> NoteOn
-    midiOutput.send([0xB0 + chan - 1, 74, m.slide]); 
-    midiOutput.send([0xE0 + chan - 1, 0, 64]);
-    midiOutput.send([0x90 + chan - 1, startNote, 90]);
-
-    activeVoices.set(e.pointerId, { 
-        chan, startX: e.clientX, initialExact: startNote, isGliding: false, note: startNote,
-        color: `hsl(${chan * 25}, 90%, 55%)`, ...m 
+    activeTouches.set(e.pointerId, { 
+        voices, initialExact: rootNote, startX: e.clientX,
+        color: `hsl(${voices[0]?.chan * 25 || 0}, 85%, 50%)`,
+        lastM: getMPEData(e)
     });
 });
 
 canvas.addEventListener('pointermove', e => {
-    e.preventDefault();
-    const v = activeVoices.get(e.pointerId);
-    if (!v || !midiOutput) return;
+    const t = activeTouches.get(e.pointerId);
+    if (!t || !midiOutput) return;
 
-    const m = getMPEParams(e, v);
-    
-    // CORRETTO: [Status, Controller, Value]
-    midiOutput.send([0xE0 + v.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
-    midiOutput.send([0xB0 + v.chan - 1, 74, m.slide]); // <-- FISSA: 74 è il controller, m.slide è il valore
-    midiOutput.send([0xD0 + v.chan - 1, m.press]);
+    const m = getMPEData(e, t.initialExact);
+    t.lastM = m;
 
-    Object.assign(v, m);
+    t.voices.forEach(v => {
+        midiOutput.send([0xE0 + v.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]); // Glide
+        midiOutput.send([0xB0 + v.chan - 1, 74, m.slide]); // Slide
+        midiOutput.send([0xD0 + v.chan - 1, m.press]); // Press
+    });
 });
 
 canvas.addEventListener('pointerup', e => {
-    const v = activeVoices.get(e.pointerId);
-    if (v && midiOutput) {
-        midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
-        mpeChannels.push(v.chan); mpeChannels.sort((a,b)=>a-b);
-        activeVoices.delete(e.pointerId);
+    const t = activeTouches.get(e.pointerId);
+    if (t) {
+        t.voices.forEach(v => {
+            midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+            mpeChannels.push(v.chan);
+        });
+        mpeChannels.sort((a,b) => a-b);
+        activeTouches.delete(e.pointerId);
     }
 });
 
 function draw() {
-    ctx.fillStyle = '#050505';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     const noteW = canvas.width / 24;
+    const root = parseInt(document.getElementById('rootNote').value);
+    const baseMIDI = 48 + (parseInt(document.getElementById('octaveShift').value) * 12);
+
     for (let i = 0; i <= 24; i++) {
-        const n = 48 + i;
+        const n = baseMIDI + i;
         const x = i * noteW;
-        const inScale = isNoteInScale(n);
-        ctx.strokeStyle = inScale ? (n % 12 === parseInt(document.getElementById('rootNote').value) ? '#f00' : '#422') : '#111';
-        ctx.lineWidth = inScale ? 2 : 1;
+        const scale = SCALES[document.getElementById('scaleType').value];
+        const inScale = scale.includes((n - root) % 12 < 0 ? (n - root) % 12 + 12 : (n - root) % 12);
+        ctx.strokeStyle = inScale ? (n % 12 === root ? '#f33' : '#322') : '#111';
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
     }
-    activeVoices.forEach(v => {
-        const radius = 6 + (v.press / 127) * 30; 
-        ctx.fillStyle = v.color;
-        ctx.beginPath(); ctx.arc(v.x, v.y, radius, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "white"; ctx.font = "9px Arial";
-        ctx.fillText(`CH ${v.chan}`, v.x - 12, v.y - radius - 5);
+
+    activeTouches.forEach(t => {
+        const radius = 10 + (t.lastM.press / 127) * 30;
+        ctx.fillStyle = t.color;
+        ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
+        
+        // Disegna le note "fantasma" dell'accordo
+        t.voices.slice(1).forEach((v, i) => {
+            ctx.strokeStyle = t.color; ctx.globalAlpha = 0.4;
+            ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius + (i+1)*15, 0, Math.PI * 2); ctx.stroke();
+            ctx.globalAlpha = 1.0;
+        });
     });
     requestAnimationFrame(draw);
 }
