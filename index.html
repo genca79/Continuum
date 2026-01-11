@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MPE Continuum: Oscilloscope Edition</title>
+    <title>MPE Continuum: Pro Edition FIXED</title>
     <style>
         body { margin: 0; background: #020202; color: #ff3333; font-family: sans-serif; overflow: hidden; touch-action: none; }
         #ui { 
@@ -16,11 +16,9 @@
         .box { display: flex; flex-direction: column; flex: 1; min-width: 80px; }
         label { font-size: 8px; text-transform: uppercase; color: #666; margin-bottom: 2px; }
         select, input { background: #111; color: #f33; border: 1px solid #333; padding: 4px; font-size: 11px; border-radius: 3px; outline: none; }
-        
         .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #111; border: 1px solid #333; border-radius: 3px; height: 24px; }
         .oct-btn { background: #200; color: #f88; border: none; width: 28px; height: 100%; cursor: pointer; font-weight: bold; }
         #octVal { font-size: 11px; color: #f44; width: 25px; text-align: center; }
-
         canvas { display: block; width: 100vw; height: 100vh; }
         .footer { position: absolute; bottom: 8px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #444; }
         .btn { pointer-events: auto; background: #200; color: #f88; border: 1px solid #411; padding: 4px 8px; border-radius: 3px; cursor: pointer; }
@@ -31,13 +29,23 @@
 <div id="ui">
     <div class="box" style="flex:1.2"><label>MIDI Out</label><select id="midiOutSelect"></select></div>
     <div class="box">
-        <label>Scala</label>
+        <label>Scala & Root</label>
         <div style="display:flex; gap:2px;">
             <select id="rootNote" style="width:40px;">
-                <option value="0">C</option><option value="2">D</option><option value="4">E</option><option value="5">F</option><option value="7">G</option><option value="9">A</option><option value="11">B</option>
+                <option value="0">C</option><option value="1">C#</option><option value="2">D</option><option value="3">D#</option>
+                <option value="4">E</option><option value="5">F</option><option value="6">F#</option><option value="7">G</option>
+                <option value="8">G#</option><option value="9">A</option><option value="10">A#</option><option value="11">B</option>
             </select>
             <select id="scaleType">
-                <option value="major">Major</option><option value="minor">Minor</option><option value="pentatonic">Pentatonic</option>
+                <option value="chromatic">Chromatic</option>
+                <option value="major">Major</option><option value="minor">Minor</option>
+                <option value="dorian">Dorian</option><option value="phrygian">Phrygian</option>
+                <option value="lydian">Lydian</option><option value="mixolydian">Mixolydian</option>
+                <option value="locrian">Locrian</option><option value="harmonicMinor">Harmonic Min</option>
+                <option value="melodicMinor">Melodic Min</option><option value="pentatonicMaj">Pentatonic Maj</option>
+                <option value="pentatonicMin">Pentatonic Min</option><option value="blues">Blues</option>
+                <option value="hirajoshi">Hirajoshi (Jap)</option><option value="bhairav">Bhairav (Ind)</option>
+                <option value="wholeTone">Whole Tone</option>
             </select>
         </div>
     </div>
@@ -67,9 +75,6 @@
 </div>
 
 <script>
-/**
- * MPE ENGINE V7: PHYSICAL VIBRATO & OSCILLOSCOPE REACTION
- */
 const canvas = document.getElementById('surface');
 const ctx = canvas.getContext('2d');
 let midiOutput = null;
@@ -77,29 +82,24 @@ const activeTouches = new Map();
 const mpeChannels = Array.from({length: 15}, (_, i) => i + 2);
 let currentOctave = 0;
 
-// Sostituisci l'oggetto SCALES nel tuo codice con questo:
 const SCALES = {
     chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-    // --- MODI MAGGIORI ---
     major: [0, 2, 4, 5, 7, 9, 11],
     dorian: [0, 2, 3, 5, 7, 9, 10],
     phrygian: [0, 1, 3, 5, 7, 8, 10],
     lydian: [0, 2, 4, 6, 7, 9, 11],
     mixolydian: [0, 2, 4, 5, 7, 9, 10],
-    minor: [0, 2, 3, 5, 7, 8, 10], // Aeolian
+    minor: [0, 2, 3, 5, 7, 8, 10],
     locrian: [0, 1, 3, 5, 6, 8, 10],
-    // --- MINORI SPECIALI ---
     harmonicMinor: [0, 2, 3, 5, 7, 8, 11],
     melodicMinor: [0, 2, 3, 5, 7, 9, 11],
-    // --- PENTATONICHE & BLUES ---
     pentatonicMaj: [0, 2, 4, 7, 9],
     pentatonicMin: [0, 3, 5, 7, 10],
     blues: [0, 3, 5, 6, 7, 10],
-    // --- ESOTICHE & MODERNE ---
-    hirajoshi: [0, 2, 3, 7, 8], // Giapponese
-    bhairav: [0, 1, 4, 5, 7, 8, 11], // Indiana
-    arabic: [0, 1, 4, 5, 7, 8, 11], // Double Harmonic
-    wholeTone: [0, 2, 4, 6, 8, 10], // Esatonale
+    hirajoshi: [0, 2, 3, 7, 8],
+    bhairav: [0, 1, 4, 5, 7, 8, 11],
+    arabic: [0, 1, 4, 5, 7, 8, 11],
+    wholeTone: [0, 2, 4, 6, 8, 10],
     diminished: [0, 2, 3, 5, 6, 8, 9, 11]
 };
 
@@ -122,7 +122,7 @@ function setupMIDI() {
 
 function getNotesInScale() {
     const root = parseInt(document.getElementById('rootNote').value);
-    const intervals = SCALES[document.getElementById('scaleType').value];
+    const intervals = SCALES[document.getElementById('scaleType').value] || SCALES.chromatic;
     let notes = [];
     for (let oct = 0; oct < 10; oct++) intervals.forEach(i => notes.push(oct * 12 + root + i));
     return notes;
@@ -139,7 +139,6 @@ function getMPEData(e, voice = null) {
         if (!voice.isGliding && Math.abs(e.clientX - voice.startX) < round) detune = 0;
         else voice.isGliding = true;
         
-        // Calcolo velocità per l'oscilloscopio
         voice.vibratoSpeed = Math.abs(e.clientX - voice.lastX) * 2;
         voice.lastX = e.clientX;
     }
@@ -156,10 +155,10 @@ canvas.addEventListener('pointerdown', e => {
     if (!midiOutput) return;
 
     const baseExact = 48 + (currentOctave * 12) + (e.clientX / canvas.width) * 24;
-    const rootNote = getNotesInScale().reduce((prev, curr) => Math.abs(curr - baseExact) < Math.abs(prev - baseExact) ? curr : prev);
-    const chordSize = parseInt(document.getElementById('chordMode').value);
-    
     const scaleNotes = getNotesInScale();
+    const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - baseExact) < Math.abs(prev - baseExact) ? curr : prev);
+    
+    const chordSize = parseInt(document.getElementById('chordMode').value);
     const rootIdx = scaleNotes.indexOf(rootNote);
     let chordNotes = [];
     for(let i=0; i<chordSize; i++) {
@@ -169,8 +168,8 @@ canvas.addEventListener('pointerdown', e => {
     
     let voices = [];
     chordNotes.forEach(note => {
-        const chan = mpeChannels.shift();
-        if (chan) {
+        if (mpeChannels.length > 0) {
+            const chan = mpeChannels.shift();
             const m = getMPEData(e);
             midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
             midiOutput.send([0xE0 + chan - 1, 0, 64]);
@@ -202,7 +201,7 @@ canvas.addEventListener('pointerup', e => {
     const t = activeTouches.get(e.pointerId);
     if (t) {
         t.voices.forEach(v => {
-            midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+            if (midiOutput) midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
             mpeChannels.push(v.chan);
         });
         mpeChannels.sort((a,b) => a-b);
@@ -216,20 +215,18 @@ function draw() {
     const root = parseInt(document.getElementById('rootNote').value);
     const baseMIDI = 48 + (currentOctave * 12);
 
-    // Griglia
     for (let i = 0; i <= 24; i++) {
         const n = baseMIDI + i;
         const x = i * noteW;
         ctx.strokeStyle = (n % 12 === root) ? '#511' : '#111';
+        ctx.lineWidth = (n % 12 === root) ? 2 : 1;
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
     }
 
     activeTouches.forEach(t => {
         const radius = 10 + (t.lastM.press / 127) * 20;
-        
-        // --- RENDERING OSCILLOSCOPIO ---
-        t.phase += 0.2 + (t.vibratoSpeed * 0.05); // L'onda corre se scuoti il dito
-        const amp = 5 + t.vibratoSpeed; // L'ampiezza aumenta col vibrato fisico
+        t.phase += 0.2 + (t.vibratoSpeed * 0.05);
+        const amp = 5 + t.vibratoSpeed;
         
         ctx.beginPath();
         ctx.strokeStyle = t.color;
@@ -241,7 +238,6 @@ function draw() {
         }
         ctx.stroke();
 
-        // Cerchio principale
         ctx.shadowBlur = 15; ctx.shadowColor = t.color;
         ctx.fillStyle = t.color;
         ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
