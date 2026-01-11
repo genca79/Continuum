@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MPE Continuum: Oscilloscope Edition</title>
+    <style>
+        body { margin: 0; background: #020202; color: #ff3333; font-family: sans-serif; overflow: hidden; touch-action: none; }
+        #ui { 
+            position: absolute; top: 0; left: 0; right: 0; 
+            background: rgba(10, 10, 10, 0.98); padding: 8px; 
+            border-bottom: 2px solid #500; display: flex; flex-wrap: wrap; gap: 8px; 
+            z-index: 100; transform: translateY(-93%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #ui:hover, #ui.active { transform: translateY(0); }
+        .box { display: flex; flex-direction: column; flex: 1; min-width: 80px; }
+        label { font-size: 8px; text-transform: uppercase; color: #666; margin-bottom: 2px; }
+        select, input { background: #111; color: #f33; border: 1px solid #333; padding: 4px; font-size: 11px; border-radius: 3px; outline: none; }
+        
+        .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #111; border: 1px solid #333; border-radius: 3px; height: 24px; }
+        .oct-btn { background: #200; color: #f88; border: none; width: 28px; height: 100%; cursor: pointer; font-weight: bold; }
+        #octVal { font-size: 11px; color: #f44; width: 25px; text-align: center; }
+
+        canvas { display: block; width: 100vw; height: 100vh; }
+        .footer { position: absolute; bottom: 8px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #444; }
+        .btn { pointer-events: auto; background: #200; color: #f88; border: 1px solid #411; padding: 4px 8px; border-radius: 3px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <div class="box" style="flex:1.2"><label>MIDI Out</label><select id="midiOutSelect"></select></div>
+    <div class="box">
+        <label>Scala</label>
+        <div style="display:flex; gap:2px;">
+            <select id="rootNote" style="width:40px;">
+                <option value="0">C</option><option value="2">D</option><option value="4">E</option><option value="5">F</option><option value="7">G</option><option value="9">A</option><option value="11">B</option>
+            </select>
+            <select id="scaleType">
+                <option value="major">Major</option><option value="minor">Minor</option><option value="pentatonic">Pentatonic</option>
+            </select>
+        </div>
+    </div>
+    <div class="box" style="flex:0.7">
+        <label>Ottava</label>
+        <div class="oct-ctrl">
+            <button class="oct-btn" onclick="changeOctave(-1)">&lt;</button>
+            <span id="octVal">0</span>
+            <button class="oct-btn" onclick="changeOctave(1)">&gt;</button>
+        </div>
+    </div>
+    <div class="box">
+        <label>Chords</label>
+        <select id="chordMode">
+            <option value="1">Off</option><option value="3">Triads</option><option value="4">7ths</option>
+        </select>
+    </div>
+    <div class="box" style="flex:0.5"><label>Snap</label><input type="range" id="roundRate" min="0" max="80" value="15"></div>
+    <div class="box" style="flex:0.4"><label>Link YZ</label><input type="checkbox" id="linkPressToY"></div>
+</div>
+
+<canvas id="surface"></canvas>
+
+<div class="footer">
+    <div>VIBRATO OSCILLOSCOPE ACTIVE | MOTOROLA 40 PRO</div>
+    <button class="btn" onclick="document.documentElement.requestFullscreen()">FS</button>
+</div>
+
+<script>
+/**
+ * MPE ENGINE V7: PHYSICAL VIBRATO & OSCILLOSCOPE REACTION
+ */
+const canvas = document.getElementById('surface');
+const ctx = canvas.getContext('2d');
+let midiOutput = null;
+const activeTouches = new Map(); 
+const mpeChannels = Array.from({length: 15}, (_, i) => i + 2);
+let currentOctave = 0;
+
+const SCALES = { major: [0,2,4,5,7,9,11], minor: [0,2,3,5,7,8,10], pentatonic: [0,2,4,7,9] };
+
+function changeOctave(delta) {
+    currentOctave = Math.max(-2, Math.min(2, currentOctave + delta));
+    document.getElementById('octVal').innerText = (currentOctave > 0 ? "+" : "") + currentOctave;
+}
+
+function setupMIDI() {
+    if (navigator.requestMIDIAccess) {
+        navigator.requestMIDIAccess({ sysex: true }).then(access => {
+            const outputs = Array.from(access.outputs.values());
+            const select = document.getElementById('midiOutSelect');
+            select.innerHTML = outputs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+            midiOutput = outputs[0] || null;
+            select.onchange = () => midiOutput = access.outputs.get(select.value);
+        });
+    }
+}
+
+function getNotesInScale() {
+    const root = parseInt(document.getElementById('rootNote').value);
+    const intervals = SCALES[document.getElementById('scaleType').value];
+    let notes = [];
+    for (let oct = 0; oct < 10; oct++) intervals.forEach(i => notes.push(oct * 12 + root + i));
+    return notes;
+}
+
+function getMPEData(e, voice = null) {
+    const round = parseInt(document.getElementById('roundRate').value);
+    const baseMIDI = 48 + (currentOctave * 12);
+    const currentExact = baseMIDI + (e.clientX / canvas.width) * 24;
+    
+    let detune = 0;
+    if (voice) {
+        detune = currentExact - voice.initialExact;
+        if (!voice.isGliding && Math.abs(e.clientX - voice.startX) < round) detune = 0;
+        else voice.isGliding = true;
+        
+        // Calcolo velocità per l'oscilloscopio
+        voice.vibratoSpeed = Math.abs(e.clientX - voice.lastX) * 2;
+        voice.lastX = e.clientX;
+    }
+
+    const pbValue = Math.floor(8192 + (detune * (8192 / 48)));
+    const slide = Math.floor(Math.max(0, Math.min(1, 1 - (e.clientY / canvas.height))) * 127);
+    let press = document.getElementById('linkPressToY').checked ? slide : Math.floor(Math.min(((e.width + e.height) / 80), 1.0) * 127);
+
+    return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: currentExact };
+}
+
+canvas.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (!midiOutput) return;
+
+    const baseExact = 48 + (currentOctave * 12) + (e.clientX / canvas.width) * 24;
+    const rootNote = getNotesInScale().reduce((prev, curr) => Math.abs(curr - baseExact) < Math.abs(prev - baseExact) ? curr : prev);
+    const chordSize = parseInt(document.getElementById('chordMode').value);
+    
+    const scaleNotes = getNotesInScale();
+    const rootIdx = scaleNotes.indexOf(rootNote);
+    let chordNotes = [];
+    for(let i=0; i<chordSize; i++) {
+        const idx = rootIdx + (i*2);
+        if(idx < scaleNotes.length) chordNotes.push(scaleNotes[idx]);
+    }
+    
+    let voices = [];
+    chordNotes.forEach(note => {
+        const chan = mpeChannels.shift();
+        if (chan) {
+            const m = getMPEData(e);
+            midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
+            midiOutput.send([0xE0 + chan - 1, 0, 64]);
+            midiOutput.send([0x90 + chan - 1, note, 90]);
+            voices.push({ chan, note });
+        }
+    });
+
+    activeTouches.set(e.pointerId, { 
+        voices, initialExact: rootNote, startX: e.clientX, lastX: e.clientX, 
+        isGliding: false, vibratoSpeed: 0, phase: 0,
+        color: `hsl(${voices[0]?.chan * 25 || 0}, 85%, 55%)`, lastM: getMPEData(e)
+    });
+});
+
+canvas.addEventListener('pointermove', e => {
+    const t = activeTouches.get(e.pointerId);
+    if (!t || !midiOutput) return;
+    const m = getMPEData(e, t);
+    t.lastM = m;
+    t.voices.forEach(v => {
+        midiOutput.send([0xE0 + v.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
+        midiOutput.send([0xB0 + v.chan - 1, 74, m.slide]);
+        midiOutput.send([0xD0 + v.chan - 1, m.press]);
+    });
+});
+
+canvas.addEventListener('pointerup', e => {
+    const t = activeTouches.get(e.pointerId);
+    if (t) {
+        t.voices.forEach(v => {
+            midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+            mpeChannels.push(v.chan);
+        });
+        mpeChannels.sort((a,b) => a-b);
+        activeTouches.delete(e.pointerId);
+    }
+});
+
+function draw() {
+    ctx.fillStyle = '#020202'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const noteW = canvas.width / 24;
+    const root = parseInt(document.getElementById('rootNote').value);
+    const baseMIDI = 48 + (currentOctave * 12);
+
+    // Griglia
+    for (let i = 0; i <= 24; i++) {
+        const n = baseMIDI + i;
+        const x = i * noteW;
+        ctx.strokeStyle = (n % 12 === root) ? '#511' : '#111';
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+    }
+
+    activeTouches.forEach(t => {
+        const radius = 10 + (t.lastM.press / 127) * 20;
+        
+        // --- RENDERING OSCILLOSCOPIO ---
+        t.phase += 0.2 + (t.vibratoSpeed * 0.05); // L'onda corre se scuoti il dito
+        const amp = 5 + t.vibratoSpeed; // L'ampiezza aumenta col vibrato fisico
+        
+        ctx.beginPath();
+        ctx.strokeStyle = t.color;
+        ctx.lineWidth = 2;
+        for (let ox = -40; ox <= 40; ox += 2) {
+            const oy = Math.sin(ox * 0.2 + t.phase) * amp;
+            if (ox === -40) ctx.moveTo(t.lastM.x + ox, t.lastM.y + oy);
+            else ctx.lineTo(t.lastM.x + ox, t.lastM.y + oy);
+        }
+        ctx.stroke();
+
+        // Cerchio principale
+        ctx.shadowBlur = 15; ctx.shadowColor = t.color;
+        ctx.fillStyle = t.color;
+        ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+    });
+    requestAnimationFrame(draw);
+}
+
+window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+window.onresize(); setupMIDI(); draw();
+</script>
+</body>
+</html>
