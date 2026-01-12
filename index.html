@@ -18,21 +18,21 @@
             position: fixed; left: 0; right: 0; bottom: 0;
             background: rgba(10, 10, 10, 0.98);
             border-top: 2px solid #ff3333;
-            display: flex; gap: 10px; padding: 10px;
+            display: flex; gap: 8px; padding: 6px 8px;
             z-index: 110;
         }
-        #performance .box { min-width: 110px; }
+        #performance .box { min-width: 90px; }
         #performance .menu-btn .short { display: none; }
-        #performance .label { font-size: 9px; text-transform: uppercase; color: #ffaa00; font-weight: bold; margin-bottom: 4px; }
+        #performance .label { font-size: 8px; text-transform: uppercase; color: #ffaa00; font-weight: bold; margin-bottom: 2px; }
         #performance .icon-btn {
             display: inline-flex; align-items: center; justify-content: center;
-            height: 28px; min-width: 34px;
+            height: 24px; min-width: 30px;
             border: 1px solid #ff3333; border-radius: 4px;
             background: #1c1c1c; color: #fff; font-weight: bold;
         }
         #performance .hold-btn {
             display: inline-flex; align-items: center; gap: 6px; padding: 0 10px;
-            height: 28px; border: 1px solid #ff3333; border-radius: 4px;
+            height: 24px; border: 1px solid #ff3333; border-radius: 4px;
             background: #1c1c1c; color: #fff; font-weight: bold;
         }
         #performance .hold-btn .led {
@@ -42,28 +42,28 @@
         #performance .hold-btn.active { background: #330000; }
         #performance .hold-btn.active .led { background: #00ff44; border-color: #00ff44; }
         #performance .panic-btn {
-            height: 28px; padding: 0 12px; border: 1px solid #ff3333; border-radius: 4px;
+            height: 24px; padding: 0 10px; border: 1px solid #ff3333; border-radius: 4px;
             background: #330000; color: #fff; font-weight: bold;
         }
         #performance .transpose-wrap { display: flex; gap: 6px; align-items: center; }
-        #performance .transpose-value { min-width: 28px; text-align: center; font-size: 12px; }
+        #performance .transpose-value { min-width: 24px; text-align: center; font-size: 11px; }
         #performance .chord-knob {
-            width: 50px; height: 50px; border-radius: 50%;
+            width: 44px; height: 44px; border-radius: 50%;
             background: radial-gradient(circle at 30% 30%, #3a3a3a, #1a1a1a 60%);
             border: 2px solid #ff3333; position: relative; margin: 0 auto;
         }
         #performance .chord-knob::after {
-            content: ""; position: absolute; width: 4px; height: 18px;
+            content: ""; position: absolute; width: 4px; height: 16px;
             background: #ffaa00; top: 6px; left: 50%; transform: translateX(-50%);
             border-radius: 2px;
         }
-        #performance .chord-label { text-align: center; font-size: 10px; margin-top: 4px; color: #ddd; }
+        #performance .chord-label { text-align: center; font-size: 9px; margin-top: 3px; color: #ddd; }
         #performance .chord-toggle {
-            display: flex; gap: 6px; justify-content: center; margin-bottom: 6px;
+            display: flex; gap: 4px; justify-content: center; margin-bottom: 4px;
         }
         #performance .chord-toggle button {
-            height: 22px; padding: 0 8px; border: 1px solid #ff3333; border-radius: 4px;
-            background: #1c1c1c; color: #fff; font-size: 10px; font-weight: bold;
+            height: 18px; padding: 0 6px; border: 1px solid #ff3333; border-radius: 4px;
+            background: #1c1c1c; color: #fff; font-size: 9px; font-weight: bold;
         }
         #performance .chord-toggle button.active { background: #330000; }
         #performance .chord-box { align-items: center; text-align: center; }
@@ -75,7 +75,7 @@
         .oct-btn { background: #300; color: #fff; border: none; width: 30px; height: 100%; cursor: pointer; font-weight: bold; }
         #octVal { font-size: 12px; color: #fff; width: 25px; text-align: center; }
         canvas { display: block; width: 100vw; height: 100vh; }
-        .footer { position: absolute; bottom: 56px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #444; }
+        .footer { position: absolute; bottom: 44px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #444; }
         .menu-btn { background: #300; color: #fff; border: 1px solid #ff3333; padding: 5px; border-radius: 4px; cursor: pointer; font-size: 10px; }
         @media (max-width: 600px) {
             #ui { padding: 8px; gap: 6px; }
@@ -709,7 +709,6 @@ function setupChordKnob() {
     const options = Array.from(select.options);
     let currentIndex = Math.max(0, options.findIndex(o => o.value === select.value));
     let dragStart = null;
-    let dragAccum = 0;
 
     function applyIndex(idx) {
         currentIndex = Math.max(0, Math.min(options.length - 1, idx));
@@ -726,19 +725,19 @@ function setupChordKnob() {
     knob.addEventListener('pointerdown', e => {
         e.preventDefault();
         knob.setPointerCapture(e.pointerId);
-        dragStart = { x: e.clientX, y: e.clientY };
-        dragAccum = 0;
+        const rect = knob.getBoundingClientRect();
+        dragStart = { rect };
     });
     knob.addEventListener('pointermove', e => {
         if (!dragStart) return;
-        const dy = dragStart.y - e.clientY;
-        dragAccum += dy;
-        dragStart = { x: e.clientX, y: e.clientY };
-        const step = Math.floor(dragAccum / 18);
-        if (step !== 0) {
-            applyIndex(currentIndex + step);
-            dragAccum = 0;
-        }
+        const rect = dragStart.rect;
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const ang = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+        const clamped = Math.max(-120, Math.min(120, ang));
+        const t = (clamped + 120) / 240;
+        const idx = Math.round(t * (options.length - 1));
+        applyIndex(idx);
     });
     knob.addEventListener('pointerup', () => { dragStart = null; });
     knob.addEventListener('pointercancel', () => { dragStart = null; });
@@ -807,7 +806,7 @@ function draw() {
     const baseMIDI = 48 + (currentOctave * 12) + root;
     const time = Date.now();
 
-    const perfOffset = 60;
+    const perfOffset = 44;
     for (let i = 0; i < (numOct * grid.stepsPerOct); i++) {
         const n = getGridNoteAt(i, grid.degrees, baseMIDI);
         const x = i * noteW;
