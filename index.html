@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GENCA MPE Ultra: 8-Note Grid Edition</title>
+    <style>
+        body { margin: 0; background: #000; color: #eee; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; touch-action: none; }
+        #ui { 
+            position: absolute; top: 0; left: 0; right: 0; 
+            background: rgba(20, 20, 20, 0.98); padding: 10px; 
+            border-bottom: 2px solid #ff3333; display: flex; flex-wrap: wrap; gap: 8px; 
+            z-index: 100; transform: translateY(-93%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #ui:hover, #ui.active { transform: translateY(0); }
+        .box { display: flex; flex-direction: column; flex: 1; min-width: 80px; }
+        label { font-size: 9px; text-transform: uppercase; color: #ffaa00; margin-bottom: 3px; font-weight: bold; }
+        select, input { background: #2a2a2a; color: #fff; border: 1px solid #444; padding: 5px; font-size: 11px; border-radius: 4px; outline: none; }
+        .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #2a2a2a; border: 1px solid #ff3333; border-radius: 4px; height: 28px; }
+        .oct-btn { background: #300; color: #fff; border: none; width: 30px; height: 100%; cursor: pointer; font-weight: bold; }
+        #octVal { font-size: 12px; color: #fff; width: 25px; text-align: center; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        .footer { position: absolute; bottom: 8px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #444; }
+        .menu-btn { background: #300; color: #fff; border: 1px solid #ff3333; padding: 5px; border-radius: 4px; cursor: pointer; font-size: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <div class="box" style="flex:1.2"><label>MIDI In</label><select id="midiInSelect"><option value="">Seleziona Arturia...</option></select></div>
+    <div class="box" style="flex:1.2"><label>MIDI Out</label><select id="midiOutSelect"></select></div>
+    <div class="box">
+        <label>Scala & Root</label>
+        <div style="display:flex; gap:2px;">
+            <select id="rootNote" style="width:45px;">
+                <option value="0">C</option><option value="1">C#</option><option value="2">D</option><option value="3">D#</option>
+                <option value="4">E</option><option value="5">F</option><option value="6">F#</option><option value="7">G</option>
+                <option value="8">G#</option><option value="9">A</option><option value="10">A#</option><option value="11">B</option>
+            </select>
+            <select id="scaleType">
+                <option value="chromatic">Chromatic</option><option value="major" selected>Major</option><option value="minor">Minor</option>
+                <option value="dorian">Dorian</option><option value="phrygian">Phrygian</option><option value="lydian">Lydian</option>
+                <option value="mixolydian">Mixolydian</option><option value="harmonicMinor">Harmonic Min</option>
+                <option value="pentatonicMaj">Pentatonic Maj</option><option value="blues">Blues</option>
+                <option value="hirajoshi">Hirajoshi</option><option value="arabic">Arabic</option>
+            </select>
+        </div>
+    </div>
+    <div class="box" style="flex:1.2">
+        <label>Chords</label>
+        <select id="chordMode">
+            <option value="off">Off</option><option value="power">Power (1-5)</option><option value="triad">Triad (1-3-5)</option>
+            <option value="7th">7th Chord</option><option value="9th">9th Chord</option><option value="wide">Wide (1-5-10)</option>
+        </select>
+    </div>
+    <div class="box" style="flex:0.5"><label>Ottave</label><select id="visibleOctaves"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select></div>
+    <div class="box" style="flex:0.6"><label>Trasponi</label><div class="oct-ctrl"><button class="oct-btn" onclick="changeOctave(-1)">-</button><span id="octVal">0</span><button class="oct-btn" onclick="changeOctave(1)">+</button></div></div>
+    <div class="box" style="flex:0.4"><label>Y-Vel</label><input type="checkbox" id="linkYToVel" checked></div>
+    <div class="box" style="flex:0.4"><label>Full</label><button id="fsBtn" class="menu-btn">FS</button></div>
+</div>
+
+<canvas id="surface"></canvas>
+<div class="footer"><div>8-NOTE SCALE GRID | MPE HYBRID</div><div>SAMSUNG GALAXY TAB S11 ULTRA</div></div>
+
+<script>
+const canvas = document.getElementById('surface');
+const ctx = canvas.getContext('2d');
+let midiOutput = null; let midiInput = null;
+const activeTouches = new Map(); const physicalNotes = new Map(); 
+const mpeChannels = Array.from({length: 15}, (_, i) => i + 2);
+let currentOctave = 0;
+
+const SCALES = {
+    chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], major: [0, 2, 4, 5, 7, 9, 11],
+    dorian: [0, 2, 3, 5, 7, 9, 10], phrygian: [0, 1, 3, 5, 7, 8, 10], lydian: [0, 2, 4, 6, 7, 9, 11],
+    mixolydian: [0, 2, 4, 5, 7, 9, 10], minor: [0, 2, 3, 5, 7, 8, 10], harmonicMinor: [0, 2, 3, 5, 7, 8, 11],
+    pentatonicMaj: [0, 2, 4, 7, 9], blues: [0, 3, 5, 6, 7, 10], hirajoshi: [0, 2, 3, 7, 8], arabic: [0, 1, 4, 5, 7, 8, 11]
+};
+
+const CHORD_PATTERNS = { off: [0], power: [0, 4], triad: [0, 2, 4], "7th": [0, 2, 4, 6], "9th": [0, 2, 4, 6, 8], wide: [0, 4, 9] };
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+function changeOctave(delta) {
+    currentOctave = Math.max(-2, Math.min(2, currentOctave + delta));
+    document.getElementById('octVal').innerText = (currentOctave > 0 ? "+" : "") + currentOctave;
+}
+
+// Calcola le note effettive della scala disponibili
+function getAvailableScaleNotes() {
+    const root = parseInt(document.getElementById('rootNote').value);
+    const scale = SCALES[document.getElementById('scaleType').value];
+    const notes = [];
+    const startMIDI = 36 + (currentOctave * 12); // Partiamo da una zona bassa
+    for(let i = 0; i < 127; i++) {
+        const nInOct = (i - root) % 12 < 0 ? (i - root) % 12 + 12 : (i - root) % 12;
+        if(scale.includes(nInOct)) notes.push(i);
+    }
+    return notes;
+}
+
+function setupMIDI() {
+    if (navigator.requestMIDIAccess) {
+        navigator.requestMIDIAccess({ sysex: true }).then(access => {
+            const outputs = Array.from(access.outputs.values());
+            const inputs = Array.from(access.inputs.values());
+            const outSel = document.getElementById('midiOutSelect');
+            outSel.innerHTML = outputs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+            midiOutput = outputs[0] || null;
+            outSel.onchange = () => midiOutput = access.outputs.get(outSel.value);
+            const inSel = document.getElementById('midiInSelect');
+            inSel.innerHTML = `<option value="">Scegli Arturia...</option>` + inputs.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+            inSel.onchange = () => {
+                if(midiInput) midiInput.onmidimessage = null;
+                midiInput = access.inputs.get(inSel.value);
+                if(midiInput) midiInput.onmidimessage = handleExternalMIDI;
+            };
+        });
+    }
+}
+
+function handleExternalMIDI(message) {
+    const [status, note, velocity] = message.data;
+    const type = status & 0xf0;
+    if (type === 0x90 && velocity > 0) {
+        const chan = mpeChannels.shift();
+        if (chan && midiOutput) {
+            midiOutput.send([0x90 + chan - 1, note, velocity]);
+            physicalNotes.set(note, { chan, velocity, grabbed: false });
+        }
+    } else if (type === 0x80 || (type === 0x90 && velocity === 0)) {
+        const data = physicalNotes.get(note);
+        if (data && midiOutput) {
+            midiOutput.send([0x80 + data.chan - 1, note, 0]);
+            mpeChannels.push(data.chan); mpeChannels.sort((a,b)=>a-b);
+            physicalNotes.delete(note);
+        }
+    }
+}
+
+function getMPEData(e, voice = null) {
+    const scaleNotes = getAvailableScaleNotes();
+    const numOct = parseInt(document.getElementById('visibleOctaves').value);
+    const totalVisible = numOct * 8; 
+    
+    // Mappatura X su Indice Scala
+    const rawIdx = (e.clientX / canvas.width) * totalVisible;
+    const idx = Math.floor(rawIdx);
+    const note = scaleNotes[idx] || scaleNotes[0];
+    
+    let detune = 0;
+    if (voice) {
+        // Glide continuo tra i tasti della griglia
+        const currentExactNote = baseLerp(scaleNotes, rawIdx);
+        detune = currentExactNote - voice.initialExact;
+        voice.vibratoSpeed = Math.abs(e.clientX - voice.lastX) * 2.8;
+        voice.lastX = e.clientX;
+    }
+
+    const pbValue = Math.floor(8192 + (detune * (8192 / 48)));
+    const slide = Math.floor(Math.max(0, Math.min(1, 1 - (e.clientY / canvas.height))) * 127);
+    const press = Math.floor(Math.min(((e.width + e.height) / 70), 1.0) * 127);
+    return { pbValue, slide, press, x: e.clientX, y: e.clientY, note, exact: rawIdx };
+}
+
+// Funzione per rendere il glide fluido tra note non consecutive della scala
+function baseLerp(notes, rawIdx) {
+    const i = Math.floor(rawIdx);
+    const f = rawIdx - i;
+    const n1 = notes[i] || notes[0];
+    const n2 = notes[i+1] || n1;
+    return n1 + (n2 - n1) * f;
+}
+
+canvas.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (!midiOutput || e.clientY < 60) return;
+    const m = getMPEData(e);
+    
+    // AUTO-GRAB
+    if (physicalNotes.has(m.note) && !physicalNotes.get(m.note).grabbed) {
+        const pNote = physicalNotes.get(m.note);
+        pNote.grabbed = true;
+        activeTouches.set(e.pointerId, { voices: [{ chan: pNote.chan, note: m.note }], initialExact: m.note, lastX: e.clientX, isGrab: true, vibratoSpeed: 0, phase: 0, color: '#00ff44', lastM: m });
+        return;
+    }
+
+    // STANDALONE 8-NOTE GRID
+    const scaleNotes = getAvailableScaleNotes();
+    const rootIdx = Math.floor(m.exact);
+    const pattern = CHORD_PATTERNS[document.getElementById('chordMode').value];
+    const velocity = document.getElementById('linkYToVel').checked ? Math.max(10, m.slide) : 90;
+
+    let voices = [];
+    pattern.forEach(offset => {
+        const chan = mpeChannels.shift();
+        const note = scaleNotes[rootIdx + offset] || scaleNotes[rootIdx];
+        if(chan && note) {
+            midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
+            midiOutput.send([0xE0 + chan - 1, 0, 64]);
+            midiOutput.send([0x90 + chan - 1, note, velocity]);
+            voices.push({ chan, note });
+        }
+    });
+    if(voices.length > 0) activeTouches.set(e.pointerId, { voices, initialExact: scaleNotes[rootIdx], lastX: e.clientX, isGrab: false, vibratoSpeed: 0, phase: 0, color: `hsl(${voices[0].chan * 25}, 85%, 55%)`, lastM: m });
+});
+
+canvas.addEventListener('pointermove', e => {
+    const t = activeTouches.get(e.pointerId);
+    if (!t || !midiOutput) return;
+    const m = getMPEData(e, t);
+    t.lastM = m;
+    t.voices.forEach(v => {
+        midiOutput.send([0xE0 + v.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
+        midiOutput.send([0xB0 + v.chan - 1, 74, m.slide]);
+        midiOutput.send([0xD0 + v.chan - 1, m.press]);
+    });
+});
+
+canvas.addEventListener('pointerup', e => {
+    const t = activeTouches.get(e.pointerId);
+    if (t) {
+        t.voices.forEach(v => {
+            if(!t.isGrab) {
+                midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+                mpeChannels.push(v.chan);
+            } else { if(physicalNotes.has(v.note)) physicalNotes.get(v.note).grabbed = false; }
+        });
+        mpeChannels.sort((a,b)=>a-b);
+        activeTouches.delete(e.pointerId);
+    }
+});
+
+document.getElementById('fsBtn').onclick = () => { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); };
+
+function draw() {
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const scaleNotes = getAvailableScaleNotes();
+    const numOct = parseInt(document.getElementById('visibleOctaves').value);
+    const totalVisible = numOct * 8;
+    const noteW = canvas.width / totalVisible;
+    const root = parseInt(document.getElementById('rootNote').value);
+    const time = Date.now();
+
+    for (let i = 0; i < totalVisible; i++) {
+        const n = scaleNotes[i];
+        const x = i * noteW;
+        const isRoot = (n % 12 === root);
+
+        ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.12)';
+        ctx.fillRect(x + 2, 5, noteW - 4, canvas.height - 10);
+
+        ctx.strokeStyle = isRoot ? '#ff0000' : '#444';
+        ctx.lineWidth = isRoot ? 3 : 1;
+        ctx.strokeRect(x + 2, 5, noteW - 4, canvas.height - 10);
+
+        ctx.fillStyle = isRoot ? '#ff4444' : '#ffffff';
+        ctx.font = `bold ${Math.max(12, noteW * 0.3)}px Arial`; ctx.textAlign = 'center';
+        ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, canvas.height - 40);
+        
+        if (n % 12 === 0) {
+            ctx.font = `${Math.max(8, noteW * 0.2)}px Arial`;
+            ctx.fillText('C' + (Math.floor(n/12)-1), x + noteW/2, canvas.height - 60);
+        }
+
+        const pData = physicalNotes.get(n);
+        if (pData && !pData.grabbed) {
+            const rad = noteW * 0.3 + Math.sin(time/200)*5;
+            ctx.beginPath(); ctx.strokeStyle = '#00ff44'; ctx.lineWidth = 3;
+            ctx.arc(x + noteW/2, canvas.height/2, rad, 0, Math.PI*2); ctx.stroke();
+            ctx.fillStyle = 'rgba(0,255,70,0.15)'; ctx.fill();
+        }
+    }
+
+    activeTouches.forEach(t => {
+        const radius = 20 + (t.lastM.press / 127) * 20;
+        t.phase += 0.2 + (t.vibratoSpeed * 0.06);
+        ctx.beginPath(); ctx.strokeStyle = t.color; ctx.lineWidth = 3;
+        for (let ox = -50; ox <= 50; ox += 2) {
+            const oy = Math.sin(ox * 0.15 + t.phase) * (4 + t.vibratoSpeed);
+            if (ox === -50) ctx.moveTo(t.lastM.x + ox, t.lastM.y + oy);
+            else ctx.lineTo(t.lastM.x + ox, t.lastM.y + oy);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 30; ctx.shadowColor = t.color; ctx.fillStyle = t.color;
+        ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0; ctx.fillStyle = "#fff"; ctx.font = "bold 14px Arial"; ctx.textAlign = 'center';
+        ctx.fillText(t.isGrab ? "GRAB" : `CH${t.voices[0].chan}`, t.lastM.x, t.lastM.y - radius - 25);
+    });
+    requestAnimationFrame(draw);
+}
+window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+window.onresize(); setupMIDI(); draw();
+</script>
+</body>
+</html>
