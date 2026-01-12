@@ -62,7 +62,7 @@
 <canvas id="surface"></canvas>
 <div class="footer">
     <div id="midiStatus">HYBRID ENGINE READY</div>
-    <div>SPOSTA GIÙ PER IL MENU</div>
+    <div>SPOSTA GIU' PER IL MENU</div>
 </div>
 
 <script>
@@ -71,7 +71,7 @@ const ctx = canvas.getContext('2d');
 let midiOutput = null;
 let midiInput = null;
 const activeTouches = new Map(); 
-const physicalNotes = new Map(); // Note attive dal controller esterno
+const physicalNotes = new Map(); // note -> array di voci esterne attive
 const mpeChannels = Array.from({length: 15}, (_, i) => i + 2);
 let currentOctave = 0;
 
@@ -93,7 +93,7 @@ function changeOctave(delta) {
 
 function setupMIDI() {
     if (navigator.requestMIDIAccess) {
-        navigator.requestMIDIAccess({ sysex: true }).then(access => {
+        navigator.requestMIDIAccess({ sysex: false }).then(access => {
             const outputs = Array.from(access.outputs.values());
             const inputs = Array.from(access.inputs.values());
             
@@ -101,6 +101,7 @@ function setupMIDI() {
             outSel.innerHTML = outputs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
             midiOutput = outputs[0] || null;
             outSel.onchange = () => midiOutput = access.outputs.get(outSel.value);
+            document.getElementById('midiStatus').innerText = midiOutput ? 'MIDI OUT READY' : 'NESSUN MIDI OUT';
 
             const inSel = document.getElementById('midiInSelect');
             inSel.innerHTML = `<option value="">Scegli Input...</option>` + inputs.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
@@ -108,6 +109,7 @@ function setupMIDI() {
                 if(midiInput) midiInput.onmidimessage = null;
                 midiInput = access.inputs.get(inSel.value);
                 if(midiInput) midiInput.onmidimessage = handleExternalMIDI;
+                document.getElementById('midiStatus').innerText = midiInput ? 'MIDI IN READY' : 'NESSUN MIDI IN';
             };
         });
     }
@@ -117,20 +119,29 @@ function setupMIDI() {
 function handleExternalMIDI(message) {
     const [status, note, velocity] = message.data;
     const type = status & 0xf0;
+    const srcChan = status & 0x0f;
     if (type === 0x90 && velocity > 0) {
         if (!midiOutput) return;
         const chan = mpeChannels.shift();
         if (chan) {
             midiOutput.send([0x90 + chan - 1, note, velocity]);
-            physicalNotes.set(note, { chan, velocity, grabbed: false });
+            const list = physicalNotes.get(note) || [];
+            list.push({ chan, velocity, grabbed: false, srcChan });
+            physicalNotes.set(note, list);
+        } else {
+            document.getElementById('midiStatus').innerText = 'MPE CHANNELS FULL';
         }
     } else if (type === 0x80 || (type === 0x90 && velocity === 0)) {
-        const data = physicalNotes.get(note);
-        if (data) {
-            midiOutput.send([0x80 + data.chan - 1, note, 0]);
-            mpeChannels.push(data.chan);
-            mpeChannels.sort((a,b)=>a-b);
-            physicalNotes.delete(note);
+        const list = physicalNotes.get(note);
+        if (list && list.length) {
+            const idx = list.findIndex(d => d.srcChan === srcChan);
+            const data = idx >= 0 ? list.splice(idx, 1)[0] : list.shift();
+            if (data) {
+                midiOutput.send([0x80 + data.chan - 1, note, 0]);
+                mpeChannels.push(data.chan);
+                mpeChannels.sort((a,b)=>a-b);
+            }
+            if (!list.length) physicalNotes.delete(note);
         }
     }
 }
@@ -143,6 +154,7 @@ function getMPEData(e, voice = null) {
     const currentExact = baseMIDI + (e.clientX / canvas.width) * totalNotes;
     
     let finalExact = currentExact;
+    let detune = 0;
     if (voice) {
         const nearestNote = Math.round(currentExact);
         const distanceToNote = Math.abs(currentExact - nearestNote);
@@ -150,11 +162,12 @@ function getMPEData(e, voice = null) {
             const force = 1 - (distanceToNote / round);
             finalExact = currentExact + (nearestNote - currentExact) * force;
         }
-        var detune = finalExact - voice.initialExact;
+        detune = finalExact - voice.initialExact;
         voice.vibratoSpeed = Math.abs(e.clientX - voice.lastX) * 2.8;
         voice.lastX = e.clientX;
     }
-    const pbValue = Math.floor(8192 + (detune * (8192 / 48)));
+    let pbValue = Math.floor(8192 + (detune * (8192 / 48)));
+    pbValue = Math.max(0, Math.min(16383, pbValue));
     const slide = Math.floor(Math.max(0, Math.min(1, 1 - (e.clientY / canvas.height))) * 127);
     let press = document.getElementById('linkPressToY').checked ? slide : Math.floor(Math.min(((e.width + e.height) / 75), 1.0) * 127);
     return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: finalExact };
@@ -162,21 +175,27 @@ function getMPEData(e, voice = null) {
 
 canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
-    if (!midiOutput || e.clientY < 60) return;
+    if (!midiOutput || e.clientY < 60) {
+        if (!midiOutput) document.getElementById('midiStatus').innerText = 'NESSUN MIDI OUT';
+        return;
+    }
 
     const m = getMPEData(e);
     const noteUnderFinger = Math.round(m.exact);
 
     // AUTO-GRAB: Se tocchi una nota già attiva fisicamente
-    if (physicalNotes.has(noteUnderFinger) && !physicalNotes.get(noteUnderFinger).grabbed) {
-        const pNote = physicalNotes.get(noteUnderFinger);
-        pNote.grabbed = true;
-        activeTouches.set(e.pointerId, { 
-            voices: [{ chan: pNote.chan, note: noteUnderFinger }], 
-            initialExact: noteUnderFinger, lastX: e.clientX, isGrab: true,
-            vibratoSpeed: 0, phase: 0, color: '#00ff44', lastM: m 
-        });
-        return;
+    if (physicalNotes.has(noteUnderFinger)) {
+        const list = physicalNotes.get(noteUnderFinger);
+        const pNote = list.find(d => !d.grabbed);
+        if (pNote) {
+            pNote.grabbed = true;
+            activeTouches.set(e.pointerId, { 
+                voices: [{ chan: pNote.chan, note: noteUnderFinger }], 
+                initialExact: noteUnderFinger, lastX: e.clientX, isGrab: true,
+                vibratoSpeed: 0, phase: 0, color: '#00ff44', lastM: m 
+            });
+            return;
+        }
     }
 
     // STANDALONE: Produzione suono diretta
@@ -200,8 +219,11 @@ canvas.addEventListener('pointerdown', e => {
             midiOutput.send([0xE0 + chan - 1, 0, 64]);
             midiOutput.send([0x90 + chan - 1, note, 90]);
             voices.push({ chan, note });
+        } else {
+            document.getElementById('midiStatus').innerText = 'MPE CHANNELS FULL';
         }
     }
+    if (!voices.length) return;
     activeTouches.set(e.pointerId, { voices, initialExact: rootNote, lastX: e.clientX, isGrab: false, vibratoSpeed: 0, phase: 0, color: `hsl(${voices[0]?.chan * 25 || 0}, 85%, 55%)`, lastM: m });
 });
 
@@ -224,7 +246,13 @@ canvas.addEventListener('pointerup', e => {
             if(!t.isGrab) {
                 midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
                 mpeChannels.push(v.chan);
-            } else { if(physicalNotes.has(v.note)) physicalNotes.get(v.note).grabbed = false; }
+            } else {
+                if (physicalNotes.has(v.note)) {
+                    const list = physicalNotes.get(v.note);
+                    const pNote = list.find(d => d.chan === v.chan);
+                    if (pNote) pNote.grabbed = false;
+                }
+            }
         });
         mpeChannels.sort((a,b)=>a-b);
         activeTouches.delete(e.pointerId);
@@ -232,6 +260,9 @@ canvas.addEventListener('pointerup', e => {
 });
 
 document.getElementById('fsBtn').onclick = () => { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); };
+document.addEventListener('pointerdown', e => {
+    if (e.clientY < 30) document.getElementById('ui').classList.toggle('active');
+});
 
 function draw() {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -261,8 +292,9 @@ function draw() {
             ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, canvas.height - 40);
         }
         // CERCHIO FANTASMA PER NOTE ESTERNE
-        const pData = physicalNotes.get(n);
-        if (pData && !pData.grabbed) {
+        const pList = physicalNotes.get(n);
+        const pData = pList ? pList.find(d => !d.grabbed) : null;
+        if (pData) {
             const rad = 20 + Math.sin(time/200)*5;
             ctx.beginPath(); ctx.strokeStyle = '#00ff44'; ctx.lineWidth = 3;
             ctx.arc(x + noteW/2, canvas.height/2, rad, 0, Math.PI*2); ctx.stroke();
