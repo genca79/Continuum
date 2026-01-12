@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GENCA MPE Ultra: Y-Velocity Edition</title>
+    <title>GENCA MPE Ultra: V12 stable</title>
     <style>
         body { margin: 0; background: #000; color: #eee; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
         #ui { 
@@ -27,8 +27,8 @@
 <body>
 
 <div id="ui">
-    <div class="box" style="flex:1.5"><label>MIDI IN</label><select id="midiInSelect"><option value="">Seleziona Input...</option></select></div>
-    <div class="box" style="flex:1.5"><label>MIDI OUT</label><select id="midiOutSelect"><option value="">Seleziona Output...</option></select></div>
+    <div class="box" style="flex:1.5"><label>MIDI IN</label><select id="midiInSelect"><option value="">Nessun Input</option></select></div>
+    <div class="box" style="flex:1.5"><label>MIDI OUT</label><select id="midiOutSelect"><option value="">Nessun Output</option></select></div>
     <div class="box">
         <label>Scala & Root</label>
         <div style="display:flex; gap:3px;">
@@ -49,7 +49,7 @@
 </div>
 
 <canvas id="surface"></canvas>
-<div class="footer"><div id="midiStatus">MIDI READY</div><div>MPE ENGINE V11 | Y-VELOCITY ACTIVE</div></div>
+<div class="footer"><div id="midiStatus">MIDI ENGINE V12</div><div>BENDING RANGE: ±48 SEMITONES</div></div>
 
 <script>
 const canvas = document.getElementById('surface');
@@ -111,45 +111,57 @@ function handleExternalMIDI(message) {
     }
 }
 
-function getMPEData(e, voice = null) {
+// MOTORE DI CALCOLO MPE
+function getMPEValues(e, initialExact = null) {
     const numOct = parseInt(document.getElementById('visibleOctaves').value);
     const snapSens = parseInt(document.getElementById('roundRate').value) / 100;
     const baseMIDI = 48 + (currentOctave * 12);
     const totalNotes = numOct * 12;
-    const currentExact = baseMIDI + (e.clientX / canvas.width) * totalNotes;
     
-    let detune = 0;
-    let finalExact = currentExact;
-    if (voice) {
-        const nearest = Math.round(currentExact);
-        const dist = Math.abs(currentExact - nearest);
-        if (dist < snapSens) {
-            const force = 1 - (dist / snapSens);
-            finalExact = currentExact + (nearest - currentExact) * force;
-        }
-        detune = finalExact - voice.initialExact;
-        voice.vibratoSpeed = Math.abs(e.clientX - voice.lastX) * 3;
-        voice.lastX = e.clientX;
+    // Posizione X -> Nota esatta
+    let exact = baseMIDI + (e.clientX / canvas.width) * totalNotes;
+    
+    // Applicazione Snap Magnetico
+    const nearest = Math.round(exact);
+    const dist = Math.abs(exact - nearest);
+    if (dist < snapSens) {
+        const force = 1 - (dist / snapSens);
+        exact = exact + (nearest - exact) * force;
     }
-    const pbValue = Math.floor(8192 + (detune * (8192 / 48)));
+
+    // Calcolo Pitch Bend (rispetto alla nota iniziale se fornita)
+    let detune = initialExact !== null ? exact - initialExact : 0;
+    const pb = Math.floor(8192 + (detune * (8192 / 48))); // Range ±48
+
+    // Posizione Y -> Slide (CC74)
     const slide = Math.floor(Math.max(0, Math.min(1, 1 - (e.clientY / canvas.height))) * 127);
+    
+    // Pressione (simulata su touch)
     const press = Math.floor(Math.min(((e.width + e.height) / 70), 1.0) * 127);
-    return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: finalExact };
+
+    return { exact, pb, slide, press, x: e.clientX, y: e.clientY };
 }
 
 canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
     if (e.clientY < 65) return;
-    const m = getMPEData(e);
+    
+    const m = getMPEValues(e);
     const noteUnderFinger = Math.round(m.exact);
 
+    // 1. AUTO-GRAB
     if (physicalNotes.has(noteUnderFinger) && !physicalNotes.get(noteUnderFinger).grabbed) {
         const pNote = physicalNotes.get(noteUnderFinger);
         pNote.grabbed = true;
-        activeTouches.set(e.pointerId, { voices: [{ chan: pNote.chan, note: noteUnderFinger }], initialExact: noteUnderFinger, lastX: e.clientX, vibratoSpeed: 0, phase: 0, isGrab: true, color: '#00ff44', lastM: m });
+        activeTouches.set(e.pointerId, { 
+            voices: [{ chan: pNote.chan, note: noteUnderFinger }], 
+            initialExact: noteUnderFinger, lastX: e.clientX, phase: 0, 
+            isGrab: true, color: '#00ff44', lastM: m 
+        });
         return;
     }
 
+    // 2. STANDALONE
     const root = parseInt(document.getElementById('rootNote').value);
     const scale = SCALES[document.getElementById('scaleType').value];
     const scaleNotes = [];
@@ -158,12 +170,10 @@ canvas.addEventListener('pointerdown', e => {
         if(scale.includes(nInOct)) scaleNotes.push(i);
     }
     const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
+    
     const chordSize = parseInt(document.getElementById('chordMode').value);
     const rootIdx = scaleNotes.indexOf(rootNote);
-    
-    // LOGICA Y-VELOCITY: Se attiva, la posizione Y determina la velocity iniziale (m.slide)
-    const useYForVel = document.getElementById('linkYToVel').checked;
-    const initialVelocity = useYForVel ? Math.max(10, m.slide) : 90;
+    const initialVelocity = document.getElementById('linkYToVel').checked ? Math.max(10, m.slide) : 90;
 
     let voices = [];
     for(let i=0; i<chordSize; i++) {
@@ -172,23 +182,26 @@ canvas.addEventListener('pointerdown', e => {
             const note = scaleNotes[rootIdx + (i*2)] || rootNote;
             if(midiOutput) {
                 midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
-                midiOutput.send([0xE0 + chan - 1, 0, 64]);
+                midiOutput.send([0xE0 + chan - 1, 0, 64]); // Reset PB
                 midiOutput.send([0x90 + chan - 1, note, initialVelocity]);
             }
             voices.push({ chan, note });
         }
     }
-    if(voices.length > 0) activeTouches.set(e.pointerId, { voices, initialExact: rootNote, lastX: e.clientX, vibratoSpeed: 0, phase: 0, isGrab: false, color: `hsl(${voices[0].chan * 25}, 85%, 55%)`, lastM: m });
+    if(voices.length > 0) activeTouches.set(e.pointerId, { voices, initialExact: rootNote, lastX: e.clientX, phase: 0, isGrab: false, color: `hsl(${voices[0].chan * 25}, 85%, 55%)`, lastM: m });
 });
 
 canvas.addEventListener('pointermove', e => {
     const t = activeTouches.get(e.pointerId);
     if (!t) return;
-    const m = getMPEData(e, t);
+    
+    // Ricalcolo con riferimento alla nota iniziale
+    const m = getMPEValues(e, t.initialExact);
     t.lastM = m;
+    
     if (midiOutput) {
         t.voices.forEach(v => {
-            midiOutput.send([0xE0 + v.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
+            midiOutput.send([0xE0 + v.chan - 1, m.pb & 0x7F, (m.pb >> 7) & 0x7F]);
             midiOutput.send([0xB0 + v.chan - 1, 74, m.slide]);
             midiOutput.send([0xD0 + v.chan - 1, m.press]);
         });
@@ -233,7 +246,7 @@ function draw() {
         
         if (scale.includes(noteInOct)) {
             ctx.fillStyle = (n % 12 === root) ? '#ff4444' : '#fff';
-            ctx.font = `bold ${Math.max(10, noteW * 0.4)}px Arial`; ctx.textAlign = 'center';
+            ctx.font = `bold ${Math.max(10, noteW * 0.35)}px Arial`; ctx.textAlign = 'center';
             ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, canvas.height - 30);
         }
         const pNoteData = physicalNotes.get(n);
@@ -241,23 +254,17 @@ function draw() {
             const rad = 25 + Math.sin(time/200)*5;
             ctx.beginPath(); ctx.strokeStyle = '#00ff44'; ctx.lineWidth = 3;
             ctx.arc(x + noteW/2, canvas.height/2, rad, 0, Math.PI*2); ctx.stroke();
-            ctx.fillStyle = 'rgba(0,255,70,0.2)'; ctx.fill();
+            ctx.fillStyle = 'rgba(0,255,70,0.15)'; ctx.fill();
         }
     }
 
     activeTouches.forEach(t => {
         const radius = 25 + (t.lastM.press / 127) * 20;
-        t.phase += 0.2 + (t.vibratoSpeed * 0.05);
-        ctx.beginPath(); ctx.strokeStyle = t.color; ctx.lineWidth = 4;
-        for (let ox = -60; ox <= 60; ox += 2) {
-            const oy = Math.sin(ox * 0.15 + t.phase) * (5 + t.vibratoSpeed);
-            if (ox === -60) ctx.moveTo(t.lastM.x + ox, t.lastM.y + oy);
-            else ctx.lineTo(t.lastM.x + ox, t.lastM.y + oy);
-        }
-        ctx.stroke();
+        ctx.shadowBlur = 15; ctx.shadowColor = t.color;
         ctx.fillStyle = t.color; ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
         ctx.fillStyle = "#fff"; ctx.font = "bold 14px Arial"; ctx.textAlign = 'center';
-        ctx.fillText(t.isGrab ? "GRABBED" : `CH${t.voices[0].chan}`, t.lastM.x, t.lastM.y - radius - 20);
+        ctx.fillText(t.isGrab ? "GRABBED" : `CH${t.voices[0].chan}`, t.lastM.x, t.lastM.y - radius - 15);
     });
     requestAnimationFrame(draw);
 }
