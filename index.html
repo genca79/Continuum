@@ -13,6 +13,61 @@
             z-index: 100; transform: translateY(-93%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         #ui:hover, #ui.active { transform: translateY(0); }
+        #ui select, #ui input, #ui .menu-btn { min-width: 0; }
+        #performance {
+            position: fixed; left: 0; right: 0; bottom: 0;
+            background: rgba(10, 10, 10, 0.98);
+            border-top: 2px solid #ff3333;
+            display: flex; gap: 10px; padding: 10px;
+            z-index: 110;
+        }
+        #performance .box { min-width: 110px; }
+        #performance .menu-btn .short { display: none; }
+        #performance .label { font-size: 9px; text-transform: uppercase; color: #ffaa00; font-weight: bold; margin-bottom: 4px; }
+        #performance .icon-btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            height: 28px; min-width: 34px;
+            border: 1px solid #ff3333; border-radius: 4px;
+            background: #1c1c1c; color: #fff; font-weight: bold;
+        }
+        #performance .hold-btn {
+            display: inline-flex; align-items: center; gap: 6px; padding: 0 10px;
+            height: 28px; border: 1px solid #ff3333; border-radius: 4px;
+            background: #1c1c1c; color: #fff; font-weight: bold;
+        }
+        #performance .hold-btn .led {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #222; border: 1px solid #555;
+        }
+        #performance .hold-btn.active { background: #330000; }
+        #performance .hold-btn.active .led { background: #00ff44; border-color: #00ff44; }
+        #performance .panic-btn {
+            height: 28px; padding: 0 12px; border: 1px solid #ff3333; border-radius: 4px;
+            background: #330000; color: #fff; font-weight: bold;
+        }
+        #performance .transpose-wrap { display: flex; gap: 6px; align-items: center; }
+        #performance .transpose-value { min-width: 28px; text-align: center; font-size: 12px; }
+        #performance .chord-knob {
+            width: 50px; height: 50px; border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #3a3a3a, #1a1a1a 60%);
+            border: 2px solid #ff3333; position: relative; margin: 0 auto;
+        }
+        #performance .chord-knob::after {
+            content: ""; position: absolute; width: 4px; height: 18px;
+            background: #ffaa00; top: 6px; left: 50%; transform: translateX(-50%);
+            border-radius: 2px;
+        }
+        #performance .chord-label { text-align: center; font-size: 10px; margin-top: 4px; color: #ddd; }
+        #performance .chord-toggle {
+            display: flex; gap: 6px; justify-content: center; margin-bottom: 6px;
+        }
+        #performance .chord-toggle button {
+            height: 22px; padding: 0 8px; border: 1px solid #ff3333; border-radius: 4px;
+            background: #1c1c1c; color: #fff; font-size: 10px; font-weight: bold;
+        }
+        #performance .chord-toggle button.active { background: #330000; }
+        #performance .chord-box { align-items: center; text-align: center; }
+        #performance #chordMode { display: none; }
         .box { display: flex; flex-direction: column; flex: 1; min-width: 80px; }
         label { font-size: 9px; text-transform: uppercase; color: #ffaa00; margin-bottom: 3px; font-weight: bold; }
         select, input { background: #2a2a2a; color: #fff; border: 1px solid #444; padding: 5px; font-size: 11px; border-radius: 4px; outline: none; }
@@ -20,8 +75,24 @@
         .oct-btn { background: #300; color: #fff; border: none; width: 30px; height: 100%; cursor: pointer; font-weight: bold; }
         #octVal { font-size: 12px; color: #fff; width: 25px; text-align: center; }
         canvas { display: block; width: 100vw; height: 100vh; }
-        .footer { position: absolute; bottom: 8px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #444; }
+        .footer { position: absolute; bottom: 56px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #444; }
         .menu-btn { background: #300; color: #fff; border: 1px solid #ff3333; padding: 5px; border-radius: 4px; cursor: pointer; font-size: 10px; }
+        @media (max-width: 600px) {
+            #ui { padding: 8px; gap: 6px; }
+            #ui .box { min-width: 70px; }
+            #ui label { font-size: 8px; }
+            #ui select, #ui input, #ui .menu-btn { font-size: 10px; padding: 4px; }
+            #performance .box { min-width: 60px; }
+            #performance label { display: none; }
+            #performance select, #performance input, #performance .menu-btn { font-size: 10px; padding: 4px; }
+            #performance .oct-ctrl { height: 24px; }
+            #performance .oct-btn { width: 24px; }
+            #performance #octVal { font-size: 10px; width: 20px; }
+            #performance .menu-btn .full { display: none; }
+            #performance .menu-btn .short { display: inline; }
+            #performance .chord-knob { width: 40px; height: 40px; }
+            #performance .transpose-value { min-width: 22px; }
+        }
     </style>
 </head>
 <body>
@@ -51,12 +122,81 @@
             </select>
         </div>
     </div>
-    <div class="box" style="flex:0.6"><label>Ottave</label><select id="visibleOctaves"><option value="1">1 Oct</option><option value="2" selected>2 Oct</option><option value="3">3 Oct</option><option value="4">4 Oct</option></select></div>
-    <div class="box" style="flex:0.7"><label>Trasponi</label><div class="oct-ctrl"><button class="oct-btn" onclick="changeOctave(-1)">-</button><span id="octVal">0</span><button class="oct-btn" onclick="changeOctave(1)">+</button></div></div>
-    <div class="box"><label>Chords</label><select id="chordMode"><option value="1">Off</option><option value="3">Triads</option><option value="4">7ths</option></select></div>
+    <div class="box" style="flex:0.6"><label>Ottave</label><select id="visibleOctaves"><option value="1" selected>1 Oct</option><option value="2">2 Oct</option><option value="3">3 Oct</option><option value="4">4 Oct</option></select></div>
+    <div class="box" style="flex:0.6"><label>Inversion</label><select id="chordInversion">
+        <option value="0">Root</option><option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option>
+    </select></div>
+    <div class="box" style="flex:0.6"><label>Spread</label><input type="range" id="chordSpread" min="0" max="12" value="0"></div>
+    <div class="box" style="flex:0.5"><label>PB Range</label><select id="pbRange">
+        <option value="2">+/-2</option><option value="12">+/-12</option><option value="24">+/-24</option><option value="48" selected>+/-48</option>
+    </select></div>
+    <div class="box" style="flex:0.4"><label>Thru</label><input type="checkbox" id="midiThru"></div>
     <div class="box" style="flex:0.5"><label>Snap</label><input type="range" id="roundRate" min="0" max="80" value="15"></div>
-    <div class="box" style="flex:0.4"><label>Link YZ</label><input type="checkbox" id="linkPressToY"></div>
+    <div class="box" style="flex:0.4"><label>Dead-Center</label><input type="checkbox" id="deadCenter"></div>
+    <div class="box" style="flex:0.5"><label>DC Force</label><input type="range" id="deadCenterForce" min="0" max="100" value="60"></div>
+    <div class="box" style="flex:0.4"><label>Link YZ</label><input type="checkbox" id="linkPressToY" checked></div>
+    <div class="box" style="flex:1.2"><label>Preset</label>
+        <div style="display:flex; gap:2px;">
+            <select id="presetSelect" style="min-width:90px;"></select>
+            <input type="text" id="presetName" placeholder="Name" style="width:70px;">
+            <button id="presetSave" class="menu-btn">Save</button>
+            <button id="presetDel" class="menu-btn">Del</button>
+        </div>
+    </div>
     <div class="box" style="flex:0.4"><label>Full</label><button id="fsBtn" class="menu-btn">FS</button></div>
+</div>
+
+<div id="performance">
+    <div class="box" style="flex:0.7">
+        <div class="label">Transpose</div>
+        <div class="transpose-wrap">
+            <button class="icon-btn" id="octDownBtn" title="Oct -">&lt;</button>
+            <div class="transpose-value" id="octVal">0</div>
+            <button class="icon-btn" id="octUpBtn" title="Oct +">&gt;</button>
+        </div>
+    </div>
+    <div class="box chord-box">
+        <div class="label">Chords</div>
+        <div class="chord-toggle">
+            <button id="chordOffBtn">OFF</button>
+            <button id="chordOnBtn">ON</button>
+        </div>
+        <div class="chord-knob" id="chordKnob" title="Chords"></div>
+        <div class="chord-label" id="chordLabel">Off</div>
+        <select id="chordMode" title="Chords">
+        <option value="off">Off</option>
+        <option value="auto">Auto (Diatonic)</option>
+        <option value="auto7">Auto (Diatonic 7th)</option>
+        <option value="power">Power 5</option>
+        <option value="triad">Triad (Maj)</option>
+        <option value="minTriad">Triad (Min)</option>
+        <option value="dimTriad">Triad (Dim)</option>
+        <option value="augTriad">Triad (Aug)</option>
+        <option value="sus2">Sus2</option>
+        <option value="sus4">Sus4</option>
+        <option value="add9">Add9</option>
+        <option value="sixth">6th</option>
+        <option value="seventh">7th (Dom)</option>
+        <option value="maj7">Maj7</option>
+        <option value="min7">Min7</option>
+        <option value="halfDim7">7th (Half-Dim)</option>
+        <option value="dim7">7th (Dim)</option>
+        <option value="dom9">Dom9</option>
+        <option value="maj9">Maj9</option>
+        <option value="min9">Min9</option>
+        <option value="eleventh">11th</option>
+        <option value="thirteenth">13th</option>
+        </select>
+    </div>
+    <div class="box" style="flex:0.4">
+        <div class="label">Hold</div>
+        <button id="holdBtn" class="hold-btn" title="Hold"><span class="led"></span>HOLD</button>
+        <input type="checkbox" id="holdNotes" style="display:none">
+    </div>
+    <div class="box" style="flex:0.4">
+        <div class="label">Panic</div>
+        <button id="panicBtn" class="panic-btn" title="Panic"><span class="full">PANIC</span><span class="short">!</span></button>
+    </div>
 </div>
 
 <canvas id="surface"></canvas>
@@ -70,10 +210,15 @@ const canvas = document.getElementById('surface');
 const ctx = canvas.getContext('2d');
 let midiOutput = null;
 let midiInput = null;
+let midiAccess = null;
 const activeTouches = new Map(); 
 const physicalNotes = new Map(); // note -> array di voci esterne attive
 const mpeChannels = Array.from({length: 15}, (_, i) => i + 2);
 let currentOctave = 0;
+let heldVoices = [];
+const PRESET_KEY = 'genca_presets_v1';
+let lastChordMode = 'triad';
+let holdGroupSeq = 1;
 
 const SCALES = {
     chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], major: [0, 2, 4, 5, 7, 9, 11],
@@ -85,6 +230,149 @@ const SCALES = {
     wholeTone: [0, 2, 4, 6, 8, 10], diminished: [0, 2, 3, 5, 6, 8, 9, 11]
 };
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const CHORDS = {
+    off: [0],
+    power: [0, 7],
+    triad: [0, 4, 7],
+    minTriad: [0, 3, 7],
+    dimTriad: [0, 3, 6],
+    augTriad: [0, 4, 8],
+    sus2: [0, 2, 7],
+    sus4: [0, 5, 7],
+    add9: [0, 4, 7, 14],
+    sixth: [0, 4, 7, 9],
+    seventh: [0, 4, 7, 10],
+    maj7: [0, 4, 7, 11],
+    min7: [0, 3, 7, 10],
+    halfDim7: [0, 3, 6, 10],
+    dim7: [0, 3, 6, 9],
+    dom9: [0, 4, 7, 10, 14],
+    maj9: [0, 4, 7, 11, 14],
+    min9: [0, 3, 7, 10, 14],
+    eleventh: [0, 4, 7, 10, 14, 17],
+    thirteenth: [0, 4, 7, 10, 14, 17, 21]
+};
+
+function setPitchBendRange(semitones) {
+    if (!midiOutput) return;
+    for (let ch = 0; ch < 16; ch++) {
+        midiOutput.send([0xB0 + ch, 101, 0]);
+        midiOutput.send([0xB0 + ch, 100, 0]);
+        midiOutput.send([0xB0 + ch, 6, semitones]);
+        midiOutput.send([0xB0 + ch, 38, 0]);
+        midiOutput.send([0xB0 + ch, 101, 127]);
+        midiOutput.send([0xB0 + ch, 100, 127]);
+    }
+}
+
+function releaseHeldNotes() {
+    if (!midiOutput) return;
+    heldVoices.forEach(v => {
+        midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+        mpeChannels.push(v.chan);
+    });
+    heldVoices = [];
+    mpeChannels.sort((a,b)=>a-b);
+}
+
+function allNotesOff() {
+    if (!midiOutput) return;
+    for (let ch = 0; ch < 16; ch++) {
+        midiOutput.send([0xB0 + ch, 123, 0]);
+        midiOutput.send([0xB0 + ch, 120, 0]);
+    }
+    activeTouches.clear();
+    physicalNotes.clear();
+    mpeChannels.splice(0, mpeChannels.length, ...Array.from({length: 15}, (_, i) => i + 2));
+    heldVoices = [];
+}
+
+function applyChordVoicing(notes, inversion, spread) {
+    const result = notes.slice(0);
+    const inv = Math.min(inversion, Math.max(0, result.length - 1));
+    for (let i = 0; i < inv; i++) {
+        const n = result.shift();
+        result.push(n + 12);
+    }
+    for (let i = 0; i < result.length; i++) {
+        result[i] += i * spread;
+    }
+    return result;
+}
+
+function getPresetState() {
+    return {
+        rootNote: document.getElementById('rootNote').value,
+        scaleType: document.getElementById('scaleType').value,
+        visibleOctaves: document.getElementById('visibleOctaves').value,
+        chordMode: document.getElementById('chordMode').value,
+        chordInversion: document.getElementById('chordInversion').value,
+        chordSpread: document.getElementById('chordSpread').value,
+        roundRate: document.getElementById('roundRate').value,
+        deadCenter: document.getElementById('deadCenter').checked,
+        deadCenterForce: document.getElementById('deadCenterForce').value,
+        midiOutId: document.getElementById('midiOutSelect').value || "",
+        midiInId: document.getElementById('midiInSelect').value || "",
+        linkPressToY: document.getElementById('linkPressToY').checked,
+        holdNotes: document.getElementById('holdNotes').checked,
+        pbRange: document.getElementById('pbRange').value,
+        midiThru: document.getElementById('midiThru').checked,
+        currentOctave
+    };
+}
+
+function applyPresetState(state) {
+    if (!state) return;
+    document.getElementById('rootNote').value = state.rootNote;
+    document.getElementById('scaleType').value = state.scaleType;
+    document.getElementById('visibleOctaves').value = state.visibleOctaves;
+    document.getElementById('chordMode').value = state.chordMode;
+    document.getElementById('chordMode').dispatchEvent(new Event('change'));
+    document.getElementById('chordInversion').value = state.chordInversion;
+    document.getElementById('chordSpread').value = state.chordSpread;
+    document.getElementById('roundRate').value = state.roundRate;
+    document.getElementById('deadCenter').checked = state.deadCenter;
+    document.getElementById('deadCenterForce').value = state.deadCenterForce;
+    if (midiAccess) {
+        const outSel = document.getElementById('midiOutSelect');
+        const inSel = document.getElementById('midiInSelect');
+        if (state.midiOutId && midiAccess.outputs.has(state.midiOutId)) {
+            outSel.value = state.midiOutId;
+            midiOutput = midiAccess.outputs.get(state.midiOutId);
+        }
+        if (state.midiInId && midiAccess.inputs.has(state.midiInId)) {
+            inSel.value = state.midiInId;
+            if (midiInput) midiInput.onmidimessage = null;
+            midiInput = midiAccess.inputs.get(state.midiInId);
+            if (midiInput) midiInput.onmidimessage = handleExternalMIDI;
+        }
+    }
+    document.getElementById('linkPressToY').checked = state.linkPressToY;
+    document.getElementById('holdNotes').checked = state.holdNotes;
+    document.getElementById('holdBtn').classList.toggle('active', !!state.holdNotes);
+    document.getElementById('pbRange').value = state.pbRange;
+    document.getElementById('midiThru').checked = state.midiThru;
+    currentOctave = state.currentOctave || 0;
+    document.getElementById('octVal').innerText = (currentOctave > 0 ? "+" : "") + currentOctave;
+    setPitchBendRange(parseInt(state.pbRange, 10));
+    if (!state.holdNotes) releaseHeldNotes();
+}
+
+function loadPresets() {
+    const raw = localStorage.getItem(PRESET_KEY);
+    return raw ? JSON.parse(raw) : {};
+}
+
+function savePresets(presets) {
+    localStorage.setItem(PRESET_KEY, JSON.stringify(presets));
+}
+
+function refreshPresetSelect(presets, selected) {
+    const sel = document.getElementById('presetSelect');
+    const names = Object.keys(presets).sort();
+    sel.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join('');
+    if (selected && names.includes(selected)) sel.value = selected;
+}
 
 function getGridDegrees() {
     const root = parseInt(document.getElementById('rootNote').value);
@@ -109,14 +397,19 @@ function changeOctave(delta) {
 function setupMIDI() {
     if (navigator.requestMIDIAccess) {
         navigator.requestMIDIAccess({ sysex: false }).then(access => {
+            midiAccess = access;
             const outputs = Array.from(access.outputs.values());
             const inputs = Array.from(access.inputs.values());
             
             const outSel = document.getElementById('midiOutSelect');
             outSel.innerHTML = outputs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
             midiOutput = outputs[0] || null;
-            outSel.onchange = () => midiOutput = access.outputs.get(outSel.value);
+            outSel.onchange = () => {
+                midiOutput = access.outputs.get(outSel.value);
+                setPitchBendRange(parseInt(document.getElementById('pbRange').value, 10));
+            };
             document.getElementById('midiStatus').innerText = midiOutput ? 'MIDI OUT READY' : 'NESSUN MIDI OUT';
+            setPitchBendRange(parseInt(document.getElementById('pbRange').value, 10));
 
             const inSel = document.getElementById('midiInSelect');
             inSel.innerHTML = `<option value="">Scegli Input...</option>` + inputs.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
@@ -132,6 +425,10 @@ function setupMIDI() {
 
 // GESTIONE NOTE DA CONTROLLER ESTERNO
 function handleExternalMIDI(message) {
+    if (document.getElementById('midiThru').checked) {
+        if (midiOutput) midiOutput.send(message.data);
+        return;
+    }
     const [status, note, velocity] = message.data;
     const type = status & 0xf0;
     const srcChan = status & 0x0f;
@@ -164,12 +461,15 @@ function handleExternalMIDI(message) {
 function getMPEData(e, voice = null) {
     const numOct = parseInt(document.getElementById('visibleOctaves').value);
     const round = parseInt(document.getElementById('roundRate').value) / 100;
+    const deadCenter = document.getElementById('deadCenter').checked;
+    const dcForce = parseInt(document.getElementById('deadCenterForce').value, 10) / 100;
     const grid = getGridDegrees();
     const baseMIDI = 48 + (currentOctave * 12) + grid.root;
     const totalNotes = numOct * grid.stepsPerOct;
     const stepExact = (e.clientX / canvas.width) * totalNotes;
-    const stepIdx = Math.max(0, Math.min(totalNotes - 1, Math.floor(stepExact)));
-    const stepFrac = stepExact - stepIdx;
+    const centerExact = stepExact - 0.5;
+    const stepIdx = Math.max(0, Math.min(totalNotes - 1, Math.floor(centerExact)));
+    const stepFrac = centerExact - stepIdx;
     const noteA = getGridNoteAt(stepIdx, grid.degrees, baseMIDI);
     const noteB = getGridNoteAt(Math.min(stepIdx + 1, totalNotes - 1), grid.degrees, baseMIDI);
     const currentExact = noteA + ((noteB - noteA) * stepFrac);
@@ -177,9 +477,13 @@ function getMPEData(e, voice = null) {
     let finalExact = currentExact;
     let detune = 0;
     if (voice) {
-        const nearestNote = stepFrac < 0.5 ? noteA : noteB;
+        const nearestNote = noteA;
         const distanceToNote = Math.abs(currentExact - nearestNote);
-        if (distanceToNote < round) {
+        const dcZone = round * (0.2 + (dcForce * 0.8));
+        if (deadCenter && distanceToNote < dcZone) {
+            const force = 1 - (distanceToNote / Math.max(0.0001, dcZone));
+            finalExact = currentExact + (nearestNote - currentExact) * force;
+        } else if (distanceToNote < round) {
             const force = 1 - (distanceToNote / round);
             finalExact = currentExact + (nearestNote - currentExact) * force;
         }
@@ -187,7 +491,8 @@ function getMPEData(e, voice = null) {
         voice.vibratoSpeed = Math.abs(e.clientX - voice.lastX) * 2.8;
         voice.lastX = e.clientX;
     }
-    let pbValue = Math.floor(8192 + (detune * (8192 / 48)));
+    const pbRange = parseInt(document.getElementById('pbRange').value, 10) || 12;
+    let pbValue = Math.floor(8192 + (detune * (8192 / pbRange)));
     pbValue = Math.max(0, Math.min(16383, pbValue));
     const slide = Math.floor(Math.max(0, Math.min(1, 1 - (e.clientY / canvas.height))) * 127);
     let press = document.getElementById('linkPressToY').checked ? slide : Math.floor(Math.min(((e.width + e.height) / 75), 1.0) * 127);
@@ -198,6 +503,29 @@ canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
     if (!midiOutput || e.clientY < 60) {
         if (!midiOutput) document.getElementById('midiStatus').innerText = 'NESSUN MIDI OUT';
+        return;
+    }
+
+    const holdHit = findHeldVoiceAt(e.clientX, e.clientY);
+    if (holdHit) {
+        const groupId = holdHit.group || 0;
+        const grabbed = groupId
+            ? heldVoices.filter(v => v.group === groupId)
+            : [heldVoices[holdHit.idx]];
+        heldVoices = heldVoices.filter(v => !grabbed.includes(v));
+        const hv = grabbed[0];
+        const tmpVoice = { initialExact: hv.note, lastX: e.clientX, vibratoSpeed: 0 };
+        const m = getMPEData(e, tmpVoice);
+        grabbed.forEach(gv => {
+            midiOutput.send([0xE0 + gv.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
+            midiOutput.send([0xB0 + gv.chan - 1, 74, m.slide]);
+            midiOutput.send([0xD0 + gv.chan - 1, m.press]);
+        });
+        activeTouches.set(e.pointerId, { 
+            voices: grabbed.map(gv => ({ chan: gv.chan, note: gv.note })), 
+            initialExact: hv.note, lastX: e.clientX, isGrab: false, isHoldGrab: true, holdGroup: groupId,
+            vibratoSpeed: 0, phase: hv.phase || 0, color: hv.color, lastM: m 
+        });
         return;
     }
 
@@ -228,13 +556,24 @@ canvas.addEventListener('pointerdown', e => {
         }
     }
 
-    const chordSize = parseInt(document.getElementById('chordMode').value);
+    const chordMode = document.getElementById('chordMode').value;
     const rootIdx = scaleNotes.indexOf(rootNote);
     let voices = [];
-    for(let i=0; i<chordSize; i++) {
+    let chordNotes = [];
+    if (chordMode === 'auto' || chordMode === 'auto7') {
+        const diatonic = chordMode === 'auto7' ? [0, 2, 4, 6] : [0, 2, 4];
+        chordNotes = diatonic.map(step => scaleNotes[rootIdx + step]).filter(n => n !== undefined);
+    } else {
+        const chordSteps = CHORDS[chordMode] || CHORDS.off;
+        chordNotes = chordSteps.map(step => rootNote + step);
+    }
+    const inversion = parseInt(document.getElementById('chordInversion').value, 10) || 0;
+    const spread = parseInt(document.getElementById('chordSpread').value, 10) || 0;
+    chordNotes = applyChordVoicing(chordNotes, inversion, spread);
+    for(let i=0; i<chordNotes.length; i++) {
         const chan = mpeChannels.shift();
         if(chan) {
-            const note = scaleNotes[rootIdx + (i*2)] || rootNote;
+            const note = chordNotes[i];
             midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
             midiOutput.send([0xE0 + chan - 1, 0, 64]);
             midiOutput.send([0x90 + chan - 1, note, 90]);
@@ -262,10 +601,35 @@ canvas.addEventListener('pointermove', e => {
 canvas.addEventListener('pointerup', e => {
     const t = activeTouches.get(e.pointerId);
     if (t) {
+        const hold = document.getElementById('holdNotes').checked;
+        if (t.isHoldGrab) {
+            if (hold) {
+                const groupId = t.holdGroup || holdGroupSeq++;
+                t.voices.forEach(v => {
+                    heldVoices.push({ chan: v.chan, note: v.note, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId });
+                });
+            } else {
+                t.voices.forEach(v => {
+                    midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+                    mpeChannels.push(v.chan);
+                });
+            }
+            mpeChannels.sort((a,b)=>a-b);
+            activeTouches.delete(e.pointerId);
+            return;
+        }
         t.voices.forEach(v => {
             if(!t.isGrab) {
-                midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
-                mpeChannels.push(v.chan);
+                if (hold) {
+                    const groupId = t.holdGroup || holdGroupSeq++;
+                    midiOutput.send([0xB0 + v.chan - 1, 74, t.lastM.slide]);
+                    midiOutput.send([0xD0 + v.chan - 1, t.lastM.press]);
+                    heldVoices.push({ chan: v.chan, note: v.note, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId });
+                    t.holdGroup = groupId;
+                } else {
+                    midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+                    mpeChannels.push(v.chan);
+                }
             } else {
                 if (physicalNotes.has(v.note)) {
                     const list = physicalNotes.get(v.note);
@@ -274,7 +638,7 @@ canvas.addEventListener('pointerup', e => {
                 }
             }
         });
-        mpeChannels.sort((a,b)=>a-b);
+        if (!hold) mpeChannels.sort((a,b)=>a-b);
         activeTouches.delete(e.pointerId);
     }
 });
@@ -283,6 +647,118 @@ document.getElementById('fsBtn').onclick = () => { if (!document.fullscreenEleme
 document.addEventListener('pointerdown', e => {
     if (e.clientY < 30) document.getElementById('ui').classList.toggle('active');
 });
+document.getElementById('octDownBtn').onclick = () => changeOctave(-1);
+document.getElementById('octUpBtn').onclick = () => changeOctave(1);
+document.getElementById('holdBtn').onclick = () => {
+    const hold = document.getElementById('holdNotes');
+    hold.checked = !hold.checked;
+    document.getElementById('holdBtn').classList.toggle('active', hold.checked);
+    if (!hold.checked) releaseHeldNotes();
+};
+document.getElementById('pbRange').onchange = e => setPitchBendRange(parseInt(e.target.value, 10));
+document.getElementById('holdNotes').onchange = e => { if (!e.target.checked) releaseHeldNotes(); };
+document.getElementById('panicBtn').onclick = () => {
+    allNotesOff();
+    document.getElementById('midiStatus').innerText = 'PANIC';
+};
+
+function setupChordKnob() {
+    const select = document.getElementById('chordMode');
+    const knob = document.getElementById('chordKnob');
+    const label = document.getElementById('chordLabel');
+    const btnOff = document.getElementById('chordOffBtn');
+    const btnOn = document.getElementById('chordOnBtn');
+    const options = Array.from(select.options);
+    let currentIndex = Math.max(0, options.findIndex(o => o.value === select.value));
+    let dragStart = null;
+    let dragAccum = 0;
+
+    function applyIndex(idx) {
+        currentIndex = Math.max(0, Math.min(options.length - 1, idx));
+        select.selectedIndex = currentIndex;
+        label.innerText = options[currentIndex].text;
+        if (select.value !== 'off') lastChordMode = select.value;
+        const angle = -120 + (240 * (currentIndex / Math.max(1, options.length - 1)));
+        knob.style.transform = `rotate(${angle}deg)`;
+        const isOn = select.value !== 'off';
+        btnOn.classList.toggle('active', isOn);
+        btnOff.classList.toggle('active', !isOn);
+    }
+
+    knob.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        knob.setPointerCapture(e.pointerId);
+        dragStart = { x: e.clientX, y: e.clientY };
+        dragAccum = 0;
+    });
+    knob.addEventListener('pointermove', e => {
+        if (!dragStart) return;
+        const dy = dragStart.y - e.clientY;
+        dragAccum += dy;
+        dragStart = { x: e.clientX, y: e.clientY };
+        const step = Math.floor(dragAccum / 18);
+        if (step !== 0) {
+            applyIndex(currentIndex + step);
+            dragAccum = 0;
+        }
+    });
+    knob.addEventListener('pointerup', () => { dragStart = null; });
+    knob.addEventListener('pointercancel', () => { dragStart = null; });
+    knob.addEventListener('wheel', e => {
+        e.preventDefault();
+        applyIndex(currentIndex + (e.deltaY > 0 ? 1 : -1));
+    }, { passive: false });
+    select.addEventListener('change', () => applyIndex(select.selectedIndex));
+    btnOff.addEventListener('click', () => applyIndex(0));
+    btnOn.addEventListener('click', () => {
+        const idx = Math.max(1, options.findIndex(o => o.value === lastChordMode));
+        applyIndex(idx > 0 ? idx : 1);
+    });
+    applyIndex(currentIndex);
+}
+
+function findHeldVoiceAt(x, y) {
+    for (let i = heldVoices.length - 1; i >= 0; i--) {
+        const m = heldVoices[i].lastM;
+        if (!m) continue;
+        const radius = 12 + (m.press / 127) * 22;
+        const dx = x - m.x;
+        const dy = y - m.y;
+        if ((dx * dx + dy * dy) <= ((radius + 10) * (radius + 10))) {
+            return { idx: i, group: heldVoices[i].group || 0 };
+        }
+    }
+    return null;
+}
+
+let presets = loadPresets();
+if (!Object.keys(presets).length) {
+    presets = { Init: getPresetState() };
+} else if (presets.Init) {
+    presets.Init.visibleOctaves = "1";
+}
+savePresets(presets);
+refreshPresetSelect(presets, 'Init');
+document.getElementById('presetSelect').onchange = e => {
+    const state = presets[e.target.value];
+    applyPresetState(state);
+};
+document.getElementById('presetSave').onclick = () => {
+    const name = document.getElementById('presetName').value.trim() || document.getElementById('presetSelect').value || 'Preset';
+    presets[name] = getPresetState();
+    savePresets(presets);
+    refreshPresetSelect(presets, name);
+};
+document.getElementById('presetDel').onclick = () => {
+    const sel = document.getElementById('presetSelect').value;
+    if (sel && sel !== 'Init') {
+        delete presets[sel];
+        savePresets(presets);
+        refreshPresetSelect(presets, 'Init');
+        applyPresetState(presets.Init);
+    }
+};
+setupChordKnob();
 
 function draw() {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -293,18 +769,26 @@ function draw() {
     const baseMIDI = 48 + (currentOctave * 12) + root;
     const time = Date.now();
 
+    const perfOffset = 60;
     for (let i = 0; i < (numOct * grid.stepsPerOct); i++) {
         const n = getGridNoteAt(i, grid.degrees, baseMIDI);
         const x = i * noteW;
+        const isOctStart = (i % grid.stepsPerOct === 0);
         const isRoot = (n % 12 === root);
         ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.15)';
         ctx.fillRect(x, 0, noteW, canvas.height);
-        ctx.strokeStyle = isRoot ? '#ff0000' : '#666';
-        ctx.lineWidth = isRoot ? 3 : 1;
+        ctx.strokeStyle = isOctStart ? '#ff3333' : (isRoot ? '#ff0000' : '#666');
+        ctx.lineWidth = isOctStart ? 3 : (isRoot ? 3 : 1);
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-        ctx.fillStyle = isRoot ? '#ff4444' : '#ffffff';
-        ctx.font = `bold ${Math.max(12, Math.floor(noteW * 0.45))}px Arial`; ctx.textAlign = 'center';
-        ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, canvas.height - 40);
+        const degree = grid.degrees[i % grid.stepsPerOct];
+        if (!(degree === 12 && i < (numOct * grid.stepsPerOct - 1))) {
+            ctx.font = `bold ${Math.max(13, Math.floor(noteW * 0.5))}px Arial`; ctx.textAlign = 'center';
+            ctx.fillStyle = isRoot ? '#ff4444' : '#ffffff';
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
+            const noteY = Math.floor(canvas.height * 0.5);
+            ctx.strokeText(NOTE_NAMES[n % 12], x + noteW/2, noteY);
+            ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, noteY);
+        }
         // CERCHIO FANTASMA PER NOTE ESTERNE
         const pList = physicalNotes.get(n);
         const pData = pList ? pList.find(d => !d.grabbed) : null;
@@ -314,6 +798,25 @@ function draw() {
             ctx.arc(x + noteW/2, canvas.height/2, rad, 0, Math.PI*2); ctx.stroke();
             ctx.fillStyle = 'rgba(0,255,70,0.2)'; ctx.fill();
         }
+    }
+
+    if (heldVoices.length) {
+        heldVoices.forEach(v => {
+            const m = v.lastM;
+            const radius = 12 + (m.press / 127) * 22;
+            v.phase = (v.phase || 0) + 0.2;
+            ctx.beginPath(); ctx.strokeStyle = v.color; ctx.lineWidth = 3;
+            for (let ox = -50; ox <= 50; ox += 2) {
+                const oy = Math.sin(ox * 0.15 + v.phase) * 3;
+                if (ox === -50) ctx.moveTo(m.x + ox, m.y + oy);
+                else ctx.lineTo(m.x + ox, m.y + oy);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 20; ctx.shadowColor = v.color; ctx.fillStyle = v.color;
+            ctx.beginPath(); ctx.arc(m.x, m.y, radius, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0; ctx.fillStyle = "#fff"; ctx.font = "bold 12px Arial"; ctx.textAlign = 'center';
+            ctx.fillText("HOLD", m.x, m.y - radius - 16);
+        });
     }
 
     activeTouches.forEach(t => {
