@@ -47,23 +47,12 @@
         }
         #performance .transpose-wrap { display: flex; gap: 6px; align-items: center; }
         #performance .transpose-value { min-width: 24px; text-align: center; font-size: 11px; }
-        #performance .chord-knob {
-            width: 44px; height: 44px; border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, #3a3a3a, #1a1a1a 60%);
-            border: 2px solid #ff3333; position: relative; margin: 0 auto;
-        }
-        #performance .chord-knob::after {
-            content: ""; position: absolute; width: 4px; height: 16px;
-            background: #ffaa00; top: 6px; left: 50%; transform: translateX(-50%);
-            border-radius: 2px;
-        }
-        #performance .chord-label { text-align: center; font-size: 9px; margin-top: 3px; color: #ddd; }
         #performance .chord-toggle {
-            display: flex; gap: 4px; justify-content: center; margin-bottom: 4px;
+            display: flex; gap: 6px; justify-content: center;
         }
         #performance .chord-toggle button {
-            height: 18px; padding: 0 6px; border: 1px solid #ff3333; border-radius: 4px;
-            background: #1c1c1c; color: #fff; font-size: 9px; font-weight: bold;
+            height: 24px; padding: 0 10px; border: 1px solid #ff3333; border-radius: 4px;
+            background: #1c1c1c; color: #fff; font-size: 10px; font-weight: bold;
         }
         #performance .chord-toggle button.active { background: #330000; }
         #performance .chord-box { align-items: center; text-align: center; }
@@ -159,10 +148,8 @@
         <div class="label">Chords</div>
         <div class="chord-toggle">
             <button id="chordOffBtn">OFF</button>
-            <button id="chordOnBtn">ON</button>
+            <button id="chordNextBtn">Choose</button>
         </div>
-        <div class="chord-knob" id="chordKnob" title="Chords"></div>
-        <div class="chord-label" id="chordLabel">Off</div>
         <select id="chordMode" title="Chords">
         <option value="off">Off</option>
         <option value="auto">Auto (Diatonic)</option>
@@ -486,6 +473,9 @@ function getMPEData(e, voice = null) {
     const round = parseInt(document.getElementById('roundRate').value) / 100;
     const deadCenter = document.getElementById('deadCenter').checked;
     const dcForce = parseInt(document.getElementById('deadCenterForce').value, 10) / 100;
+    const perf = document.getElementById('performance');
+    const perfRect = perf.getBoundingClientRect();
+    const perfH = perfRect.height;
     const grid = getGridDegrees();
     const baseMIDI = 48 + (currentOctave * 12) + grid.root;
     const totalNotes = numOct * grid.stepsPerOct;
@@ -517,7 +507,9 @@ function getMPEData(e, voice = null) {
     const pbRange = parseInt(document.getElementById('pbRange').value, 10) || 12;
     let pbValue = Math.floor(8192 + (detune * (8192 / pbRange)));
     pbValue = Math.max(0, Math.min(16383, pbValue));
-    const slide = Math.floor(Math.max(0, Math.min(1, 1 - (e.clientY / canvas.height))) * 127);
+    const yMax = Math.max(1, canvas.height - perfH);
+    const yClamped = Math.max(0, Math.min(e.clientY, yMax));
+    const slide = Math.floor(Math.max(0, Math.min(1, 1 - (yClamped / yMax))) * 127);
     let press = document.getElementById('linkPressToY').checked ? slide : Math.floor(Math.min(((e.width + e.height) / 75), 1.0) * 127);
     return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: finalExact };
 }
@@ -702,54 +694,27 @@ document.getElementById('panicBtn').onclick = () => {
 
 function setupChordKnob() {
     const select = document.getElementById('chordMode');
-    const knob = document.getElementById('chordKnob');
-    const label = document.getElementById('chordLabel');
     const btnOff = document.getElementById('chordOffBtn');
-    const btnOn = document.getElementById('chordOnBtn');
+    const btnNext = document.getElementById('chordNextBtn');
     const options = Array.from(select.options);
     let currentIndex = Math.max(0, options.findIndex(o => o.value === select.value));
-    let dragStart = null;
 
     function applyIndex(idx) {
         currentIndex = Math.max(0, Math.min(options.length - 1, idx));
         select.selectedIndex = currentIndex;
-        label.innerText = options[currentIndex].text;
         if (select.value !== 'off') lastChordMode = select.value;
-        const angle = -120 + (240 * (currentIndex / Math.max(1, options.length - 1)));
-        knob.style.transform = `rotate(${angle}deg)`;
         const isOn = select.value !== 'off';
-        btnOn.classList.toggle('active', isOn);
+        btnNext.classList.toggle('active', isOn);
         btnOff.classList.toggle('active', !isOn);
+        btnNext.innerText = options[currentIndex].text;
     }
 
-    knob.addEventListener('pointerdown', e => {
-        e.preventDefault();
-        knob.setPointerCapture(e.pointerId);
-        const rect = knob.getBoundingClientRect();
-        dragStart = { rect };
-    });
-    knob.addEventListener('pointermove', e => {
-        if (!dragStart) return;
-        const rect = dragStart.rect;
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        const ang = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
-        const clamped = Math.max(-120, Math.min(120, ang));
-        const t = (clamped + 120) / 240;
-        const idx = Math.round(t * (options.length - 1));
-        applyIndex(idx);
-    });
-    knob.addEventListener('pointerup', () => { dragStart = null; });
-    knob.addEventListener('pointercancel', () => { dragStart = null; });
-    knob.addEventListener('wheel', e => {
-        e.preventDefault();
-        applyIndex(currentIndex + (e.deltaY > 0 ? 1 : -1));
-    }, { passive: false });
     select.addEventListener('change', () => applyIndex(select.selectedIndex));
     btnOff.addEventListener('click', () => applyIndex(0));
-    btnOn.addEventListener('click', () => {
-        const idx = Math.max(1, options.findIndex(o => o.value === lastChordMode));
-        applyIndex(idx > 0 ? idx : 1);
+    btnNext.addEventListener('click', () => {
+        let nextIdx = (currentIndex + 1) % options.length;
+        if (options[nextIdx].value === 'off') nextIdx = (nextIdx + 1) % options.length;
+        applyIndex(nextIdx);
     });
     applyIndex(currentIndex);
 }
