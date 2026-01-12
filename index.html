@@ -645,7 +645,16 @@ canvas.addEventListener('pointerup', e => {
 
 document.getElementById('fsBtn').onclick = () => { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); };
 document.addEventListener('pointerdown', e => {
-    if (e.clientY < 30) document.getElementById('ui').classList.toggle('active');
+    const ui = document.getElementById('ui');
+    const isTopEdge = e.clientY < 30;
+    const inUi = ui.contains(e.target);
+    if (isTopEdge) {
+        ui.classList.toggle('active');
+        return;
+    }
+    if (ui.classList.contains('active') && !inUi) {
+        ui.classList.remove('active');
+    }
 });
 document.getElementById('octDownBtn').onclick = () => changeOctave(-1);
 document.getElementById('octUpBtn').onclick = () => changeOctave(1);
