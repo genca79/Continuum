@@ -438,7 +438,7 @@ function handleExternalMIDI(message) {
         if (chan) {
             midiOutput.send([0x90 + chan - 1, note, velocity]);
             const list = physicalNotes.get(note) || [];
-            list.push({ chan, velocity, grabbed: false, srcChan });
+            list.push({ chan, velocity, grabbed: false, srcChan, lastPb: 8192, lastSlide: 0, lastPress: 0 });
             physicalNotes.set(note, list);
         } else {
             document.getElementById('midiStatus').innerText = 'MPE CHANNELS FULL';
@@ -454,6 +454,29 @@ function handleExternalMIDI(message) {
                 mpeChannels.sort((a,b)=>a-b);
             }
             if (!list.length) physicalNotes.delete(note);
+        }
+    } else if (type === 0xE0 || type === 0xD0 || type === 0xB0) {
+        const list = [];
+        physicalNotes.forEach(arr => arr.forEach(v => { if (v.srcChan === srcChan) list.push(v); }));
+        if (!list.length) return;
+        if (type === 0xE0) {
+            const pb = (message.data[2] << 7) | message.data[1];
+            list.forEach(v => {
+                v.lastPb = pb;
+                if (!v.grabbed) midiOutput.send([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+            });
+        } else if (type === 0xD0) {
+            const press = message.data[1];
+            list.forEach(v => {
+                v.lastPress = press;
+                if (!v.grabbed) midiOutput.send([0xD0 + v.chan - 1, press]);
+            });
+        } else if (type === 0xB0 && message.data[1] === 74) {
+            const slide = message.data[2];
+            list.forEach(v => {
+                v.lastSlide = slide;
+                if (!v.grabbed) midiOutput.send([0xB0 + v.chan - 1, 74, slide]);
+            });
         }
     }
 }
@@ -634,7 +657,13 @@ canvas.addEventListener('pointerup', e => {
                 if (physicalNotes.has(v.note)) {
                     const list = physicalNotes.get(v.note);
                     const pNote = list.find(d => d.chan === v.chan);
-                    if (pNote) pNote.grabbed = false;
+                    if (pNote) {
+                        pNote.grabbed = false;
+                        const pb = pNote.lastPb || 8192;
+                        midiOutput.send([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+                        midiOutput.send([0xB0 + v.chan - 1, 74, pNote.lastSlide || 0]);
+                        midiOutput.send([0xD0 + v.chan - 1, pNote.lastPress || 0]);
+                    }
                 }
             }
         });
