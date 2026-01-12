@@ -86,6 +86,21 @@ const SCALES = {
 };
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
+function getGridDegrees() {
+    const root = parseInt(document.getElementById('rootNote').value);
+    const scale = SCALES[document.getElementById('scaleType').value];
+    const degrees = scale.slice(0);
+    degrees.push(12); // ottava
+    return { root, degrees, stepsPerOct: degrees.length };
+}
+
+function getGridNoteAt(index, degrees, baseNote) {
+    const stepsPerOct = degrees.length;
+    const oct = Math.floor(index / stepsPerOct);
+    const deg = degrees[index % stepsPerOct];
+    return baseNote + (oct * 12) + deg;
+}
+
 function changeOctave(delta) {
     currentOctave = Math.max(-2, Math.min(2, currentOctave + delta));
     document.getElementById('octVal').innerText = (currentOctave > 0 ? "+" : "") + currentOctave;
@@ -149,14 +164,20 @@ function handleExternalMIDI(message) {
 function getMPEData(e, voice = null) {
     const numOct = parseInt(document.getElementById('visibleOctaves').value);
     const round = parseInt(document.getElementById('roundRate').value) / 100;
-    const baseMIDI = 48 + (currentOctave * 12);
-    const totalNotes = numOct * 12;
-    const currentExact = baseMIDI + (e.clientX / canvas.width) * totalNotes;
+    const grid = getGridDegrees();
+    const baseMIDI = 48 + (currentOctave * 12) + grid.root;
+    const totalNotes = numOct * grid.stepsPerOct;
+    const stepExact = (e.clientX / canvas.width) * totalNotes;
+    const stepIdx = Math.max(0, Math.min(totalNotes - 1, Math.floor(stepExact)));
+    const stepFrac = stepExact - stepIdx;
+    const noteA = getGridNoteAt(stepIdx, grid.degrees, baseMIDI);
+    const noteB = getGridNoteAt(Math.min(stepIdx + 1, totalNotes - 1), grid.degrees, baseMIDI);
+    const currentExact = noteA + ((noteB - noteA) * stepFrac);
     
     let finalExact = currentExact;
     let detune = 0;
     if (voice) {
-        const nearestNote = Math.round(currentExact);
+        const nearestNote = stepFrac < 0.5 ? noteA : noteB;
         const distanceToNote = Math.abs(currentExact - nearestNote);
         if (distanceToNote < round) {
             const force = 1 - (distanceToNote / round);
@@ -181,22 +202,6 @@ canvas.addEventListener('pointerdown', e => {
     }
 
     const m = getMPEData(e);
-    const noteUnderFinger = Math.round(m.exact);
-
-    // AUTO-GRAB: Se tocchi una nota già attiva fisicamente
-    if (physicalNotes.has(noteUnderFinger)) {
-        const list = physicalNotes.get(noteUnderFinger);
-        const pNote = list.find(d => !d.grabbed);
-        if (pNote) {
-            pNote.grabbed = true;
-            activeTouches.set(e.pointerId, { 
-                voices: [{ chan: pNote.chan, note: noteUnderFinger }], 
-                initialExact: noteUnderFinger, lastX: e.clientX, isGrab: true,
-                vibratoSpeed: 0, phase: 0, color: '#00ff44', lastM: m 
-            });
-            return;
-        }
-    }
 
     // STANDALONE: Produzione suono diretta
     const root = parseInt(document.getElementById('rootNote').value);
@@ -207,6 +212,21 @@ canvas.addEventListener('pointerdown', e => {
         if(scale.includes(nInOct)) scaleNotes.push(i);
     }
     const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
+
+    // AUTO-GRAB: Se tocchi una nota gia' attiva fisicamente
+    if (physicalNotes.has(rootNote)) {
+        const list = physicalNotes.get(rootNote);
+        const pNote = list.find(d => !d.grabbed);
+        if (pNote) {
+            pNote.grabbed = true;
+            activeTouches.set(e.pointerId, { 
+                voices: [{ chan: pNote.chan, note: rootNote }], 
+                initialExact: rootNote, lastX: e.clientX, isGrab: true,
+                vibratoSpeed: 0, phase: 0, color: '#00ff44', lastM: m 
+            });
+            return;
+        }
+    }
 
     const chordSize = parseInt(document.getElementById('chordMode').value);
     const rootIdx = scaleNotes.indexOf(rootNote);
@@ -267,30 +287,24 @@ document.addEventListener('pointerdown', e => {
 function draw() {
     ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
     const numOct = parseInt(document.getElementById('visibleOctaves').value);
-    const noteW = canvas.width / (numOct * 12);
-    const root = parseInt(document.getElementById('rootNote').value);
-    const baseMIDI = 48 + (currentOctave * 12);
-    const scale = SCALES[document.getElementById('scaleType').value];
+    const grid = getGridDegrees();
+    const noteW = canvas.width / (numOct * grid.stepsPerOct);
+    const root = grid.root;
+    const baseMIDI = 48 + (currentOctave * 12) + root;
     const time = Date.now();
 
-    for (let i = 0; i < (numOct * 12); i++) {
-        const n = baseMIDI + i;
+    for (let i = 0; i < (numOct * grid.stepsPerOct); i++) {
+        const n = getGridNoteAt(i, grid.degrees, baseMIDI);
         const x = i * noteW;
-        const noteInOct = (n - root) % 12 < 0 ? (n - root) % 12 + 12 : (n - root) % 12;
-        const inScale = scale.includes(noteInOct);
         const isRoot = (n % 12 === root);
-        if (inScale) {
-            ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.15)';
-            ctx.fillRect(x, 0, noteW, canvas.height);
-        }
-        ctx.strokeStyle = isRoot ? '#ff0000' : (inScale ? '#666' : '#222');
+        ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.15)';
+        ctx.fillRect(x, 0, noteW, canvas.height);
+        ctx.strokeStyle = isRoot ? '#ff0000' : '#666';
         ctx.lineWidth = isRoot ? 3 : 1;
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-        if (inScale || isRoot) {
-            ctx.fillStyle = isRoot ? '#ff4444' : '#ffffff';
-            ctx.font = `bold ${Math.max(12, Math.floor(noteW * 0.45))}px Arial`; ctx.textAlign = 'center';
-            ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, canvas.height - 40);
-        }
+        ctx.fillStyle = isRoot ? '#ff4444' : '#ffffff';
+        ctx.font = `bold ${Math.max(12, Math.floor(noteW * 0.45))}px Arial`; ctx.textAlign = 'center';
+        ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, canvas.height - 40);
         // CERCHIO FANTASMA PER NOTE ESTERNE
         const pList = physicalNotes.get(n);
         const pData = pList ? pList.find(d => !d.grabbed) : null;
