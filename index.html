@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -14,14 +15,37 @@
         }
         #ui:hover, #ui.active { transform: translateY(0); }
         #ui select, #ui input, #ui .menu-btn { min-width: 0; }
+        #ui .ui-group {
+            display: flex;
+            gap: 6px;
+            padding: 4px 6px;
+            border: 1px solid #ff3333;
+            border-radius: 6px;
+            background: rgba(35, 35, 35, 0.9);
+            align-items: center;
+            flex-wrap: wrap;
+            flex: 1 1 auto;
+        }
+        #ui .ui-title {
+            font-size: 8px;
+            text-transform: uppercase;
+            color: #ffaa00;
+            font-weight: bold;
+            margin-right: 6px;
+        }
+        .hidden { display: none; }
+        .scale-menu.active {
+            outline: 2px solid #ffaa00;
+            box-shadow: 0 0 8px rgba(255, 170, 0, 0.5);
+        }
         #performance {
             position: fixed; left: 0; right: 0; bottom: 0;
             background: rgba(10, 10, 10, 0.98);
             border-top: 2px solid #ff3333;
-            display: flex; gap: 8px; padding: 6px 8px;
+            display: flex; gap: 8px; padding: 6px 8px; flex-wrap: wrap; align-items: center;
             z-index: 110;
         }
-        #performance .box { min-width: 90px; }
+        #performance .box { min-width: 90px; flex: 1 1 90px; }
         #performance .menu-btn .short { display: none; }
         #performance .label { font-size: 8px; text-transform: uppercase; color: #ffaa00; font-weight: bold; margin-bottom: 2px; }
         #performance .icon-btn {
@@ -57,23 +81,60 @@
         #performance .chord-toggle button.active { background: #330000; }
         #performance .chord-box { align-items: center; text-align: center; }
         #performance #chordMode { display: none; }
-        .box { display: flex; flex-direction: column; flex: 1; min-width: 80px; }
+        .chord-wheel {
+            width: 64px; height: 64px;
+            border-radius: 50%;
+            border: 2px solid #ff3333;
+            background: radial-gradient(circle at 30% 30%, #3a3a3a, #111);
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 9px; font-weight: bold;
+            text-align: center; user-select: none; touch-action: none;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.6);
+        }
+        .chord-wheel.active { box-shadow: 0 0 10px rgba(255,170,0,0.6); border-color: #ffaa00; }
+        #performance .arp-group {
+            display: flex;
+            gap: 6px;
+            padding: 4px 6px;
+            border: 1px solid #ff3333;
+            border-radius: 6px;
+            background: rgba(60, 10, 10, 0.6);
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        #performance .arp-title {
+            font-size: 8px;
+            text-transform: uppercase;
+            color: #ffaa00;
+            font-weight: bold;
+            margin-right: 6px;
+        }
+        .box { display: flex; flex-direction: column; flex: 1 1 90px; min-width: 80px; }
         label { font-size: 9px; text-transform: uppercase; color: #ffaa00; margin-bottom: 3px; font-weight: bold; }
-        select, input { background: #2a2a2a; color: #fff; border: 1px solid #444; padding: 5px; font-size: 11px; border-radius: 4px; outline: none; }
+        select, input { background: #2a2a2a; color: #fff; border: 1px solid #444; padding: 5px; font-size: 11px; border-radius: 4px; outline: none; min-height: 28px; }
+        input[type="checkbox"] { width: 16px; height: 16px; }
         .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #2a2a2a; border: 1px solid #ff3333; border-radius: 4px; height: 28px; }
         .oct-btn { background: #300; color: #fff; border: none; width: 30px; height: 100%; cursor: pointer; font-weight: bold; }
         #octVal { font-size: 12px; color: #fff; width: 25px; text-align: center; }
         canvas { display: block; width: 100vw; height: 100vh; }
         .footer { position: absolute; bottom: 44px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #444; }
-        .menu-btn { background: #300; color: #fff; border: 1px solid #ff3333; padding: 5px; border-radius: 4px; cursor: pointer; font-size: 10px; }
+        .menu-btn { background: #300; color: #fff; border: 1px solid #ff3333; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 10px; min-height: 28px; min-width: 36px; }
+        .menu-btn.active { background: #552200; }
         @media (max-width: 600px) {
             #ui { padding: 8px; gap: 6px; }
             #ui .box { min-width: 70px; }
             #ui label { font-size: 8px; }
             #ui select, #ui input, #ui .menu-btn { font-size: 10px; padding: 4px; }
+            #ui .ui-group { width: 100%; flex: 1 1 100%; }
+            #ui .ui-title { width: 100%; margin-right: 0; }
+            #ui .ui-group .box { flex: 1 1 48%; min-width: 120px; }
+            #ui .ui-group .box[style*="flex:1.2"] { flex: 1 1 100%; }
+            #performance { gap: 6px; padding: 6px; }
             #performance .box { min-width: 60px; }
             #performance label { display: none; }
             #performance select, #performance input, #performance .menu-btn { font-size: 10px; padding: 4px; }
+            #performance .arp-group { width: 100%; }
+            #performance .arp-group .box { flex: 1 1 45%; min-width: 120px; }
             #performance .oct-ctrl { height: 24px; }
             #performance .oct-btn { width: 24px; }
             #performance #octVal { font-size: 10px; width: 20px; }
@@ -81,23 +142,50 @@
             #performance .menu-btn .short { display: inline; }
             #performance .chord-knob { width: 40px; height: 40px; }
             #performance .transpose-value { min-width: 22px; }
+            input[type="checkbox"] { width: 14px; height: 14px; }
+        }
+        @media (max-width: 900px) {
+            select, input, .menu-btn { min-height: 32px; }
+            .menu-btn { min-width: 44px; }
+            input[type="checkbox"] { width: 18px; height: 18px; }
+            #performance .icon-btn, #performance .hold-btn, #performance .panic-btn { min-height: 32px; }
         }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <div class="box" style="flex:1.2"><label>MIDI In</label><select id="midiInSelect"><option value="">Nessun Input</option></select></div>
-    <div class="box" style="flex:1.2"><label>MIDI Out</label><select id="midiOutSelect"></select></div>
-    <div class="box">
-        <label>Scala & Root</label>
-        <div style="display:flex; gap:2px;">
-            <select id="rootNote" style="width:45px;">
+    <div class="ui-group">
+        <div class="ui-title">MIDI</div>
+        <div class="box" style="flex:1.2"><label>MIDI In</label><select id="midiInSelect" data-param="midiInSelect"><option value="">Nessun Input</option></select></div>
+        <div class="box" style="flex:1.2"><label>MIDI Out</label><select id="midiOutSelect" data-param="midiOutSelect"></select></div>
+        <div class="box" style="flex:0.4"><label>Thru</label><input type="checkbox" id="midiThru" data-param="midiThru"></div>
+    </div>
+    <div class="ui-group">
+        <div class="ui-title">Scale</div>
+        <div class="box" id="scaleRootBox" style="flex:0.5">
+            <label>Root</label>
+            <select id="rootNote" style="width:45px;" data-param="rootNote">
                 <option value="0">C</option><option value="1">C#</option><option value="2">D</option><option value="3">D#</option>
                 <option value="4">E</option><option value="5">F</option><option value="6">F#</option><option value="7">G</option>
                 <option value="8">G#</option><option value="9">A</option><option value="10">A#</option><option value="11">B</option>
             </select>
-            <select id="scaleType">
+        </div>
+        <div class="box" id="scaleSetBox" style="flex:1.7"><label>Scale Set</label>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <label style="font-size:10px; text-transform:none; color:#ddd; margin:0;">
+                    <input type="radio" name="scaleMode" value="diatonic" id="scaleModeDiatonic" checked> Diatonic
+                </label>
+                <label style="font-size:10px; text-transform:none; color:#ddd; margin:0;">
+                    <input type="radio" name="scaleMode" value="microtonal" id="scaleModeMicro"> Microtonal
+                </label>
+                <label style="font-size:10px; text-transform:none; color:#ddd; margin:0;">
+                    <input type="radio" name="scaleMode" value="custom" id="scaleModeCustom"> Custom
+                </label>
+            </div>
+        </div>
+        <div class="box scale-menu" id="scaleDiatonicBox" style="flex:1.1"><label>Diatonic Scales</label>
+            <select id="scaleType" data-param="scaleType">
                 <option value="chromatic">Chromatic</option>
                 <option value="major">Major</option><option value="minor">Minor</option>
                 <option value="dorian">Dorian</option><option value="phrygian">Phrygian</option>
@@ -110,29 +198,87 @@
                 <option value="diminished">Diminished</option>
             </select>
         </div>
+        <div class="box scale-menu" id="scaleMicroBox" style="flex:1.1"><label>Microtonal Scales</label>
+            <select id="microScaleSelect"></select>
+            <label style="font-size:10px; text-transform:none; color:#ddd; margin-top:4px;">
+                <input type="checkbox" id="microtonalizeIn"> Microtonalize MIDI In (MPE)
+            </label>
+        </div>
+        <div class="box scale-menu" id="scaleCustomBox" style="flex:1.3"><label>Custom Scales</label>
+            <div style="display:flex; gap:2px; flex-wrap:wrap;">
+                <select id="customScaleSaved" style="min-width:90px;">
+                    <option value="">(saved)</option>
+                </select>
+                <input type="text" id="customScaleName" placeholder="Name" style="width:90px;" list="customScaleNames">
+                <button id="customScaleSave" class="menu-btn">Save</button>
+                <button id="customScaleDel" class="menu-btn">Del</button>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; margin-top:2px;">
+                <label style="font-size:10px; text-transform:none; color:#ddd; margin:0;">
+                    <input type="radio" name="customScaleMode" value="notes" id="customModeNotes" checked> Notes
+                </label>
+                <label style="font-size:10px; text-transform:none; color:#ddd; margin:0;">
+                    <input type="radio" name="customScaleMode" value="cents" id="customModeCents"> Cents
+                </label>
+            </div>
+            <input type="text" id="customScaleNotes" placeholder="Notes list (C, D#, F...)" style="width:100%; margin-top:2px;">
+            <input type="text" id="customScaleCents" placeholder="Cents list (0, 240, 480...)" style="width:100%; margin-top:2px;">
+            <datalist id="customScaleNames"></datalist>
+        </div>
+        
     </div>
-    <div class="box" style="flex:0.6"><label>Ottave</label><select id="visibleOctaves"><option value="1" selected>1 Oct</option><option value="2">2 Oct</option><option value="3">3 Oct</option><option value="4">4 Oct</option></select></div>
-    <div class="box" style="flex:0.6"><label>Inversion</label><select id="chordInversion">
-        <option value="0">Root</option><option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option>
-    </select></div>
-    <div class="box" style="flex:0.6"><label>Spread</label><input type="range" id="chordSpread" min="0" max="12" value="0"></div>
-    <div class="box" style="flex:0.5"><label>PB Range</label><select id="pbRange">
-        <option value="2">+/-2</option><option value="12">+/-12</option><option value="24">+/-24</option><option value="48" selected>+/-48</option>
-    </select></div>
-    <div class="box" style="flex:0.4"><label>Thru</label><input type="checkbox" id="midiThru"></div>
-    <div class="box" style="flex:0.5"><label>Snap</label><input type="range" id="roundRate" min="0" max="80" value="15"></div>
-    <div class="box" style="flex:0.4"><label>Dead-Center</label><input type="checkbox" id="deadCenter"></div>
-    <div class="box" style="flex:0.5"><label>DC Force</label><input type="range" id="deadCenterForce" min="0" max="100" value="60"></div>
-    <div class="box" style="flex:0.4"><label>Link YZ</label><input type="checkbox" id="linkPressToY" checked></div>
-    <div class="box" style="flex:1.2"><label>Preset</label>
-        <div style="display:flex; gap:2px;">
-            <select id="presetSelect" style="min-width:90px;"></select>
-            <input type="text" id="presetName" placeholder="Name" style="width:70px;">
-            <button id="presetSave" class="menu-btn">Save</button>
-            <button id="presetDel" class="menu-btn">Del</button>
+    <div class="ui-group">
+        <div class="ui-title">Chord</div>
+        <div class="box" style="flex:0.6"><label>Inversion</label><select id="chordInversion" data-param="chordInversion">
+            <option value="0">Root</option><option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option>
+        </select></div>
+        <div class="box" style="flex:0.6"><label>Spread</label><input type="range" id="chordSpread" min="0" max="12" value="0" data-param="chordSpread"></div>
+    </div>
+    <div class="ui-group">
+        <div class="ui-title">MPE</div>
+        <div class="box" style="flex:0.5"><label>PB Range</label><select id="pbRange" data-param="pbRange">
+            <option value="2">+/-2</option><option value="12">+/-12</option><option value="24">+/-24</option><option value="48" selected>+/-48</option>
+        </select></div>
+        <div class="box" style="flex:0.5"><label>Snap</label><input type="range" id="roundRate" min="0" max="80" value="80" data-param="roundRate"></div>
+        <div class="box" style="flex:0.4"><label>Dead-Center</label><input type="checkbox" id="deadCenter" data-param="deadCenter" checked></div>
+        <div class="box" style="flex:0.5"><label>DC Force</label><input type="range" id="deadCenterForce" min="0" max="100" value="100" data-param="deadCenterForce"></div>
+        <div class="box" style="flex:0.4"><label>Link YZ</label><input type="checkbox" id="linkPressToY" checked data-param="linkPressToY"></div>
+        <div class="box" style="flex:0.5"><label>Smooth</label><input type="range" id="smoothAmt" min="0" max="100" value="20" data-param="smoothAmt"></div>
+        <div class="box" style="flex:0.5"><label>Curve</label>
+            <select id="curveType" data-param="curveType">
+                <option value="linear" selected>Linear</option>
+                <option value="soft">Soft</option>
+                <option value="hard">Hard</option>
+            </select>
+        </div>
+        <div class="box" style="flex:0.5"><label>Y Deadzone</label><input type="range" id="yDeadzone" min="0" max="30" value="5" data-param="yDeadzone"></div>
+        <div class="box" style="flex:0.5"><label>Q Release</label><input type="checkbox" id="quantizeRelease" data-param="quantizeRelease" checked></div>
+        <div class="box" style="flex:1.2"><label>MPE Preset</label>
+            <div style="display:flex; gap:2px;">
+                <select id="mpePresetSelect" style="min-width:90px;"></select>
+                <input type="text" id="mpePresetName" placeholder="Name" style="width:70px;">
+                <button id="mpePresetSave" class="menu-btn">Save</button>
+                <button id="mpePresetDel" class="menu-btn">Del</button>
+            </div>
+            <div id="mpePresetDesc" style="font-size:8px; color:#888; margin-top:2px;">&nbsp;</div>
         </div>
     </div>
-    <div class="box" style="flex:0.4"><label>Full</label><button id="fsBtn" class="menu-btn">FS</button></div>
+    <div class="ui-group">
+        <div class="ui-title">Global Preset</div>
+        <div class="box" style="flex:1.2"><label>Preset</label>
+            <div style="display:flex; gap:2px;">
+                <select id="presetSelect" style="min-width:90px;" data-param="presetSelect"></select>
+                <input type="text" id="presetName" placeholder="Name" style="width:70px;">
+                <button id="presetSave" class="menu-btn">Save</button>
+                <button id="presetDel" class="menu-btn">Del</button>
+            </div>
+            <div id="presetDesc" style="font-size:8px; color:#888; margin-top:2px;">&nbsp;</div>
+        </div>
+    </div>
+    <div class="ui-group">
+        <div class="ui-title">System</div>
+        <div class="box" style="flex:0.4"><label>Full</label><button id="fsBtn" class="menu-btn">FS</button></div>
+    </div>
 </div>
 
 <div id="performance">
@@ -144,13 +290,22 @@
             <button class="icon-btn" id="octUpBtn" title="Oct +">&gt;</button>
         </div>
     </div>
+    <div class="box" style="flex:0.7">
+        <div class="label">Octaves</div>
+        <select id="visibleOctaves" data-param="visibleOctaves">
+            <option value="1" selected>1 Oct</option>
+            <option value="2">2 Oct</option>
+            <option value="3">3 Oct</option>
+            <option value="4">4 Oct</option>
+        </select>
+    </div>
     <div class="box chord-box">
         <div class="label">Chords</div>
         <div class="chord-toggle">
             <button id="chordOffBtn">OFF</button>
-            <button id="chordNextBtn">Choose</button>
+            <div id="chordWheel" class="chord-wheel" title="Rotate to change chord">Choose</div>
         </div>
-        <select id="chordMode" title="Chords">
+        <select id="chordMode" title="Chords" data-param="chordMode">
         <option value="off">Off</option>
         <option value="auto">Auto (Diatonic)</option>
         <option value="auto7">Auto (Diatonic 7th)</option>
@@ -178,11 +333,62 @@
     <div class="box" style="flex:0.4">
         <div class="label">Hold</div>
         <button id="holdBtn" class="hold-btn" title="Hold"><span class="led"></span>HOLD</button>
-        <input type="checkbox" id="holdNotes" style="display:none">
+        <input type="checkbox" id="holdNotes" style="display:none" data-param="holdNotes">
     </div>
-    <div class="box" style="flex:0.4">
-        <div class="label">Panic</div>
-        <button id="panicBtn" class="panic-btn" title="Panic"><span class="full">PANIC</span><span class="short">!</span></button>
+    <div class="box" style="flex:0.5">
+        <div class="label">Stop</div>
+        <button id="panicBtn" class="panic-btn" title="Stop"><span class="full">STOP</span><span class="short">!</span></button>
+    </div>
+    <div class="box" style="flex:0.9">
+        <div class="label">Fade Out</div>
+        <div style="display:flex; gap:6px; align-items:center;">
+            <button id="fadeBtn" class="panic-btn" title="Fade Out">FADE</button>
+            <input type="number" id="fadeSeconds" min="1" max="20" value="4" style="width:54px;">
+            <label style="font-size:9px; text-transform:none; color:#ddd; margin:0;">
+                <input type="checkbox" id="fadeEcho" checked> Echo
+            </label>
+        </div>
+    </div>
+    <div class="arp-group">
+        <div class="arp-title">ARP</div>
+        <div class="box" style="flex:0.5">
+            <div class="label">On</div>
+            <input type="checkbox" id="arpEnabled" data-param="arpEnabled">
+        </div>
+        <div class="box" style="flex:0.5">
+            <div class="label">Hold</div>
+            <input type="checkbox" id="arpHold" data-param="arpHold">
+        </div>
+        <div class="box" style="flex:0.5">
+            <div class="label">Latch</div>
+            <input type="checkbox" id="arpLatch" data-param="arpLatch">
+        </div>
+        <div class="box" style="flex:0.6">
+            <div class="label">Rate</div>
+            <select id="arpRate" data-param="arpRate">
+                <option value="1/4">1/4</option>
+                <option value="1/8">1/8</option>
+                <option value="1/8T">1/8T</option>
+                <option value="1/16" selected>1/16</option>
+                <option value="1/16T">1/16T</option>
+                <option value="1/32">1/32</option>
+            </select>
+        </div>
+        <div class="box" style="flex:0.6">
+            <div class="label">Gate</div>
+            <input type="range" id="arpGate" min="10" max="100" value="60" data-param="arpGate">
+        </div>
+        <div class="box" style="flex:0.6">
+            <div class="label">Sync</div>
+            <select id="arpSync" data-param="arpSync">
+                <option value="internal" selected>Internal</option>
+                <option value="midi">MIDI</option>
+            </select>
+        </div>
+        <div class="box" style="flex:0.5">
+            <div class="label">BPM</div>
+            <input type="number" id="arpBpm" min="40" max="240" value="120" data-param="arpBpm">
+        </div>
     </div>
 </div>
 
@@ -195,6 +401,75 @@
 <script>
 const canvas = document.getElementById('surface');
 const ctx = canvas.getContext('2d');
+const els = {
+    ui: document.getElementById('ui'),
+    performance: document.getElementById('performance'),
+    midiInSelect: document.getElementById('midiInSelect'),
+    midiOutSelect: document.getElementById('midiOutSelect'),
+    rootNote: document.getElementById('rootNote'),
+    scaleType: document.getElementById('scaleType'),
+    microScaleSelect: document.getElementById('microScaleSelect'),
+    microtonalizeIn: document.getElementById('microtonalizeIn'),
+    visibleOctaves: document.getElementById('visibleOctaves'),
+    scaleModeDiatonic: document.getElementById('scaleModeDiatonic'),
+    scaleModeMicro: document.getElementById('scaleModeMicro'),
+    scaleModeCustom: document.getElementById('scaleModeCustom'),
+    scaleDiatonicBox: document.getElementById('scaleDiatonicBox'),
+    scaleMicroBox: document.getElementById('scaleMicroBox'),
+    scaleCustomBox: document.getElementById('scaleCustomBox'),
+    customModeNotes: document.getElementById('customModeNotes'),
+    customModeCents: document.getElementById('customModeCents'),
+    chordMode: document.getElementById('chordMode'),
+    chordInversion: document.getElementById('chordInversion'),
+    chordSpread: document.getElementById('chordSpread'),
+    pbRange: document.getElementById('pbRange'),
+    midiThru: document.getElementById('midiThru'),
+    roundRate: document.getElementById('roundRate'),
+    deadCenter: document.getElementById('deadCenter'),
+    deadCenterForce: document.getElementById('deadCenterForce'),
+    linkPressToY: document.getElementById('linkPressToY'),
+    smoothAmt: document.getElementById('smoothAmt'),
+    curveType: document.getElementById('curveType'),
+    yDeadzone: document.getElementById('yDeadzone'),
+    quantizeRelease: document.getElementById('quantizeRelease'),
+    customScaleName: document.getElementById('customScaleName'),
+    customScaleSaved: document.getElementById('customScaleSaved'),
+    customScaleSave: document.getElementById('customScaleSave'),
+    customScaleDel: document.getElementById('customScaleDel'),
+    customScaleNotes: document.getElementById('customScaleNotes'),
+    customScaleCents: document.getElementById('customScaleCents'),
+    customScaleNames: document.getElementById('customScaleNames'),
+    presetSelect: document.getElementById('presetSelect'),
+    presetName: document.getElementById('presetName'),
+    presetSave: document.getElementById('presetSave'),
+    presetDel: document.getElementById('presetDel'),
+    presetDesc: document.getElementById('presetDesc'),
+    mpePresetSelect: document.getElementById('mpePresetSelect'),
+    mpePresetName: document.getElementById('mpePresetName'),
+    mpePresetSave: document.getElementById('mpePresetSave'),
+    mpePresetDel: document.getElementById('mpePresetDel'),
+    mpePresetDesc: document.getElementById('mpePresetDesc'),
+    fsBtn: document.getElementById('fsBtn'),
+    arpEnabled: document.getElementById('arpEnabled'),
+    arpRate: document.getElementById('arpRate'),
+    arpGate: document.getElementById('arpGate'),
+    arpSync: document.getElementById('arpSync'),
+    arpBpm: document.getElementById('arpBpm'),
+    arpHold: document.getElementById('arpHold'),
+    arpLatch: document.getElementById('arpLatch'),
+    octDownBtn: document.getElementById('octDownBtn'),
+    octUpBtn: document.getElementById('octUpBtn'),
+    octVal: document.getElementById('octVal'),
+    holdBtn: document.getElementById('holdBtn'),
+    holdNotes: document.getElementById('holdNotes'),
+    panicBtn: document.getElementById('panicBtn'),
+    fadeBtn: document.getElementById('fadeBtn'),
+    fadeSeconds: document.getElementById('fadeSeconds'),
+    fadeEcho: document.getElementById('fadeEcho'),
+    chordOffBtn: document.getElementById('chordOffBtn'),
+    chordWheel: document.getElementById('chordWheel'),
+    midiStatus: document.getElementById('midiStatus')
+};
 let midiOutput = null;
 let midiInput = null;
 let midiAccess = null;
@@ -204,8 +479,65 @@ const mpeChannels = Array.from({length: 15}, (_, i) => i + 2);
 let currentOctave = 0;
 let heldVoices = [];
 const PRESET_KEY = 'genca_presets_v1';
-let lastChordMode = 'triad';
+const MPE_PRESET_KEY = 'genca_mpe_presets_v1';
+const CUSTOM_SCALE_KEY = 'genca_custom_scales_v1';
+const MICROTONAL_SCALES = {
+    'Balinese Slendro': { cents: [0, 240, 480, 720, 960] },
+    'Balinese Pelog': { cents: [0, 150, 350, 550, 700, 900, 1050] },
+    'Just Major (5-limit)': { cents: [0, 204, 386, 498, 702, 884, 1088] },
+    'Just Minor (5-limit)': { cents: [0, 204, 316, 498, 702, 814, 1018] },
+    '19-TET': { cents: makeEqualTemperament(19) },
+    '24-TET': { cents: makeEqualTemperament(24) },
+    '31-TET': { cents: makeEqualTemperament(31) }
+};
+const DEFAULT_CUSTOM_SCALES = {
+    'Custom 1': { type: 'cents', cents: [0, 240, 480, 720, 960] }
+};
 let holdGroupSeq = 1;
+let perfHeight = 0;
+let canvasRect = canvas.getBoundingClientRect();
+let scaleNotes = [];
+const localNoteOnTimes = new Map();
+const LOCAL_SUPPRESS_MS = 30;
+const externalNoteMap = new Map();
+let fadeTimer = null;
+let fadeState = { active: false, start: 0, durationMs: 0 };
+const FADE_TAIL_MS = 200;
+const FADE_EASE_POW = 2.2;
+const ECHO_TAIL_STEPS = 7;
+const ECHO_INTERVAL_MS = 140;
+const ECHO_NOTE_MS = 90;
+const ECHO_DECAY = 0.75;
+const PRESET_DESCRIPTIONS = {
+    Init: 'Default baseline settings.',
+    Ableton: 'Studio-friendly sync: MIDI clock ARP and cleaner control.',
+    Expressive: 'Loose feel with minimal snap and magnetism.',
+    Tight: 'High precision snap and strong dead-center.',
+    Glide: 'Free pitch glide with no snap or dead-center.'
+};
+const MPE_PRESET_DESCRIPTIONS = {
+    Expressive: 'Loose feel with minimal snap and magnetism.',
+    Tight: 'High precision snap and strong dead-center.',
+    Glide: 'Free pitch glide with no snap or dead-center.'
+};
+const arp = {
+    enabled: false,
+    rate: '1/16',
+    gate: 0.6,
+    sync: 'internal',
+    bpm: 120,
+    hold: false,
+    latch: false,
+    running: false,
+    stepIndex: 0,
+    notes: [],
+    active: [],
+    timer: null,
+    clockTicks: 0,
+    ticksPerStep: 6,
+    lastClockTime: 0,
+    tickMs: 0
+};
 
 const SCALES = {
     chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], major: [0, 2, 4, 5, 7, 9, 11],
@@ -272,6 +604,8 @@ function allNotesOff() {
     physicalNotes.clear();
     mpeChannels.splice(0, mpeChannels.length, ...Array.from({length: 15}, (_, i) => i + 2));
     heldVoices = [];
+    arp.notes = [];
+    stopAllArpNotes();
 }
 
 function applyChordVoicing(notes, inversion, spread) {
@@ -289,60 +623,120 @@ function applyChordVoicing(notes, inversion, spread) {
 
 function getPresetState() {
     return {
-        rootNote: document.getElementById('rootNote').value,
-        scaleType: document.getElementById('scaleType').value,
-        visibleOctaves: document.getElementById('visibleOctaves').value,
-        chordMode: document.getElementById('chordMode').value,
-        chordInversion: document.getElementById('chordInversion').value,
-        chordSpread: document.getElementById('chordSpread').value,
-        roundRate: document.getElementById('roundRate').value,
-        deadCenter: document.getElementById('deadCenter').checked,
-        deadCenterForce: document.getElementById('deadCenterForce').value,
-        midiOutId: document.getElementById('midiOutSelect').value || "",
-        midiInId: document.getElementById('midiInSelect').value || "",
-        linkPressToY: document.getElementById('linkPressToY').checked,
-        holdNotes: document.getElementById('holdNotes').checked,
-        pbRange: document.getElementById('pbRange').value,
-        midiThru: document.getElementById('midiThru').checked,
+        rootNote: els.rootNote.value,
+        scaleType: els.scaleType.value,
+        scaleMode: els.scaleModeDiatonic.checked ? 'diatonic' : (els.scaleModeMicro.checked ? 'microtonal' : 'custom'),
+        microScaleName: els.microScaleSelect.value,
+        customScaleName: els.customScaleName.value,
+        customScaleMode: els.customModeNotes.checked ? 'notes' : 'cents',
+        customScaleNotes: els.customScaleNotes.value,
+        customScaleCents: els.customScaleCents.value,
+        microtonalizeIn: els.microtonalizeIn.checked,
+        visibleOctaves: els.visibleOctaves.value,
+        chordMode: els.chordMode.value,
+        chordInversion: els.chordInversion.value,
+        chordSpread: els.chordSpread.value,
+        roundRate: els.roundRate.value,
+        deadCenter: els.deadCenter.checked,
+        deadCenterForce: els.deadCenterForce.value,
+        midiOutId: els.midiOutSelect.value || "",
+        midiInId: els.midiInSelect.value || "",
+        linkPressToY: els.linkPressToY.checked,
+        smoothAmt: els.smoothAmt.value,
+        curveType: els.curveType.value,
+        yDeadzone: els.yDeadzone.value,
+        quantizeRelease: els.quantizeRelease.checked,
+        holdNotes: els.holdNotes.checked,
+        pbRange: els.pbRange.value,
+        midiThru: els.midiThru.checked,
+        arpEnabled: els.arpEnabled.checked,
+        arpRate: els.arpRate.value,
+        arpGate: els.arpGate.value,
+        arpSync: els.arpSync.value,
+        arpBpm: els.arpBpm.value,
+        arpHold: els.arpHold.checked,
+        arpLatch: els.arpLatch.checked,
         currentOctave
     };
 }
 
 function applyPresetState(state) {
     if (!state) return;
-    document.getElementById('rootNote').value = state.rootNote;
-    document.getElementById('scaleType').value = state.scaleType;
-    document.getElementById('visibleOctaves').value = state.visibleOctaves;
-    document.getElementById('chordMode').value = state.chordMode;
-    document.getElementById('chordMode').dispatchEvent(new Event('change'));
-    document.getElementById('chordInversion').value = state.chordInversion;
-    document.getElementById('chordSpread').value = state.chordSpread;
-    document.getElementById('roundRate').value = state.roundRate;
-    document.getElementById('deadCenter').checked = state.deadCenter;
-    document.getElementById('deadCenterForce').value = state.deadCenterForce;
+    els.rootNote.value = state.rootNote;
+    els.scaleType.value = state.scaleType;
+    if (state.scaleMode === 'microtonal') {
+        els.scaleModeMicro.checked = true;
+    } else if (state.scaleMode === 'custom') {
+        els.scaleModeCustom.checked = true;
+    } else {
+        els.scaleModeDiatonic.checked = true;
+    }
+    if (state.microScaleName && MICROTONAL_SCALES[state.microScaleName]) {
+        els.microScaleSelect.value = state.microScaleName;
+    }
+    els.microtonalizeIn.checked = !!state.microtonalizeIn;
+    if (state.customScaleName) {
+        els.customScaleName.value = state.customScaleName;
+        if (customScales[state.customScaleName]) {
+            if (customScales[state.customScaleName].type === 'notes') {
+                els.customModeNotes.checked = true;
+                els.customScaleNotes.value = formatNotesList(customScales[state.customScaleName].degrees || []);
+            } else {
+                els.customModeCents.checked = true;
+                els.customScaleCents.value = formatCentsList(customScales[state.customScaleName].cents || []);
+            }
+        }
+    }
+    if (state.customScaleMode === 'notes') {
+        els.customModeNotes.checked = true;
+        if (state.customScaleNotes) els.customScaleNotes.value = state.customScaleNotes;
+    } else if (state.customScaleMode === 'cents') {
+        els.customModeCents.checked = true;
+        if (state.customScaleCents) els.customScaleCents.value = state.customScaleCents;
+    }
+    els.visibleOctaves.value = state.visibleOctaves;
+    els.chordMode.value = state.chordMode;
+    els.chordMode.dispatchEvent(new Event('change'));
+    els.chordInversion.value = state.chordInversion;
+    els.chordSpread.value = state.chordSpread;
+    els.roundRate.value = state.roundRate;
+    els.deadCenter.checked = state.deadCenter;
+    els.deadCenterForce.value = state.deadCenterForce;
     if (midiAccess) {
-        const outSel = document.getElementById('midiOutSelect');
-        const inSel = document.getElementById('midiInSelect');
         if (state.midiOutId && midiAccess.outputs.has(state.midiOutId)) {
-            outSel.value = state.midiOutId;
+            els.midiOutSelect.value = state.midiOutId;
             midiOutput = midiAccess.outputs.get(state.midiOutId);
         }
         if (state.midiInId && midiAccess.inputs.has(state.midiInId)) {
-            inSel.value = state.midiInId;
+            els.midiInSelect.value = state.midiInId;
             if (midiInput) midiInput.onmidimessage = null;
             midiInput = midiAccess.inputs.get(state.midiInId);
             if (midiInput) midiInput.onmidimessage = handleExternalMIDI;
         }
     }
-    document.getElementById('linkPressToY').checked = state.linkPressToY;
-    document.getElementById('holdNotes').checked = state.holdNotes;
-    document.getElementById('holdBtn').classList.toggle('active', !!state.holdNotes);
-    document.getElementById('pbRange').value = state.pbRange;
-    document.getElementById('midiThru').checked = state.midiThru;
+    els.linkPressToY.checked = state.linkPressToY;
+    els.smoothAmt.value = state.smoothAmt ?? els.smoothAmt.value;
+    els.curveType.value = state.curveType ?? els.curveType.value;
+    els.yDeadzone.value = state.yDeadzone ?? els.yDeadzone.value;
+    els.quantizeRelease.checked = state.quantizeRelease ?? els.quantizeRelease.checked;
+    els.holdNotes.checked = state.holdNotes;
+    els.holdBtn.classList.toggle('active', !!state.holdNotes);
+    els.pbRange.value = state.pbRange;
+    els.midiThru.checked = state.midiThru;
+    els.arpEnabled.checked = !!state.arpEnabled;
+    els.arpRate.value = state.arpRate ?? els.arpRate.value;
+    els.arpGate.value = state.arpGate ?? els.arpGate.value;
+    els.arpSync.value = state.arpSync ?? els.arpSync.value;
+    els.arpBpm.value = state.arpBpm ?? els.arpBpm.value;
+    els.arpHold.checked = !!state.arpHold;
+    els.arpLatch.checked = !!state.arpLatch;
     currentOctave = state.currentOctave || 0;
-    document.getElementById('octVal').innerText = (currentOctave > 0 ? "+" : "") + currentOctave;
+    els.octVal.innerText = (currentOctave > 0 ? "+" : "") + currentOctave;
     setPitchBendRange(parseInt(state.pbRange, 10));
     if (!state.holdNotes) releaseHeldNotes();
+    updateScaleNotes();
+    syncArpFromUI();
+    updateScaleModeUI();
 }
 
 function loadPresets() {
@@ -354,19 +748,198 @@ function savePresets(presets) {
     localStorage.setItem(PRESET_KEY, JSON.stringify(presets));
 }
 
+function loadCustomScales() {
+    const raw = localStorage.getItem(CUSTOM_SCALE_KEY);
+    return raw ? JSON.parse(raw) : {};
+}
+
+function saveCustomScales(scales) {
+    localStorage.setItem(CUSTOM_SCALE_KEY, JSON.stringify(scales));
+}
+
+function parseCentsList(input) {
+    if (!input) return [];
+    const parts = input.split(/[\s,]+/).filter(Boolean);
+    const cents = parts
+        .map(p => Number(p))
+        .filter(n => Number.isFinite(n))
+        .map(n => Math.max(0, Math.min(1200, n)))
+        .filter(n => n < 1200);
+    const unique = Array.from(new Set(cents)).sort((a, b) => a - b);
+    if (!unique.length || unique[0] !== 0) unique.unshift(0);
+    return unique;
+}
+
+function formatCentsList(cents) {
+    return cents.map(c => String(Math.round(c))).join(', ');
+}
+
+function makeEqualTemperament(steps) {
+    const cents = [];
+    for (let i = 0; i < steps; i++) {
+        cents.push(Math.round((i * 1200) / steps));
+    }
+    return cents;
+}
+
+function parseNotesList(input) {
+    if (!input) return [];
+    const raw = input.split(/[\s,]+/).filter(Boolean);
+    const map = {
+        'C': 0, 'C#': 1, 'DB': 1,
+        'D': 2, 'D#': 3, 'EB': 3,
+        'E': 4, 'FB': 4, 'E#': 5,
+        'F': 5, 'F#': 6, 'GB': 6,
+        'G': 7, 'G#': 8, 'AB': 8,
+        'A': 9, 'A#': 10, 'BB': 10,
+        'B': 11, 'CB': 11, 'B#': 0
+    };
+    const degrees = [];
+    raw.forEach(token => {
+        const t = token.toUpperCase().replace(/\s+/g, '');
+        if (map.hasOwnProperty(t)) {
+            if (!degrees.includes(map[t])) degrees.push(map[t]);
+        }
+    });
+    if (!degrees.length || degrees[0] !== 0) degrees.unshift(0);
+    return degrees;
+}
+
+function formatNotesList(degrees) {
+    return degrees.map(d => NOTE_NAMES[(d + 12) % 12]).join(', ');
+}
+
+function getMpePresetState() {
+    return {
+        pbRange: els.pbRange.value,
+        roundRate: els.roundRate.value,
+        deadCenter: els.deadCenter.checked,
+        deadCenterForce: els.deadCenterForce.value,
+        linkPressToY: els.linkPressToY.checked,
+        smoothAmt: els.smoothAmt.value,
+        curveType: els.curveType.value,
+        yDeadzone: els.yDeadzone.value,
+        quantizeRelease: els.quantizeRelease.checked
+    };
+}
+
+function applyMpePresetState(state) {
+    if (!state) return;
+    els.pbRange.value = state.pbRange ?? els.pbRange.value;
+    els.roundRate.value = state.roundRate ?? els.roundRate.value;
+    els.deadCenter.checked = !!state.deadCenter;
+    els.deadCenterForce.value = state.deadCenterForce ?? els.deadCenterForce.value;
+    els.linkPressToY.checked = state.linkPressToY ?? els.linkPressToY.checked;
+    els.smoothAmt.value = state.smoothAmt ?? els.smoothAmt.value;
+    els.curveType.value = state.curveType ?? els.curveType.value;
+    els.yDeadzone.value = state.yDeadzone ?? els.yDeadzone.value;
+    els.quantizeRelease.checked = state.quantizeRelease ?? els.quantizeRelease.checked;
+    setPitchBendRange(parseInt(els.pbRange.value, 10));
+}
+
+function loadMpePresets() {
+    const raw = localStorage.getItem(MPE_PRESET_KEY);
+    return raw ? JSON.parse(raw) : {};
+}
+
+function saveMpePresets(presets) {
+    localStorage.setItem(MPE_PRESET_KEY, JSON.stringify(presets));
+}
+
 function refreshPresetSelect(presets, selected) {
-    const sel = document.getElementById('presetSelect');
     const names = Object.keys(presets).sort();
-    sel.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join('');
-    if (selected && names.includes(selected)) sel.value = selected;
+    els.presetSelect.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join('');
+    if (selected && names.includes(selected)) els.presetSelect.value = selected;
+    updatePresetDescription(els.presetSelect.value);
+}
+
+function updatePresetDescription(name) {
+    els.presetDesc.innerText = PRESET_DESCRIPTIONS[name] || 'Custom preset.';
+}
+
+function refreshMpePresetSelect(presets, selected) {
+    const names = Object.keys(presets).sort();
+    els.mpePresetSelect.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join('');
+    if (selected && names.includes(selected)) els.mpePresetSelect.value = selected;
+    updateMpePresetDescription(els.mpePresetSelect.value);
+}
+
+function updateMpePresetDescription(name) {
+    els.mpePresetDesc.innerText = MPE_PRESET_DESCRIPTIONS[name] || 'Custom MPE preset.';
+}
+
+function loadCustomScaleByName(name) {
+    if (customScales[name]) {
+        const entry = customScales[name];
+        if (entry.type === 'notes') {
+            els.customModeNotes.checked = true;
+            els.customScaleNotes.value = formatNotesList(entry.degrees || []);
+        } else {
+            els.customModeCents.checked = true;
+            els.customScaleCents.value = formatCentsList(entry.cents || []);
+        }
+        updateScaleModeUI();
+    }
+}
+
+function populateMicrotonalSelect() {
+    const names = Object.keys(MICROTONAL_SCALES).sort();
+    els.microScaleSelect.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join('');
+}
+
+function refreshCustomScaleDatalist() {
+    const names = Object.keys(customScales).sort();
+    els.customScaleNames.innerHTML = names.map(n => `<option value="${n}"></option>`).join('');
+    els.customScaleSaved.innerHTML = `<option value="">(saved)</option>` + names.map(n => `<option value="${n}">${n}</option>`).join('');
+}
+
+function getScaleMode() {
+    if (els.scaleModeMicro.checked) return 'microtonal';
+    if (els.scaleModeCustom.checked) return 'custom';
+    return 'diatonic';
+}
+
+function updateScaleModeUI() {
+    const mode = getScaleMode();
+    els.scaleDiatonicBox.classList.toggle('active', mode === 'diatonic');
+    els.scaleMicroBox.classList.toggle('active', mode === 'microtonal');
+    els.scaleCustomBox.classList.toggle('active', mode === 'custom');
+    els.customScaleNotes.classList.toggle('hidden', !els.customModeNotes.checked);
+    els.customScaleCents.classList.toggle('hidden', !els.customModeCents.checked);
+}
+
+function getScaleDefinition() {
+    const root = parseInt(els.rootNote.value, 10);
+    const mode = getScaleMode();
+    if (mode === 'microtonal') {
+        const name = els.microScaleSelect.value;
+        const micro = MICROTONAL_SCALES[name];
+        if (micro && Array.isArray(micro.cents) && micro.cents.length) {
+            return { root, name, mode, degrees: micro.cents.map(c => c / 100) };
+        }
+        return { root, name: 'chromatic', mode, degrees: SCALES.chromatic.slice(0) };
+    }
+    if (mode === 'custom') {
+        const name = els.customScaleName.value.trim();
+        const custom = customScales[name];
+        const useNotes = els.customModeNotes.checked;
+        const degrees = useNotes
+            ? (custom && custom.type === 'notes' ? custom.degrees : parseNotesList(els.customScaleNotes.value))
+            : (custom && custom.type === 'cents' ? custom.cents.map(c => c / 100) : parseCentsList(els.customScaleCents.value).map(c => c / 100));
+        if (degrees.length) {
+            return { root, name: name || 'custom', mode, degrees };
+        }
+        return { root, name: 'chromatic', mode, degrees: SCALES.chromatic.slice(0) };
+    }
+    const scaleType = els.scaleType.value;
+    return { root, name: scaleType, mode, degrees: SCALES[scaleType].slice(0) };
 }
 
 function getGridDegrees() {
-    const root = parseInt(document.getElementById('rootNote').value);
-    const scale = SCALES[document.getElementById('scaleType').value];
-    const degrees = scale.slice(0);
-    degrees.push(12); // ottava
-    return { root, degrees, stepsPerOct: degrees.length };
+    const def = getScaleDefinition();
+    const degrees = def.degrees.slice(0);
+    if (!degrees.some(d => Math.abs(d - 12) < 0.0001)) degrees.push(12);
+    return { root: def.root, degrees, stepsPerOct: degrees.length, baseDegrees: def.degrees };
 }
 
 function getGridNoteAt(index, degrees, baseNote) {
@@ -378,7 +951,7 @@ function getGridNoteAt(index, degrees, baseNote) {
 
 function changeOctave(delta) {
     currentOctave = Math.max(-2, Math.min(2, currentOctave + delta));
-    document.getElementById('octVal').innerText = (currentOctave > 0 ? "+" : "") + currentOctave;
+    els.octVal.innerText = (currentOctave > 0 ? "+" : "") + currentOctave;
 }
 
 function setupMIDI() {
@@ -388,59 +961,115 @@ function setupMIDI() {
             const outputs = Array.from(access.outputs.values());
             const inputs = Array.from(access.inputs.values());
             
-            const outSel = document.getElementById('midiOutSelect');
-            outSel.innerHTML = outputs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+            els.midiOutSelect.innerHTML = outputs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
             midiOutput = outputs[0] || null;
-            outSel.onchange = () => {
-                midiOutput = access.outputs.get(outSel.value);
-                setPitchBendRange(parseInt(document.getElementById('pbRange').value, 10));
+            els.midiOutSelect.onchange = () => {
+                midiOutput = access.outputs.get(els.midiOutSelect.value);
+                setPitchBendRange(parseInt(els.pbRange.value, 10));
             };
-            document.getElementById('midiStatus').innerText = midiOutput ? 'MIDI OUT READY' : 'NESSUN MIDI OUT';
-            setPitchBendRange(parseInt(document.getElementById('pbRange').value, 10));
+            els.midiStatus.innerText = midiOutput ? 'MIDI OUT READY' : 'NESSUN MIDI OUT';
+            setPitchBendRange(parseInt(els.pbRange.value, 10));
 
-            const inSel = document.getElementById('midiInSelect');
-            inSel.innerHTML = `<option value="">Scegli Input...</option>` + inputs.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
-            inSel.onchange = () => {
-                if(midiInput) midiInput.onmidimessage = null;
-                midiInput = access.inputs.get(inSel.value);
-                if(midiInput) midiInput.onmidimessage = handleExternalMIDI;
-                document.getElementById('midiStatus').innerText = midiInput ? 'MIDI IN READY' : 'NESSUN MIDI IN';
+            els.midiInSelect.innerHTML = `<option value="">Scegli Input...</option>` + inputs.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+            if (inputs[0]) {
+                els.midiInSelect.value = inputs[0].id;
+                midiInput = inputs[0];
+                midiInput.onmidimessage = handleExternalMIDI;
+                els.midiStatus.innerText = 'MIDI IN READY';
+            }
+            els.midiInSelect.onchange = () => {
+                if (midiInput) midiInput.onmidimessage = null;
+                midiInput = access.inputs.get(els.midiInSelect.value);
+                if (midiInput) midiInput.onmidimessage = handleExternalMIDI;
+                els.midiStatus.innerText = midiInput ? 'MIDI IN READY' : 'NESSUN MIDI IN';
             };
+        }).catch(() => {
+            els.midiStatus.innerText = 'MIDI NON DISPONIBILE';
         });
     }
 }
 
 // GESTIONE NOTE DA CONTROLLER ESTERNO
 function handleExternalMIDI(message) {
-    if (document.getElementById('midiThru').checked) {
-        if (midiOutput) midiOutput.send(message.data);
+    const [status, data1, data2] = message.data;
+    if (status >= 0xF8) {
+        handleClockMessage(status);
+        if (els.midiThru.checked && midiOutput) midiOutput.send(message.data);
         return;
     }
-    const [status, note, velocity] = message.data;
+    const note = data1;
+    const velocity = data2;
     const type = status & 0xf0;
     const srcChan = status & 0x0f;
+    const microtonalize = els.scaleModeMicro.checked && els.microtonalizeIn.checked;
+    if (type === 0x90 && velocity > 0 && isLocalNoteOn(note)) {
+        return;
+    }
+    const thruOnly = els.midiThru.checked && !microtonalize;
+    if (thruOnly) {
+        if (midiOutput) midiOutput.send(message.data);
+    }
     if (type === 0x90 && velocity > 0) {
-        if (!midiOutput) return;
-        const chan = mpeChannels.shift();
-        if (chan) {
-            midiOutput.send([0x90 + chan - 1, note, velocity]);
-            const list = physicalNotes.get(note) || [];
-            list.push({ chan, velocity, grabbed: false, srcChan, lastPb: 8192, lastSlide: 0, lastPress: 0 });
-            physicalNotes.set(note, list);
+        if (microtonalize) {
+            const noteFloat = mapMidiNoteToScale(note);
+            const voice = makeVoiceFromNote(noteFloat);
+            const chan = mpeChannels.shift();
+            if (!chan) {
+                els.midiStatus.innerText = 'MPE CHANNELS FULL';
+            }
+            if (chan && midiOutput) {
+                const pb = clampPb(8192 + voice.basePb);
+                midiOutput.send([0xB0 + chan - 1, 74, 0]);
+                midiOutput.send([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+                midiOutput.send([0x90 + chan - 1, voice.note, velocity]);
+            }
+            const list = physicalNotes.get(voice.note) || [];
+            list.push({ chan: chan || 0, note: voice.note, basePb: voice.basePb, velocity, grabbed: false, srcChan, srcNote: note, lastPb: 8192, lastSlide: 0, lastPress: 0 });
+            physicalNotes.set(voice.note, list);
+            externalNoteMap.set(`${srcChan}:${note}`, { keyNote: voice.note, chan: chan || 0 });
         } else {
-            document.getElementById('midiStatus').innerText = 'MPE CHANNELS FULL';
+            const chan = thruOnly ? 0 : mpeChannels.shift();
+            if (!thruOnly && !chan) {
+                els.midiStatus.innerText = 'MPE CHANNELS FULL';
+            }
+            if (!thruOnly && chan && midiOutput) {
+                midiOutput.send([0x90 + chan - 1, note, velocity]);
+            }
+            const list = physicalNotes.get(note) || [];
+            list.push({ chan: chan || 0, velocity, grabbed: false, srcChan, lastPb: 8192, lastSlide: 0, lastPress: 0 });
+            physicalNotes.set(note, list);
         }
     } else if (type === 0x80 || (type === 0x90 && velocity === 0)) {
-        const list = physicalNotes.get(note);
-        if (list && list.length) {
-            const idx = list.findIndex(d => d.srcChan === srcChan);
-            const data = idx >= 0 ? list.splice(idx, 1)[0] : list.shift();
-            if (data) {
-                midiOutput.send([0x80 + data.chan - 1, note, 0]);
-                mpeChannels.push(data.chan);
-                mpeChannels.sort((a,b)=>a-b);
+        if (microtonalize) {
+            const key = externalNoteMap.get(`${srcChan}:${note}`);
+            if (key) {
+                const list = physicalNotes.get(key.keyNote);
+                if (list && list.length) {
+                    const idx = list.findIndex(d => d.srcChan === srcChan && d.srcNote === note);
+                    const data = idx >= 0 ? list.splice(idx, 1)[0] : list.shift();
+                    if (data && data.chan) {
+                        if (midiOutput) midiOutput.send([0x80 + data.chan - 1, data.note || key.keyNote, 0]);
+                        mpeChannels.push(data.chan);
+                        mpeChannels.sort((a,b)=>a-b);
+                    }
+                    if (!list.length) physicalNotes.delete(key.keyNote);
+                }
+                externalNoteMap.delete(`${srcChan}:${note}`);
             }
-            if (!list.length) physicalNotes.delete(note);
+        } else {
+            const list = physicalNotes.get(note);
+            if (list && list.length) {
+                const idx = list.findIndex(d => d.srcChan === srcChan);
+                const data = idx >= 0 ? list.splice(idx, 1)[0] : list.shift();
+                if (data) {
+                    if (data.chan) {
+                        if (!thruOnly && midiOutput) midiOutput.send([0x80 + data.chan - 1, note, 0]);
+                        mpeChannels.push(data.chan);
+                        mpeChannels.sort((a,b)=>a-b);
+                    }
+                }
+                if (!list.length) physicalNotes.delete(note);
+            }
         }
     } else if (type === 0xE0 || type === 0xD0 || type === 0xB0) {
         const list = [];
@@ -450,36 +1079,213 @@ function handleExternalMIDI(message) {
             const pb = (message.data[2] << 7) | message.data[1];
             list.forEach(v => {
                 v.lastPb = pb;
-                if (!v.grabbed) midiOutput.send([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+                if (!thruOnly && v.chan && !v.grabbed && midiOutput) {
+                    midiOutput.send([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+                }
             });
         } else if (type === 0xD0) {
             const press = message.data[1];
             list.forEach(v => {
                 v.lastPress = press;
-                if (!v.grabbed) midiOutput.send([0xD0 + v.chan - 1, press]);
+                if (!thruOnly && v.chan && !v.grabbed && midiOutput) {
+                    midiOutput.send([0xD0 + v.chan - 1, press]);
+                }
             });
         } else if (type === 0xB0 && message.data[1] === 74) {
             const slide = message.data[2];
             list.forEach(v => {
                 v.lastSlide = slide;
-                if (!v.grabbed) midiOutput.send([0xB0 + v.chan - 1, 74, slide]);
+                if (!thruOnly && v.chan && !v.grabbed && midiOutput) {
+                    midiOutput.send([0xB0 + v.chan - 1, 74, slide]);
+                }
             });
         }
     }
 }
 
-function getMPEData(e, voice = null) {
-    const numOct = parseInt(document.getElementById('visibleOctaves').value);
-    const round = parseInt(document.getElementById('roundRate').value) / 100;
-    const deadCenter = document.getElementById('deadCenter').checked;
-    const dcForce = parseInt(document.getElementById('deadCenterForce').value, 10) / 100;
-    const perf = document.getElementById('performance');
-    const perfRect = perf.getBoundingClientRect();
-    const perfH = perfRect.height;
+function getCurveExponent() {
+    const type = els.curveType.value;
+    if (type === 'soft') return 0.6;
+    if (type === 'hard') return 1.8;
+    return 1.0;
+}
+
+function applyCurve(value) {
+    const v = Math.max(0, Math.min(1, value));
+    const exp = getCurveExponent();
+    return Math.pow(v, exp);
+}
+
+function applySmoothing(touch, m) {
+    const smoothAmt = parseInt(els.smoothAmt.value, 10) / 100;
+    if (!smoothAmt) return m;
+    const mix = 1 - smoothAmt;
+    touch.smoothPb = touch.smoothPb == null ? m.pbValue : touch.smoothPb + (m.pbValue - touch.smoothPb) * mix;
+    touch.smoothSlide = touch.smoothSlide == null ? m.slide : touch.smoothSlide + (m.slide - touch.smoothSlide) * mix;
+    touch.smoothPress = touch.smoothPress == null ? m.press : touch.smoothPress + (m.press - touch.smoothPress) * mix;
+    return {
+        ...m,
+        pbValue: Math.round(touch.smoothPb),
+        slide: Math.round(touch.smoothSlide),
+        press: Math.round(touch.smoothPress)
+    };
+}
+
+
+
+
+function getRateFactor(rate) {
+    if (rate === '1/4') return 1;
+    if (rate === '1/8') return 0.5;
+    if (rate === '1/8T') return 1 / 3;
+    if (rate === '1/16') return 0.25;
+    if (rate === '1/16T') return 1 / 6;
+    if (rate === '1/32') return 0.125;
+    return 0.25;
+}
+
+function updateArpTiming() {
+    const factor = getRateFactor(arp.rate);
+    arp.ticksPerStep = Math.max(1, Math.round(24 * factor));
+}
+
+function getStepMs() {
+    const factor = getRateFactor(arp.rate);
+    return (60 / Math.max(40, arp.bpm)) * 1000 * factor;
+}
+
+function stopAllArpNotes() {
+    if (!midiOutput) return;
+    arp.active.forEach(entry => {
+        midiOutput.send([0x80 + entry.chan - 1, entry.note, 0]);
+        mpeChannels.push(entry.chan);
+    });
+    arp.active = [];
+    mpeChannels.sort((a,b)=>a-b);
+}
+
+function arpNoteOn(noteObj, stepMs) {
+    if (!midiOutput) return;
+    const chan = mpeChannels.shift();
+    if (!chan) {
+        els.midiStatus.innerText = 'MPE CHANNELS FULL';
+        return;
+    }
+    const m = noteObj.lastM || { pbValue: 8192, slide: 0, press: 90 };
+    const vel = Math.max(1, Math.min(127, Math.round(m.press || 90)));
+    const pb = getVoicePb(m, noteObj);
+    midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
+    midiOutput.send([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+    midiOutput.send([0xD0 + chan - 1, m.press]);
+    midiOutput.send([0x90 + chan - 1, noteObj.note, vel]);
+    markLocalNoteOn(noteObj.note);
+    const entry = { chan, note: noteObj.note };
+    arp.active.push(entry);
+    const gateMs = Math.max(10, stepMs * arp.gate);
+    setTimeout(() => {
+        midiOutput.send([0x80 + entry.chan - 1, entry.note, 0]);
+        mpeChannels.push(entry.chan);
+        mpeChannels.sort((a,b)=>a-b);
+        arp.active = arp.active.filter(e => e !== entry);
+    }, gateMs);
+}
+
+function arpStep(stepMsOverride) {
+    if (!arp.enabled || !arp.notes.length) return;
+    const stepMs = stepMsOverride || getStepMs();
+    const noteObj = arp.notes[arp.stepIndex % arp.notes.length];
+    arp.stepIndex++;
+    arpNoteOn(noteObj, stepMs);
+}
+
+function restartInternalArp() {
+    if (arp.timer) clearInterval(arp.timer);
+    if (!arp.enabled || arp.sync !== 'internal') return;
+    const stepMs = getStepMs();
+    arp.running = true;
+    arp.timer = setInterval(() => arpStep(stepMs), stepMs);
+}
+
+function stopInternalArp() {
+    if (arp.timer) clearInterval(arp.timer);
+    arp.timer = null;
+}
+
+function syncArpFromUI() {
+    arp.enabled = els.arpEnabled.checked;
+    arp.rate = els.arpRate.value;
+    arp.gate = parseInt(els.arpGate.value, 10) / 100;
+    arp.sync = els.arpSync.value;
+    arp.bpm = parseInt(els.arpBpm.value, 10) || 120;
+    arp.hold = els.arpHold.checked;
+    arp.latch = els.arpLatch.checked;
+    updateArpTiming();
+    if (!arp.enabled) {
+        arp.running = false;
+        stopInternalArp();
+        stopAllArpNotes();
+        arp.notes = [];
+        return;
+    }
+    if (arp.sync === 'internal') {
+        restartInternalArp();
+    } else {
+        stopInternalArp();
+    }
+}
+
+
+function handleClockMessage(status) {
+    if (!arp.enabled || arp.sync !== 'midi') return;
+    if (status === 0xFA) {
+        arp.running = true;
+        arp.stepIndex = 0;
+        arp.clockTicks = 0;
+        arp.lastClockTime = 0;
+        stopAllArpNotes();
+        return;
+    }
+    if (status === 0xFC) {
+        arp.running = false;
+        arp.lastClockTime = 0;
+        stopAllArpNotes();
+        return;
+    }
+    if (status === 0xFB) {
+        arp.running = true;
+        return;
+    }
+    if (status === 0xF8) {
+        const now = performance.now();
+        if (arp.lastClockTime) arp.tickMs = now - arp.lastClockTime;
+        arp.lastClockTime = now;
+        if (!arp.running) return;
+        arp.clockTicks++;
+        if (arp.clockTicks % arp.ticksPerStep === 0) {
+            const stepMs = arp.tickMs ? arp.tickMs * arp.ticksPerStep : getStepMs();
+            arpStep(stepMs);
+        }
+    }
+}
+
+function removeArpNotes(noteObjs) {
+    if (!noteObjs || !noteObjs.length) return;
+    arp.notes = arp.notes.filter(n => !noteObjs.includes(n));
+}
+
+function getMPEData(e, voice = null, forceSnap = false) {
+    const numOct = parseInt(els.visibleOctaves.value, 10);
+    let round = parseInt(els.roundRate.value, 10) / 100;
+    let deadCenter = els.deadCenter.checked;
+    const dcForce = parseInt(els.deadCenterForce.value, 10) / 100;
+    if (els.quantizeRelease.checked && !forceSnap && voice) {
+        round = 0;
+        deadCenter = false;
+    }
     const grid = getGridDegrees();
     const baseMIDI = 48 + (currentOctave * 12) + grid.root;
     const totalNotes = numOct * grid.stepsPerOct;
-    const stepExact = (e.clientX / canvas.width) * totalNotes;
+    const stepExact = ((e.clientX - canvasRect.left) / canvasRect.width) * totalNotes;
     const centerExact = stepExact - 0.5;
     const stepIdx = Math.max(0, Math.min(totalNotes - 1, Math.floor(centerExact)));
     const stepFrac = centerExact - stepIdx;
@@ -504,20 +1310,251 @@ function getMPEData(e, voice = null) {
         voice.vibratoSpeed = Math.abs(e.clientX - voice.lastX) * 2.8;
         voice.lastX = e.clientX;
     }
-    const pbRange = parseInt(document.getElementById('pbRange').value, 10) || 12;
+    const pbRange = parseInt(els.pbRange.value, 10) || 12;
     let pbValue = Math.floor(8192 + (detune * (8192 / pbRange)));
     pbValue = Math.max(0, Math.min(16383, pbValue));
-    const yMax = Math.max(1, canvas.height - perfH);
-    const yClamped = Math.max(0, Math.min(e.clientY, yMax));
-    const slide = Math.floor(Math.max(0, Math.min(1, 1 - (yClamped / yMax))) * 127);
-    let press = document.getElementById('linkPressToY').checked ? slide : Math.floor(Math.min(((e.width + e.height) / 75), 1.0) * 127);
+    const yMax = Math.max(1, canvasRect.height - perfHeight);
+    const yClamped = Math.max(0, Math.min(e.clientY - canvasRect.top, yMax));
+    const yNorm = Math.max(0, Math.min(1, 1 - (yClamped / yMax)));
+    const dz = parseInt(els.yDeadzone.value, 10) / 100;
+    let slideNorm = yNorm;
+    if (dz > 0) {
+        slideNorm = slideNorm < dz ? 0 : (slideNorm - dz) / (1 - dz);
+    }
+    slideNorm = applyCurve(slideNorm);
+    const slide = Math.floor(slideNorm * 127);
+    let pressNorm = els.linkPressToY.checked ? slideNorm : Math.min(((e.width + e.height) / 75), 1.0);
+    pressNorm = applyCurve(pressNorm);
+    const press = Math.floor(pressNorm * 127);
     return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: finalExact };
+}
+
+function clampPb(value) {
+    return Math.max(0, Math.min(16383, value));
+}
+
+function markLocalNoteOn(note) {
+    localNoteOnTimes.set(note, Date.now());
+}
+
+function isLocalNoteOn(note) {
+    const ts = localNoteOnTimes.get(note);
+    if (!ts) return false;
+    if (Date.now() - ts > LOCAL_SUPPRESS_MS) {
+        localNoteOnTimes.delete(note);
+        return false;
+    }
+    return true;
+}
+
+function makeVoiceFromNote(noteFloat) {
+    const pbRange = parseInt(els.pbRange.value, 10) || 12;
+    const midiNote = Math.max(0, Math.min(127, Math.round(noteFloat)));
+    const detune = noteFloat - midiNote;
+    const basePb = Math.round(detune * (8192 / pbRange));
+    return { note: midiNote, basePb };
+}
+
+function getVoicePb(m, voice) {
+    const base = voice.basePb || 0;
+    return clampPb(m.pbValue + base);
+}
+
+function collectActiveChannels() {
+    const set = new Set();
+    activeTouches.forEach(t => {
+        t.voices.forEach(v => { if (v.chan) set.add(v.chan); });
+    });
+    heldVoices.forEach(v => { if (v.chan) set.add(v.chan); });
+    physicalNotes.forEach(arr => arr.forEach(v => { if (v.chan) set.add(v.chan); }));
+    return Array.from(set);
+}
+
+function collectFadeTargets() {
+    const targets = new Map();
+    function push(ch, slide, press) {
+        if (!ch) return;
+        const cur = targets.get(ch) || { slide: 0, press: 0 };
+        const s = Number.isFinite(slide) ? slide : 0;
+        const p = Number.isFinite(press) ? press : 0;
+        targets.set(ch, { slide: Math.max(cur.slide, s), press: Math.max(cur.press, p) });
+    }
+    activeTouches.forEach(t => {
+        t.voices.forEach(v => push(v.chan, t.lastM?.slide, t.lastM?.press));
+    });
+    heldVoices.forEach(v => push(v.chan, v.lastM?.slide, v.lastM?.press));
+    physicalNotes.forEach(arr => arr.forEach(v => push(v.chan, v.lastSlide, v.lastPress)));
+    return targets;
+}
+
+function collectActiveNotes() {
+    const map = new Map();
+    function addNote(chan, note, press) {
+        if (!chan || note == null) return;
+        const key = `${chan}:${note}`;
+        const vel = Math.max(1, Math.min(127, Math.round(press || 80)));
+        map.set(key, { chan, note, vel });
+    }
+    activeTouches.forEach(t => {
+        t.voices.forEach(v => addNote(v.chan, v.note, t.lastM?.press));
+    });
+    heldVoices.forEach(v => addNote(v.chan, v.note, v.lastM?.press));
+    physicalNotes.forEach(arr => arr.forEach(v => addNote(v.chan, v.note, v.lastPress)));
+    return Array.from(map.values());
+}
+
+function runEchoTail() {
+    if (!midiOutput || !els.fadeEcho.checked) return 0;
+    const notes = collectActiveNotes();
+    if (!notes.length) return 0;
+    for (let i = 1; i <= ECHO_TAIL_STEPS; i++) {
+        const delay = i * ECHO_INTERVAL_MS;
+        const gain = Math.pow(ECHO_DECAY, i);
+        setTimeout(() => {
+            notes.forEach(n => {
+                const vel = Math.max(1, Math.round(n.vel * gain));
+                midiOutput.send([0x90 + n.chan - 1, n.note, vel]);
+            });
+            setTimeout(() => {
+                notes.forEach(n => {
+                    midiOutput.send([0x80 + n.chan - 1, n.note, 0]);
+                });
+            }, ECHO_NOTE_MS);
+        }, delay);
+    }
+    return (ECHO_TAIL_STEPS * ECHO_INTERVAL_MS) + ECHO_NOTE_MS;
+}
+
+function fadeOutAll() {
+    if (!midiOutput) return;
+    if (fadeTimer) {
+        clearInterval(fadeTimer);
+        fadeTimer = null;
+    }
+    const seconds = Math.max(1, Math.min(20, parseFloat(els.fadeSeconds.value) || 4));
+    const channels = collectActiveChannels();
+    const targets = collectFadeTargets();
+    if (!channels.length) return;
+    const intervalMs = 30;
+    const steps = Math.max(1, Math.floor((seconds * 1000) / intervalMs));
+    let step = 0;
+    fadeState = { active: true, start: Date.now(), durationMs: seconds * 1000 };
+    fadeTimer = setInterval(() => {
+        step += 1;
+        channels.forEach(ch => {
+            const t = targets.get(ch) || { slide: 0, press: 0 };
+            const progress = Math.min(1, step / steps);
+            const factor = Math.pow(1 - progress, FADE_EASE_POW);
+            const slide = Math.max(0, Math.round(t.slide * factor));
+            const press = Math.max(0, Math.round(t.press * factor));
+            midiOutput.send([0xB0 + ch - 1, 74, slide]);
+            midiOutput.send([0xD0 + ch - 1, press]);
+        });
+        if (step >= steps) {
+            clearInterval(fadeTimer);
+            fadeTimer = null;
+            const echoTailMs = runEchoTail();
+            setTimeout(() => {
+                fadeState = { active: false, start: 0, durationMs: 0 };
+                allNotesOff();
+                els.midiStatus.innerText = 'FADE OUT';
+            }, FADE_TAIL_MS + echoTailMs);
+        }
+    }, intervalMs);
+}
+
+function mapMidiNoteToScale(note) {
+    const def = getScaleDefinition();
+    const degrees = def.degrees;
+    const rel = note - def.root;
+    const oct = Math.floor(rel / 12);
+    let best = null;
+    let bestDist = Infinity;
+    for (let o = oct - 1; o <= oct + 1; o++) {
+        const base = def.root + (o * 12);
+        degrees.forEach(d => {
+            const cand = base + d;
+            const dist = Math.abs(cand - note);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = cand;
+            }
+        });
+    }
+    return best == null ? note : best;
+}
+
+function computeChordNotes(rootNote) {
+    const chordMode = els.chordMode.value;
+    const rootIdx = scaleNotes.indexOf(rootNote);
+    let chordNotes = [];
+    if (chordMode === 'auto' || chordMode === 'auto7') {
+        const diatonic = chordMode === 'auto7' ? [0, 2, 4, 6] : [0, 2, 4];
+        if (rootIdx >= 0) {
+            chordNotes = diatonic.map(step => scaleNotes[rootIdx + step]).filter(n => n !== undefined);
+        }
+    } else {
+        const chordSteps = CHORDS[chordMode] || CHORDS.off;
+        chordNotes = chordSteps.map(step => rootNote + step);
+    }
+    const inversion = parseInt(els.chordInversion.value, 10) || 0;
+    const spread = parseInt(els.chordSpread.value, 10) || 0;
+    return applyChordVoicing(chordNotes, inversion, spread);
+}
+
+function updateHeldChords() {
+    if (!heldVoices.length || !midiOutput) return;
+    const groups = new Map();
+    heldVoices.forEach(v => {
+        const groupId = v.group || v.chan || 0;
+        if (!groups.has(groupId)) groups.set(groupId, []);
+        groups.get(groupId).push(v);
+    });
+    const nextHeld = [];
+    groups.forEach(list => {
+        const ref = list[0];
+        const rootNote = ref.rootNote;
+        if (rootNote == null) {
+            nextHeld.push(...list);
+            return;
+        }
+        list.forEach(v => {
+            midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+            mpeChannels.push(v.chan);
+        });
+        mpeChannels.sort((a,b)=>a-b);
+        const m = ref.lastM || { pbValue: 8192, slide: 0, press: 90 };
+        const chordNotes = computeChordNotes(rootNote);
+        chordNotes.forEach(noteFloat => {
+            const chan = mpeChannels.shift();
+            if (!chan) return;
+            const voice = makeVoiceFromNote(noteFloat);
+            const pb = getVoicePb(m, voice);
+            midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
+            midiOutput.send([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+            midiOutput.send([0xD0 + chan - 1, m.press]);
+            midiOutput.send([0x90 + chan - 1, voice.note, Math.max(1, Math.min(127, Math.round(m.press || 90)))]);
+            nextHeld.push({
+                chan,
+                note: voice.note,
+                basePb: voice.basePb,
+                lastM: m,
+                color: ref.color,
+                phase: ref.phase,
+                group: ref.group || 0,
+                rootNote
+            });
+        });
+    });
+    heldVoices = nextHeld;
 }
 
 canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
-    if (!midiOutput || e.clientY < 60) {
-        if (!midiOutput) document.getElementById('midiStatus').innerText = 'NESSUN MIDI OUT';
+    const uiRect = els.ui.getBoundingClientRect();
+    const inUi = els.ui.contains(e.target);
+    if (!midiOutput || (els.ui.classList.contains('active') && e.clientY < (uiRect.height + 5)) || inUi) {
+        if (!midiOutput) els.midiStatus.innerText = 'NESSUN MIDI OUT';
         return;
     }
 
@@ -532,27 +1569,28 @@ canvas.addEventListener('pointerdown', e => {
         const tmpVoice = { initialExact: hv.note, lastX: e.clientX, vibratoSpeed: 0 };
         const m = getMPEData(e, tmpVoice);
         grabbed.forEach(gv => {
-            midiOutput.send([0xE0 + gv.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
+            const pb = getVoicePb(m, gv);
+            midiOutput.send([0xE0 + gv.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
             midiOutput.send([0xB0 + gv.chan - 1, 74, m.slide]);
             midiOutput.send([0xD0 + gv.chan - 1, m.press]);
         });
         activeTouches.set(e.pointerId, { 
-            voices: grabbed.map(gv => ({ chan: gv.chan, note: gv.note })), 
-            initialExact: hv.note, lastX: e.clientX, isGrab: false, isHoldGrab: true, holdGroup: groupId,
+            voices: grabbed.map(gv => ({ chan: gv.chan, note: gv.note, basePb: gv.basePb })), 
+            initialExact: hv.rootNote ?? hv.note, lastX: e.clientX, isGrab: false, isHoldGrab: true, holdGroup: groupId,
             vibratoSpeed: 0, phase: hv.phase || 0, color: hv.color, lastM: m 
         });
         return;
     }
 
-    const m = getMPEData(e);
+    const touchState = { smoothPb: null, smoothSlide: null, smoothPress: null };
+    const m = applySmoothing(touchState, getMPEData(e));
 
     // STANDALONE: Produzione suono diretta
-    const root = parseInt(document.getElementById('rootNote').value);
-    const scale = SCALES[document.getElementById('scaleType').value];
-    const scaleNotes = [];
-    for(let i=0; i<127; i++) {
-        const nInOct = (i - root) % 12 < 0 ? (i - root) % 12 + 12 : (i - root) % 12;
-        if(scale.includes(nInOct)) scaleNotes.push(i);
+    const root = parseInt(els.rootNote.value, 10);
+    const def = getScaleDefinition();
+    const scaleKey = `${def.mode}:${def.name}`;
+    if (!scaleNotes.length || scaleNotes.root !== root || scaleNotes.scale !== scaleKey) {
+        updateScaleNotes();
     }
     const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
 
@@ -571,43 +1609,59 @@ canvas.addEventListener('pointerdown', e => {
         }
     }
 
-    const chordMode = document.getElementById('chordMode').value;
-    const rootIdx = scaleNotes.indexOf(rootNote);
     let voices = [];
-    let chordNotes = [];
-    if (chordMode === 'auto' || chordMode === 'auto7') {
-        const diatonic = chordMode === 'auto7' ? [0, 2, 4, 6] : [0, 2, 4];
-        chordNotes = diatonic.map(step => scaleNotes[rootIdx + step]).filter(n => n !== undefined);
-    } else {
-        const chordSteps = CHORDS[chordMode] || CHORDS.off;
-        chordNotes = chordSteps.map(step => rootNote + step);
+    let chordNotes = computeChordNotes(rootNote);
+    if (!chordNotes.length) return;
+    if (arp.enabled && !arp.latch) {
+        const noteObjs = chordNotes.map(noteFloat => ({ noteFloat, ...makeVoiceFromNote(noteFloat), lastM: m }));
+        arp.notes.push(...noteObjs);
+        activeTouches.set(e.pointerId, {
+            voices: noteObjs.map(n => ({ chan: 0, note: n.note, basePb: n.basePb })),
+            arpNotes: noteObjs,
+            initialExact: rootNote,
+            lastX: e.clientX,
+            isGrab: false,
+            isArp: true,
+            vibratoSpeed: 0,
+            phase: 0,
+            color: '#ffaa00',
+            lastM: m,
+            smoothPb: touchState.smoothPb,
+            smoothSlide: touchState.smoothSlide,
+            smoothPress: touchState.smoothPress
+        });
+        return;
     }
-    const inversion = parseInt(document.getElementById('chordInversion').value, 10) || 0;
-    const spread = parseInt(document.getElementById('chordSpread').value, 10) || 0;
-    chordNotes = applyChordVoicing(chordNotes, inversion, spread);
     for(let i=0; i<chordNotes.length; i++) {
         const chan = mpeChannels.shift();
         if(chan) {
-            const note = chordNotes[i];
+            const voice = makeVoiceFromNote(chordNotes[i]);
+            const pb = getVoicePb(m, voice);
             midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
-            midiOutput.send([0xE0 + chan - 1, 0, 64]);
-            midiOutput.send([0x90 + chan - 1, note, 90]);
-            voices.push({ chan, note });
+            midiOutput.send([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+            midiOutput.send([0x90 + chan - 1, voice.note, 90]);
+            markLocalNoteOn(voice.note);
+            voices.push({ chan, note: voice.note, basePb: voice.basePb });
         } else {
-            document.getElementById('midiStatus').innerText = 'MPE CHANNELS FULL';
+            els.midiStatus.innerText = 'MPE CHANNELS FULL';
         }
     }
     if (!voices.length) return;
-    activeTouches.set(e.pointerId, { voices, initialExact: rootNote, lastX: e.clientX, isGrab: false, vibratoSpeed: 0, phase: 0, color: `hsl(${voices[0]?.chan * 25 || 0}, 85%, 55%)`, lastM: m });
+    activeTouches.set(e.pointerId, { voices, initialExact: rootNote, lastX: e.clientX, isGrab: false, vibratoSpeed: 0, phase: 0, color: `hsl(${voices[0]?.chan * 25 || 0}, 85%, 55%)`, lastM: m, smoothPb: touchState.smoothPb, smoothSlide: touchState.smoothSlide, smoothPress: touchState.smoothPress });
 });
 
 canvas.addEventListener('pointermove', e => {
     const t = activeTouches.get(e.pointerId);
     if (!t || !midiOutput) return;
-    const m = getMPEData(e, t);
+    const m = applySmoothing(t, getMPEData(e, t));
     t.lastM = m;
+    if (t.isArp) {
+        if (t.arpNotes) t.arpNotes.forEach(n => { n.lastM = m; });
+        return;
+    }
     t.voices.forEach(v => {
-        midiOutput.send([0xE0 + v.chan - 1, m.pbValue & 0x7F, (m.pbValue >> 7) & 0x7F]);
+        const pb = getVoicePb(m, v);
+        midiOutput.send([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
         midiOutput.send([0xB0 + v.chan - 1, 74, m.slide]);
         midiOutput.send([0xD0 + v.chan - 1, m.press]);
     });
@@ -616,12 +1670,28 @@ canvas.addEventListener('pointermove', e => {
 canvas.addEventListener('pointerup', e => {
     const t = activeTouches.get(e.pointerId);
     if (t) {
-        const hold = document.getElementById('holdNotes').checked;
+        const hold = els.holdNotes.checked;
+        if (!t.isGrab && !t.isArp && els.quantizeRelease.checked) {
+            const snapM = getMPEData(e, t, true);
+            t.lastM = snapM;
+            t.voices.forEach(v => {
+                const pb = getVoicePb(snapM, v);
+                midiOutput.send([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+                midiOutput.send([0xB0 + v.chan - 1, 74, snapM.slide]);
+                midiOutput.send([0xD0 + v.chan - 1, snapM.press]);
+            });
+        }
+        if (t.isArp) {
+            const keep = hold || arp.hold;
+            if (!keep) removeArpNotes(t.arpNotes);
+            activeTouches.delete(e.pointerId);
+            return;
+        }
         if (t.isHoldGrab) {
             if (hold) {
                 const groupId = t.holdGroup || holdGroupSeq++;
                 t.voices.forEach(v => {
-                    heldVoices.push({ chan: v.chan, note: v.note, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId });
+                    heldVoices.push({ chan: v.chan, note: v.note, basePb: v.basePb, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId, rootNote: t.initialExact });
                 });
             } else {
                 t.voices.forEach(v => {
@@ -639,7 +1709,7 @@ canvas.addEventListener('pointerup', e => {
                     const groupId = t.holdGroup || holdGroupSeq++;
                     midiOutput.send([0xB0 + v.chan - 1, 74, t.lastM.slide]);
                     midiOutput.send([0xD0 + v.chan - 1, t.lastM.press]);
-                    heldVoices.push({ chan: v.chan, note: v.note, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId });
+                    heldVoices.push({ chan: v.chan, note: v.note, basePb: v.basePb, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId, rootNote: t.initialExact });
                     t.holdGroup = groupId;
                 } else {
                     midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
@@ -664,10 +1734,35 @@ canvas.addEventListener('pointerup', e => {
     }
 });
 
-document.getElementById('fsBtn').onclick = () => { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); };
+function cancelActivePointer(pointerId) {
+    const t = activeTouches.get(pointerId);
+    if (!t) return;
+    if (t.isArp) {
+        const keep = els.holdNotes.checked || arp.hold;
+        if (!keep) removeArpNotes(t.arpNotes);
+        activeTouches.delete(pointerId);
+        return;
+    }
+    if (!midiOutput) {
+        activeTouches.delete(pointerId);
+        return;
+    }
+    t.voices.forEach(v => {
+        midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+        mpeChannels.push(v.chan);
+    });
+    mpeChannels.sort((a,b)=>a-b);
+    activeTouches.delete(pointerId);
+}
+
+canvas.addEventListener('pointercancel', e => cancelActivePointer(e.pointerId));
+canvas.addEventListener('pointerleave', e => cancelActivePointer(e.pointerId));
+
+els.fsBtn.onclick = () => { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); };
 document.addEventListener('pointerdown', e => {
-    const ui = document.getElementById('ui');
-    const isTopEdge = e.clientY < 30;
+    const ui = els.ui;
+    const uiRect = ui.getBoundingClientRect();
+    const isTopEdge = e.clientY < (uiRect.height * 0.35);
     const inUi = ui.contains(e.target);
     if (isTopEdge) {
         ui.classList.toggle('active');
@@ -677,44 +1772,107 @@ document.addEventListener('pointerdown', e => {
         ui.classList.remove('active');
     }
 });
-document.getElementById('octDownBtn').onclick = () => changeOctave(-1);
-document.getElementById('octUpBtn').onclick = () => changeOctave(1);
-document.getElementById('holdBtn').onclick = () => {
-    const hold = document.getElementById('holdNotes');
+els.octDownBtn.onclick = () => changeOctave(-1);
+els.octUpBtn.onclick = () => changeOctave(1);
+els.holdBtn.onclick = () => {
+    const hold = els.holdNotes;
     hold.checked = !hold.checked;
-    document.getElementById('holdBtn').classList.toggle('active', hold.checked);
+    els.holdBtn.classList.toggle('active', hold.checked);
     if (!hold.checked) releaseHeldNotes();
 };
-document.getElementById('pbRange').onchange = e => setPitchBendRange(parseInt(e.target.value, 10));
-document.getElementById('holdNotes').onchange = e => { if (!e.target.checked) releaseHeldNotes(); };
-document.getElementById('panicBtn').onclick = () => {
+els.pbRange.onchange = e => setPitchBendRange(parseInt(e.target.value, 10));
+els.holdNotes.onchange = e => { if (!e.target.checked) releaseHeldNotes(); };
+els.panicBtn.onclick = () => {
     allNotesOff();
-    document.getElementById('midiStatus').innerText = 'PANIC';
+    els.midiStatus.innerText = 'STOP';
 };
+els.fadeBtn.onclick = () => {
+    fadeOutAll();
+};
+els.arpEnabled.onchange = syncArpFromUI;
+els.arpRate.onchange = syncArpFromUI;
+els.arpGate.onchange = syncArpFromUI;
+els.arpSync.onchange = syncArpFromUI;
+els.arpBpm.onchange = syncArpFromUI;
+els.arpHold.onchange = syncArpFromUI;
+els.arpLatch.onchange = syncArpFromUI;
 
 function setupChordKnob() {
-    const select = document.getElementById('chordMode');
-    const btnOff = document.getElementById('chordOffBtn');
-    const btnNext = document.getElementById('chordNextBtn');
+    const select = els.chordMode;
+    const btnOff = els.chordOffBtn;
+    const wheel = els.chordWheel;
     const options = Array.from(select.options);
     let currentIndex = Math.max(0, options.findIndex(o => o.value === select.value));
+    let lastAngle = null;
+    let angleAccum = 0;
+    const stepAngle = 30;
 
     function applyIndex(idx) {
         currentIndex = Math.max(0, Math.min(options.length - 1, idx));
         select.selectedIndex = currentIndex;
-        if (select.value !== 'off') lastChordMode = select.value;
         const isOn = select.value !== 'off';
-        btnNext.classList.toggle('active', isOn);
         btnOff.classList.toggle('active', !isOn);
-        btnNext.innerText = options[currentIndex].text;
+        wheel.innerText = options[currentIndex].text;
+        wheel.classList.toggle('active', isOn);
     }
 
-    select.addEventListener('change', () => applyIndex(select.selectedIndex));
+    select.addEventListener('change', () => {
+        applyIndex(select.selectedIndex);
+        updateHeldChords();
+    });
     btnOff.addEventListener('click', () => applyIndex(0));
-    btnNext.addEventListener('click', () => {
-        let nextIdx = (currentIndex + 1) % options.length;
-        if (options[nextIdx].value === 'off') nextIdx = (nextIdx + 1) % options.length;
+
+    function angleFromEvent(e) {
+        const rect = wheel.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        return Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+    }
+
+    function stepBy(delta) {
+        let nextIdx = currentIndex + delta;
+        if (nextIdx < 0) nextIdx = options.length - 1;
+        if (nextIdx >= options.length) nextIdx = 0;
+        if (options[nextIdx].value === 'off') {
+            nextIdx = delta > 0 ? (nextIdx + 1) % options.length : (nextIdx - 1 + options.length) % options.length;
+        }
         applyIndex(nextIdx);
+    }
+
+    wheel.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        wheel.setPointerCapture(e.pointerId);
+        lastAngle = angleFromEvent(e);
+        angleAccum = 0;
+        wheel.classList.add('active');
+    });
+    wheel.addEventListener('pointermove', e => {
+        if (lastAngle == null) return;
+        const ang = angleFromEvent(e);
+        let delta = ang - lastAngle;
+        if (delta > 180) delta -= 360;
+        if (delta < -180) delta += 360;
+        angleAccum += delta;
+        lastAngle = ang;
+        while (angleAccum >= stepAngle) {
+            stepBy(1);
+            angleAccum -= stepAngle;
+        }
+        while (angleAccum <= -stepAngle) {
+            stepBy(-1);
+            angleAccum += stepAngle;
+        }
+    });
+    wheel.addEventListener('pointerup', e => {
+        wheel.releasePointerCapture(e.pointerId);
+        lastAngle = null;
+        angleAccum = 0;
+        wheel.classList.toggle('active', select.value !== 'off');
+    });
+    wheel.addEventListener('pointercancel', () => {
+        lastAngle = null;
+        angleAccum = 0;
+        wheel.classList.toggle('active', select.value !== 'off');
     });
     applyIndex(currentIndex);
 }
@@ -734,71 +1892,270 @@ function findHeldVoiceAt(x, y) {
 }
 
 let presets = loadPresets();
+let mpePresets = loadMpePresets();
+let customScales = loadCustomScales();
 if (!Object.keys(presets).length) {
-    presets = { Init: getPresetState() };
+    const base = getPresetState();
+    presets = {
+        Init: base,
+        Ableton: {
+            ...base,
+            arpSync: 'midi',
+            smoothAmt: '20',
+            curveType: 'soft',
+            yDeadzone: '5',
+            arpLatch: false,
+            quantizeRelease: true
+        },
+        Expressive: {
+            ...base,
+            roundRate: '10',
+            deadCenter: false,
+            deadCenterForce: '30',
+            smoothAmt: '10',
+            curveType: 'linear',
+            yDeadzone: '2',
+            quantizeRelease: false
+        },
+        Tight: {
+            ...base,
+            roundRate: '80',
+            deadCenter: true,
+            deadCenterForce: '100',
+            smoothAmt: '35',
+            curveType: 'soft',
+            yDeadzone: '8',
+            quantizeRelease: true
+        },
+        Glide: {
+            ...base,
+            roundRate: '0',
+            deadCenter: false,
+            deadCenterForce: '0',
+            smoothAmt: '5',
+            curveType: 'linear',
+            yDeadzone: '0',
+            quantizeRelease: false
+        }
+    };
 } else if (presets.Init) {
     presets.Init.visibleOctaves = "1";
 }
 savePresets(presets);
 refreshPresetSelect(presets, 'Init');
-document.getElementById('presetSelect').onchange = e => {
+if (!Object.keys(mpePresets).length) {
+    const mpeBase = getMpePresetState();
+    mpePresets = {
+        Expressive: { ...mpeBase, roundRate: '10', deadCenter: false, deadCenterForce: '30', smoothAmt: '10', curveType: 'linear', yDeadzone: '2', quantizeRelease: false },
+        Tight: { ...mpeBase, roundRate: '80', deadCenter: true, deadCenterForce: '100', smoothAmt: '35', curveType: 'soft', yDeadzone: '8', quantizeRelease: true },
+        Glide: { ...mpeBase, roundRate: '0', deadCenter: false, deadCenterForce: '0', smoothAmt: '5', curveType: 'linear', yDeadzone: '0', quantizeRelease: false }
+    };
+}
+saveMpePresets(mpePresets);
+refreshMpePresetSelect(mpePresets, 'Tight');
+populateMicrotonalSelect();
+customScales = { ...DEFAULT_CUSTOM_SCALES, ...customScales };
+saveCustomScales(customScales);
+const firstCustom = Object.keys(customScales)[0];
+els.customScaleName.value = firstCustom || '';
+loadCustomScaleByName(firstCustom);
+refreshCustomScaleDatalist();
+els.presetSelect.onchange = e => {
     const state = presets[e.target.value];
     applyPresetState(state);
+    updatePresetDescription(e.target.value);
 };
-document.getElementById('presetSave').onclick = () => {
-    const name = document.getElementById('presetName').value.trim() || document.getElementById('presetSelect').value || 'Preset';
+els.presetSave.onclick = () => {
+    const name = els.presetName.value.trim() || els.presetSelect.value || 'Preset';
     presets[name] = getPresetState();
     savePresets(presets);
     refreshPresetSelect(presets, name);
+    updatePresetDescription(name);
 };
-document.getElementById('presetDel').onclick = () => {
-    const sel = document.getElementById('presetSelect').value;
+els.presetDel.onclick = () => {
+    const sel = els.presetSelect.value;
     if (sel && sel !== 'Init') {
         delete presets[sel];
         savePresets(presets);
         refreshPresetSelect(presets, 'Init');
         applyPresetState(presets.Init);
+        updatePresetDescription('Init');
+    }
+};
+els.mpePresetSelect.onchange = e => {
+    const state = mpePresets[e.target.value];
+    applyMpePresetState(state);
+    updateMpePresetDescription(e.target.value);
+};
+els.mpePresetSave.onclick = () => {
+    const name = els.mpePresetName.value.trim() || els.mpePresetSelect.value || 'MPE Preset';
+    mpePresets[name] = getMpePresetState();
+    saveMpePresets(mpePresets);
+    refreshMpePresetSelect(mpePresets, name);
+    updateMpePresetDescription(name);
+};
+els.mpePresetDel.onclick = () => {
+    const sel = els.mpePresetSelect.value;
+    if (sel) {
+        delete mpePresets[sel];
+        saveMpePresets(mpePresets);
+        refreshMpePresetSelect(mpePresets, 'Tight');
+    }
+};
+els.customScaleSave.onclick = () => {
+    const name = els.customScaleName.value.trim();
+    if (!name) return;
+    if (els.customModeNotes.checked) {
+        const degrees = parseNotesList(els.customScaleNotes.value);
+        if (degrees.length < 2) return;
+        customScales[name] = { type: 'notes', degrees };
+    } else {
+        const cents = parseCentsList(els.customScaleCents.value);
+        if (cents.length < 2) return;
+        customScales[name] = { type: 'cents', cents };
+    }
+    saveCustomScales(customScales);
+    els.scaleModeCustom.checked = true;
+    els.customScaleName.value = name;
+    refreshCustomScaleDatalist();
+    updateScaleModeUI();
+    updateScaleNotes();
+};
+els.customScaleDel.onclick = () => {
+    const sel = els.customScaleName.value.trim();
+    if (sel) {
+        delete customScales[sel];
+        saveCustomScales(customScales);
+        const next = Object.keys(customScales)[0] || '';
+        els.customScaleName.value = next;
+        if (next) loadCustomScaleByName(next);
+        else els.customScaleCents.value = '';
+        refreshCustomScaleDatalist();
+        updateScaleNotes();
     }
 };
 setupChordKnob();
 
+function updateScaleNotes() {
+    const def = getScaleDefinition();
+    const notes = [];
+    const degrees = def.degrees;
+    for (let oct = -1; oct <= 11; oct++) {
+        degrees.forEach(d => {
+            const note = (oct * 12) + def.root + d;
+            if (note >= 0 && note <= 127) notes.push(note);
+        });
+    }
+    notes.sort((a, b) => a - b);
+    notes.root = def.root;
+    notes.scale = `${def.mode}:${def.name}`;
+    scaleNotes = notes;
+}
+
+els.rootNote.onchange = updateScaleNotes;
+els.scaleType.onchange = () => {
+    els.scaleModeDiatonic.checked = true;
+    updateScaleModeUI();
+    updateScaleNotes();
+};
+els.microScaleSelect.onchange = () => {
+    els.scaleModeMicro.checked = true;
+    updateScaleModeUI();
+    updateScaleNotes();
+};
+els.customScaleCents.onchange = () => {
+    els.scaleModeCustom.checked = true;
+    updateScaleModeUI();
+    updateScaleNotes();
+};
+els.customModeNotes.onchange = () => { updateScaleModeUI(); updateScaleNotes(); };
+els.customModeCents.onchange = () => { updateScaleModeUI(); updateScaleNotes(); };
+els.customScaleNotes.onchange = () => {
+    els.scaleModeCustom.checked = true;
+    updateScaleModeUI();
+    updateScaleNotes();
+};
+els.customScaleName.onchange = () => {
+    const name = els.customScaleName.value.trim();
+    if (name && customScales[name]) {
+        loadCustomScaleByName(name);
+    }
+    els.scaleModeCustom.checked = true;
+    updateScaleModeUI();
+    updateScaleNotes();
+};
+els.customScaleSaved.onchange = () => {
+    const name = els.customScaleSaved.value;
+    if (name) {
+        els.customScaleName.value = name;
+        loadCustomScaleByName(name);
+        els.scaleModeCustom.checked = true;
+        updateScaleModeUI();
+        updateScaleNotes();
+    }
+};
+els.scaleModeDiatonic.onchange = () => { updateScaleModeUI(); updateScaleNotes(); };
+els.scaleModeMicro.onchange = () => { updateScaleModeUI(); updateScaleNotes(); };
+els.scaleModeCustom.onchange = () => { updateScaleModeUI(); updateScaleNotes(); };
+els.microtonalizeIn.onchange = () => { updateScaleModeUI(); updateScaleNotes(); };
+
 function draw() {
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const numOct = parseInt(document.getElementById('visibleOctaves').value);
+    const width = canvasRect.width;
+    const height = canvasRect.height;
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, width, height);
+    let fadeMul = 1;
+    if (fadeState.active) {
+        const elapsed = Date.now() - fadeState.start;
+        const progress = Math.min(1, elapsed / Math.max(1, fadeState.durationMs));
+        fadeMul = Math.max(0, Math.pow(1 - progress, FADE_EASE_POW));
+    }
+    const fadeDrop = 1 - fadeMul;
+    const numOct = parseInt(els.visibleOctaves.value, 10);
     const grid = getGridDegrees();
-    const noteW = canvas.width / (numOct * grid.stepsPerOct);
+    const noteW = width / (numOct * grid.stepsPerOct);
     const root = grid.root;
     const baseMIDI = 48 + (currentOctave * 12) + root;
     const time = Date.now();
 
-    const perfOffset = 44;
     for (let i = 0; i < (numOct * grid.stepsPerOct); i++) {
         const n = getGridNoteAt(i, grid.degrees, baseMIDI);
         const x = i * noteW;
         const isOctStart = (i % grid.stepsPerOct === 0);
-        const isRoot = (n % 12 === root);
+        const nRound = Math.round(n);
+        const isRoot = (nRound % 12 === root);
         ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.15)';
-        ctx.fillRect(x, 0, noteW, canvas.height);
+        ctx.fillRect(x, 0, noteW, height);
         ctx.strokeStyle = isOctStart ? '#ff3333' : (isRoot ? '#ff0000' : '#666');
         ctx.lineWidth = isOctStart ? 3 : (isRoot ? 3 : 1);
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
         const degree = grid.degrees[i % grid.stepsPerOct];
         if (!(degree === 12 && i < (numOct * grid.stepsPerOct - 1))) {
             ctx.font = `bold ${Math.max(13, Math.floor(noteW * 0.5))}px Arial`; ctx.textAlign = 'center';
             ctx.fillStyle = isRoot ? '#ff4444' : '#ffffff';
             ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
-            const noteY = Math.floor(canvas.height * 0.5);
-            ctx.strokeText(NOTE_NAMES[n % 12], x + noteW/2, noteY);
-            ctx.fillText(NOTE_NAMES[n % 12], x + noteW/2, noteY);
+            const noteY = Math.floor(height * 0.5);
+            ctx.strokeText(NOTE_NAMES[nRound % 12], x + noteW/2, noteY);
+            ctx.fillText(NOTE_NAMES[nRound % 12], x + noteW/2, noteY);
+    const mode = getScaleMode();
+    if (mode !== 'diatonic' && noteW >= 48) {
+        const cents = Math.round((degree % 12) * 100);
+        ctx.font = "bold 9px Arial"; ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffaa00';
+        ctx.fillText(`${cents}c`, x + noteW/2, noteY + 16);
+    }
         }
         // CERCHIO FANTASMA PER NOTE ESTERNE
-        const pList = physicalNotes.get(n);
+        const pList = physicalNotes.get(nRound);
         const pData = pList ? pList.find(d => !d.grabbed) : null;
         if (pData) {
             const rad = 20 + Math.sin(time/200)*5;
+            const yBase = height / 2;
+            const y = yBase + ((height - yBase) * fadeDrop);
+            ctx.globalAlpha = fadeMul;
             ctx.beginPath(); ctx.strokeStyle = '#00ff44'; ctx.lineWidth = 3;
-            ctx.arc(x + noteW/2, canvas.height/2, rad, 0, Math.PI*2); ctx.stroke();
+            ctx.arc(x + noteW/2, y, rad, 0, Math.PI*2); ctx.stroke();
             ctx.fillStyle = 'rgba(0,255,70,0.2)'; ctx.fill();
+            ctx.globalAlpha = 1;
         }
     }
 
@@ -807,39 +2164,56 @@ function draw() {
             const m = v.lastM;
             const radius = 12 + (m.press / 127) * 22;
             v.phase = (v.phase || 0) + 0.2;
+            const y = m.y + ((height - m.y) * fadeDrop);
+            ctx.globalAlpha = fadeMul;
             ctx.beginPath(); ctx.strokeStyle = v.color; ctx.lineWidth = 3;
             for (let ox = -50; ox <= 50; ox += 2) {
                 const oy = Math.sin(ox * 0.15 + v.phase) * 3;
-                if (ox === -50) ctx.moveTo(m.x + ox, m.y + oy);
-                else ctx.lineTo(m.x + ox, m.y + oy);
+                if (ox === -50) ctx.moveTo(m.x + ox, y + oy);
+                else ctx.lineTo(m.x + ox, y + oy);
             }
             ctx.stroke();
             ctx.shadowBlur = 20; ctx.shadowColor = v.color; ctx.fillStyle = v.color;
-            ctx.beginPath(); ctx.arc(m.x, m.y, radius, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(m.x, y, radius, 0, Math.PI * 2); ctx.fill();
             ctx.shadowBlur = 0; ctx.fillStyle = "#fff"; ctx.font = "bold 12px Arial"; ctx.textAlign = 'center';
-            ctx.fillText("HOLD", m.x, m.y - radius - 16);
+            ctx.fillText("HOLD", m.x, y - radius - 16);
+            ctx.globalAlpha = 1;
         });
     }
 
     activeTouches.forEach(t => {
         const radius = 12 + (t.lastM.press / 127) * 22;
         t.phase += 0.2 + (t.vibratoSpeed * 0.06);
+        const y = t.lastM.y + ((height - t.lastM.y) * fadeDrop);
+        ctx.globalAlpha = fadeMul;
         ctx.beginPath(); ctx.strokeStyle = t.color; ctx.lineWidth = 3;
         for (let ox = -50; ox <= 50; ox += 2) {
             const oy = Math.sin(ox * 0.15 + t.phase) * (4 + t.vibratoSpeed);
-            if (ox === -50) ctx.moveTo(t.lastM.x + ox, t.lastM.y + oy);
-            else ctx.lineTo(t.lastM.x + ox, t.lastM.y + oy);
+            if (ox === -50) ctx.moveTo(t.lastM.x + ox, y + oy);
+            else ctx.lineTo(t.lastM.x + ox, y + oy);
         }
         ctx.stroke();
         ctx.shadowBlur = 30; ctx.shadowColor = t.color; ctx.fillStyle = t.color;
-        ctx.beginPath(); ctx.arc(t.lastM.x, t.lastM.y, radius, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(t.lastM.x, y, radius, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0; ctx.fillStyle = "#fff"; ctx.font = "bold 14px Arial"; ctx.textAlign = 'center';
-        ctx.fillText(t.isGrab ? "GRAB" : `CH${t.voices[0].chan}`, t.lastM.x, t.lastM.y - radius - 20);
+        const label = t.isGrab ? "GRAB" : (t.isArp ? "ARP" : `CH${t.voices[0].chan}`);
+        ctx.fillText(label, t.lastM.x, y - radius - 20);
+        ctx.globalAlpha = 1;
     });
     requestAnimationFrame(draw);
 }
-window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
-window.onresize(); setupMIDI(); draw();
+
+function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    canvasRect = canvas.getBoundingClientRect();
+    canvas.width = Math.floor(canvasRect.width * dpr);
+    canvas.height = Math.floor(canvasRect.height * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    perfHeight = els.performance.getBoundingClientRect().height;
+}
+
+window.onresize = resizeCanvas;
+resizeCanvas(); updateScaleModeUI(); updateScaleNotes(); syncArpFromUI(); setupMIDI(); draw();
 </script>
 </body>
 </html>
