@@ -420,6 +420,12 @@
             <button class="icon-btn" id="octUpBtn" title="Oct +">&gt;</button>
         </div>
     </div>
+    <div class="box chord-box" style="flex:0.9">
+        <div class="label show-label">GROUP</div>
+        <button id="groupShiftBtn" class="menu-btn btn-accent btn-square toggle-off" title="Group Shift">
+            <span class="btn-text">GROUP</span>
+        </button>
+    </div>
     <div class="box chord-box" style="flex:1.1">
         <div class="label show-label">Chords</div>
         <div class="chord-toggle">
@@ -575,6 +581,7 @@ const els = {
     arpWheel: document.getElementById('arpWheel'),
     arpParamsToggle: document.getElementById('arpParamsToggle'),
     arpParamsPanel: document.getElementById('arpParamsPanel'),
+    groupShiftBtn: document.getElementById('groupShiftBtn'),
     midiStatus: document.getElementById('midiStatus')
 };
 let midiOutput = null;
@@ -612,6 +619,7 @@ const LOCAL_SUPPRESS_MS = 30;
 const externalNoteMap = new Map();
 let gridCache = null;
 const groupDragStates = new Map();
+let groupShiftEnabled = false;
 let fadeTimer = null;
 let fadeState = { active: false, start: 0, durationMs: 0 };
 const FADE_TAIL_MS = 200;
@@ -1006,6 +1014,11 @@ function updateArpParamsToggleLabel() {
     if (label) label.textContent = isOpen ? 'X' : 'SET';
     els.arpParamsToggle.classList.toggle('toggle-on', isOpen);
     els.arpParamsToggle.classList.toggle('toggle-off', !isOpen);
+}
+
+function updateGroupShiftUI() {
+    els.groupShiftBtn.classList.toggle('toggle-on', groupShiftEnabled);
+    els.groupShiftBtn.classList.toggle('toggle-off', !groupShiftEnabled);
 }
 
 function loadCustomScaleByName(name) {
@@ -1686,6 +1699,99 @@ function cleanupGroupDrag(key) {
     if (!stillActive) groupDragStates.delete(key);
 }
 
+function startGroupShiftDrag(e) {
+    const holdHit = findHeldVoiceAt(e.clientX, e.clientY);
+    if (holdHit) {
+        const hv = heldVoices[holdHit.idx];
+        const groupId = hv.group || 0;
+        if (!groupId) return false;
+        const key = getGroupDragKey('hold', groupId);
+        startHoldGroupDrag(groupId);
+        const tmpVoice = { initialExact: hv.rootNote ?? hv.note, lastX: e.clientX, vibratoSpeed: 0 };
+        const m = getMPEData(e, tmpVoice);
+        activeTouches.set(e.pointerId, {
+            voices: [],
+            isGroupDrag: true,
+            groupDragKey: key,
+            lastX: e.clientX,
+            lastM: m,
+            color: hv.color,
+            phase: hv.phase || 0,
+            initialExact: hv.rootNote ?? hv.note
+        });
+        return true;
+    }
+    const arpNoteHit = findArpHoldNoteAt(e.clientX, e.clientY);
+    const arpHoldHit = arpNoteHit ? null : findArpHoldAt(e.clientX, e.clientY);
+    const holdIdx = arpNoteHit ? arpNoteHit.holdIdx : (arpHoldHit ? arpHoldHit.idx : null);
+    if (holdIdx != null) {
+        const hold = arpHoldTouches[holdIdx];
+        if (!hold) return false;
+        const key = getGroupDragKey('arp', holdIdx);
+        startArpGroupDrag(holdIdx);
+        const baseExact = hold.lastM?.exact ?? 0;
+        const tmpVoice = { initialExact: baseExact, lastX: e.clientX, vibratoSpeed: 0 };
+        const m = getMPEData(e, tmpVoice);
+        activeTouches.set(e.pointerId, {
+            voices: [],
+            isGroupDrag: true,
+            groupDragKey: key,
+            lastX: e.clientX,
+            lastM: m,
+            color: hold.color || '#ffaa00',
+            phase: hold.phase || 0,
+            initialExact: baseExact
+        });
+        return true;
+    }
+    return false;
+}
+
+function tryStartTwoFingerGroupDrag(e) {
+    if (Array.from(activeTouches.values()).some(t => t.isGroupDrag)) return true;
+    if (!activeTouches.size) return false;
+    let holdEntry = null;
+    let arpEntry = null;
+    activeTouches.forEach((t, id) => {
+        if (!holdEntry && t.isHoldGrab && t.holdGroup) holdEntry = { id, t };
+        if (!arpEntry && t.isArpHoldGrab && Number.isInteger(t.holdIdx)) arpEntry = { id, t };
+    });
+    if (holdEntry) {
+        const groupId = holdEntry.t.holdGroup;
+        const key = getGroupDragKey('hold', groupId);
+        startHoldGroupDrag(groupId);
+        holdEntry.t.isGroupDrag = true;
+        holdEntry.t.groupDragKey = key;
+        activeTouches.set(e.pointerId, {
+            voices: [],
+            isGroupDrag: true,
+            groupDragKey: key,
+            lastX: e.clientX,
+            lastM: { x: e.clientX, y: e.clientY, press: 0, slide: 0, pbValue: 8192, exact: holdEntry.t.initialExact ?? 0 },
+            color: holdEntry.t.color,
+            phase: holdEntry.t.phase || 0
+        });
+        return true;
+    }
+    if (arpEntry) {
+        const key = getGroupDragKey('arp', arpEntry.t.holdIdx);
+        startArpGroupDrag(arpEntry.t.holdIdx);
+        arpEntry.t.isGroupDrag = true;
+        arpEntry.t.groupDragKey = key;
+        activeTouches.set(e.pointerId, {
+            voices: [],
+            isGroupDrag: true,
+            groupDragKey: key,
+            lastX: e.clientX,
+            lastM: { x: e.clientX, y: e.clientY, press: 0, slide: 0, pbValue: 8192, exact: arpEntry.t.initialExact ?? 0 },
+            color: arpEntry.t.color,
+            phase: arpEntry.t.phase || 0
+        });
+        return true;
+    }
+    return false;
+}
+
 const DROP_DURATION_MS = 1000;
 const DOUBLE_TAP_MS = 280;
 const DOUBLE_TAP_PX = 24;
@@ -2038,6 +2144,11 @@ canvas.addEventListener('pointerdown', e => {
         if (!midiOutput) els.midiStatus.innerText = 'NESSUN MIDI OUT';
         return;
     }
+    if (groupShiftEnabled) {
+        startGroupShiftDrag(e);
+        return;
+    }
+    if (tryStartTwoFingerGroupDrag(e)) return;
 
     const holdHit = findHeldVoiceAt(e.clientX, e.clientY);
     if (holdHit) {
@@ -2452,6 +2563,10 @@ els.arpLatch.onchange = syncArpFromUI;
 els.arpParamsToggle.onclick = () => {
     els.arpParamsPanel.classList.toggle('hidden');
     updateArpParamsToggleLabel();
+};
+els.groupShiftBtn.onclick = () => {
+    groupShiftEnabled = !groupShiftEnabled;
+    updateGroupShiftUI();
 };
 
 function setupChordKnob() {
@@ -3048,7 +3163,9 @@ function draw() {
             else ctx.lineTo(t.lastM.x + ox, y + oy);
         }
         ctx.stroke();
-        const label = t.isGrab ? "GRAB" : (t.isArpHoldGrab ? "ARP HOLD" : (t.isArp ? "ARP" : `CH${t.voices[0].chan}`));
+        const label = t.isGrab
+            ? "GRAB"
+            : (t.isGroupDrag ? "GROUP" : (t.isArpHoldGrab ? "ARP HOLD" : (t.isArp ? "ARP" : `CH${t.voices[0].chan}`)));
         drawNoteBubble(t.lastM.x, y, radius, t.color, label);
         if (t.isArp && t.arpNotes) {
             t.arpNotes.forEach(n => {
@@ -3097,7 +3214,7 @@ function refreshLayout() {
 window.onresize = refreshLayout;
 els.ui.addEventListener('transitionend', refreshLayout);
 els.performance.addEventListener('transitionend', refreshLayout);
-refreshLayout(); updateScaleModeUI(); updateScaleNotes(); syncArpFromUI(); updateHoldButtonUI(); updateArpParamsToggleLabel(); setupMIDI(); draw();
+refreshLayout(); updateScaleModeUI(); updateScaleNotes(); syncArpFromUI(); updateHoldButtonUI(); updateArpParamsToggleLabel(); updateGroupShiftUI(); setupMIDI(); draw();
 
 function updateToggleLabels() {
     const uiLabel = uiToggle.querySelector('.btn-text');
