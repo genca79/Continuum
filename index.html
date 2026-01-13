@@ -6,11 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GENCA MPE Ultra Continuum: Hybrid Edition</title>
     <style>
+        :root {
+            --red: #ff3333;
+            --amber: #ffaa00;
+            --bg-panel: rgba(20, 20, 20, 0.98);
+            --bg-panel-soft: rgba(35, 35, 35, 0.9);
+            --btn-bg: #1b1b1b;
+            --btn-border: #444;
+            --btn-text: #eee;
+        }
         body { margin: 0; background: #000; color: #eee; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; touch-action: none; }
         #ui { 
             position: absolute; top: 0; left: 0; right: 0; 
-            background: rgba(20, 20, 20, 0.98); padding: 10px; 
-            border-bottom: 2px solid #ff3333; display: flex; flex-wrap: wrap; gap: 8px; 
+            background: linear-gradient(180deg, rgba(30, 30, 30, 0.98), rgba(12, 12, 12, 0.98)); padding: 10px; 
+            border-bottom: 2px solid var(--red); display: flex; flex-wrap: wrap; gap: 8px; 
             z-index: 100; transform: translateY(-93%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         #ui:hover, #ui.active { transform: translateY(0); }
@@ -19,9 +28,9 @@
             display: flex;
             gap: 6px;
             padding: 4px 6px;
-            border: 1px solid #ff3333;
+            border: 1px solid var(--red);
             border-radius: 6px;
-            background: rgba(35, 35, 35, 0.9);
+            background: var(--bg-panel-soft);
             align-items: center;
             flex-wrap: wrap;
             flex: 1 1 auto;
@@ -29,9 +38,10 @@
         #ui .ui-title {
             font-size: 8px;
             text-transform: uppercase;
-            color: #ffaa00;
+            color: var(--amber);
             font-weight: bold;
             margin-right: 6px;
+            letter-spacing: 0.08em;
         }
         .hidden { display: none; }
         .scale-menu.active {
@@ -40,23 +50,23 @@
         }
         #performance {
             position: fixed; left: 0; right: 0; bottom: 0;
-            background: rgba(10, 10, 10, 0.98);
-            border-top: 2px solid #ff3333;
+            background: linear-gradient(0deg, rgba(20, 10, 10, 0.98), rgba(6, 6, 6, 0.98));
+            border-top: 2px solid var(--red);
             display: flex; gap: 8px; padding: 6px 8px; flex-wrap: wrap; align-items: center;
             z-index: 110;
         }
         #performance .box { min-width: 90px; flex: 1 1 90px; }
         #performance .menu-btn .short { display: none; }
-        #performance .label { font-size: 8px; text-transform: uppercase; color: #ffaa00; font-weight: bold; margin-bottom: 2px; }
+        #performance .label { font-size: 8px; text-transform: uppercase; color: var(--amber); font-weight: bold; margin-bottom: 2px; letter-spacing: 0.08em; }
         #performance .icon-btn {
             display: inline-flex; align-items: center; justify-content: center;
             height: 24px; min-width: 30px;
-            border: 1px solid #ff3333; border-radius: 4px;
+            border: 1px solid var(--red); border-radius: 4px;
             background: #1c1c1c; color: #fff; font-weight: bold;
         }
         #performance .hold-btn {
             display: inline-flex; align-items: center; gap: 6px; padding: 0 10px;
-            height: 24px; border: 1px solid #ff3333; border-radius: 4px;
+            height: 24px; border: 1px solid var(--red); border-radius: 4px;
             background: #1c1c1c; color: #fff; font-weight: bold;
         }
         #performance .hold-btn .led {
@@ -66,6 +76,7 @@
         #performance .hold-btn.active { background: #330000; }
         #performance .hold-btn.active .led { background: #00ff44; border-color: #00ff44; }
         #performance .panic-btn {
+            display: inline-flex; align-items: center; gap: 6px;
             height: 24px; padding: 0 10px; border: 1px solid #ff3333; border-radius: 4px;
             background: #330000; color: #fff; font-weight: bold;
         }
@@ -75,6 +86,7 @@
             display: flex; gap: 6px; justify-content: center;
         }
         #performance .chord-toggle button {
+            display: inline-flex; align-items: center; gap: 4px;
             height: 24px; padding: 0 10px; border: 1px solid #ff3333; border-radius: 4px;
             background: #1c1c1c; color: #fff; font-size: 10px; font-weight: bold;
         }
@@ -84,7 +96,7 @@
         .chord-wheel {
             width: 64px; height: 64px;
             border-radius: 50%;
-            border: 2px solid #ff3333;
+            border: 2px solid var(--red);
             background: radial-gradient(circle at 30% 30%, #3a3a3a, #111);
             display: flex; align-items: center; justify-content: center;
             color: #fff; font-size: 9px; font-weight: bold;
@@ -96,7 +108,7 @@
             display: flex;
             gap: 6px;
             padding: 4px 6px;
-            border: 1px solid #ff3333;
+            border: 1px solid var(--red);
             border-radius: 6px;
             background: rgba(60, 10, 10, 0.6);
             align-items: center;
@@ -105,12 +117,13 @@
         #performance .arp-title {
             font-size: 8px;
             text-transform: uppercase;
-            color: #ffaa00;
+            color: var(--amber);
             font-weight: bold;
             margin-right: 6px;
+            letter-spacing: 0.08em;
         }
         .box { display: flex; flex-direction: column; flex: 1 1 90px; min-width: 80px; }
-        label { font-size: 9px; text-transform: uppercase; color: #ffaa00; margin-bottom: 3px; font-weight: bold; }
+        label { font-size: 9px; text-transform: uppercase; color: var(--amber); margin-bottom: 3px; font-weight: bold; letter-spacing: 0.08em; }
         select, input { background: #2a2a2a; color: #fff; border: 1px solid #444; padding: 5px; font-size: 11px; border-radius: 4px; outline: none; min-height: 28px; }
         input[type="checkbox"] { width: 16px; height: 16px; }
         .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #2a2a2a; border: 1px solid #ff3333; border-radius: 4px; height: 28px; }
@@ -118,8 +131,28 @@
         #octVal { font-size: 12px; color: #fff; width: 25px; text-align: center; }
         canvas { display: block; width: 100vw; height: 100vh; }
         .footer { position: absolute; bottom: 44px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #444; }
-        .menu-btn { background: #300; color: #fff; border: 1px solid #ff3333; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 10px; min-height: 28px; min-width: 36px; }
-        .menu-btn.active { background: #552200; }
+        .menu-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            background: var(--btn-bg);
+            color: var(--btn-text);
+            border: 1px solid var(--btn-border);
+            padding: 5px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 10px;
+            min-height: 28px;
+            min-width: 36px;
+        }
+        .menu-btn.active { background: #552200; border-color: var(--amber); color: #ffd28a; }
+        .menu-btn.btn-accent { background: #2a1800; border-color: var(--amber); color: #ffd28a; }
+        .menu-btn.btn-danger { background: #330000; border-color: var(--red); color: #ffdede; }
+        .menu-btn.btn-ok { background: #003015; border-color: #00cc55; color: #b4ffd1; }
+        .btn-icon { font-size: 12px; line-height: 1; }
+        .btn-text { letter-spacing: 0.06em; }
+        #ui .box select, #ui .box input { width: 100%; }
         @media (max-width: 600px) {
             #ui { padding: 8px; gap: 6px; }
             #ui .box { min-width: 70px; }
@@ -171,7 +204,7 @@
                 <option value="8">G#</option><option value="9">A</option><option value="10">A#</option><option value="11">B</option>
             </select>
         </div>
-        <div class="box" id="scaleSetBox" style="flex:1.7"><label>Scale Set</label>
+        <div class="box" id="scaleSetBox" style="flex:1.4"><label>Scale Set</label>
             <div style="display:flex; gap:8px; align-items:center;">
                 <label style="font-size:10px; text-transform:none; color:#ddd; margin:0;">
                     <input type="radio" name="scaleMode" value="diatonic" id="scaleModeDiatonic" checked> Diatonic
@@ -183,6 +216,14 @@
                     <input type="radio" name="scaleMode" value="custom" id="scaleModeCustom"> Custom
                 </label>
             </div>
+        </div>
+        <div class="box" style="flex:0.7"><label>Octaves</label>
+            <select id="visibleOctaves" data-param="visibleOctaves">
+                <option value="1" selected>1 Oct</option>
+                <option value="2">2 Oct</option>
+                <option value="3">3 Oct</option>
+                <option value="4">4 Oct</option>
+            </select>
         </div>
         <div class="box scale-menu" id="scaleDiatonicBox" style="flex:1.1"><label>Diatonic Scales</label>
             <select id="scaleType" data-param="scaleType">
@@ -210,8 +251,8 @@
                     <option value="">(saved)</option>
                 </select>
                 <input type="text" id="customScaleName" placeholder="Name" style="width:90px;" list="customScaleNames">
-                <button id="customScaleSave" class="menu-btn">Save</button>
-                <button id="customScaleDel" class="menu-btn">Del</button>
+                <button id="customScaleSave" class="menu-btn btn-ok"><span class="btn-icon">⭳</span><span class="btn-text">Save</span></button>
+                <button id="customScaleDel" class="menu-btn btn-danger"><span class="btn-icon">✖</span><span class="btn-text">Del</span></button>
             </div>
             <div style="display:flex; gap:8px; align-items:center; margin-top:2px;">
                 <label style="font-size:10px; text-transform:none; color:#ddd; margin:0;">
@@ -257,8 +298,8 @@
             <div style="display:flex; gap:2px;">
                 <select id="mpePresetSelect" style="min-width:90px;"></select>
                 <input type="text" id="mpePresetName" placeholder="Name" style="width:70px;">
-                <button id="mpePresetSave" class="menu-btn">Save</button>
-                <button id="mpePresetDel" class="menu-btn">Del</button>
+                <button id="mpePresetSave" class="menu-btn btn-ok"><span class="btn-icon">⭳</span><span class="btn-text">Save</span></button>
+                <button id="mpePresetDel" class="menu-btn btn-danger"><span class="btn-icon">✖</span><span class="btn-text">Del</span></button>
             </div>
             <div id="mpePresetDesc" style="font-size:8px; color:#888; margin-top:2px;">&nbsp;</div>
         </div>
@@ -269,15 +310,15 @@
             <div style="display:flex; gap:2px;">
                 <select id="presetSelect" style="min-width:90px;" data-param="presetSelect"></select>
                 <input type="text" id="presetName" placeholder="Name" style="width:70px;">
-                <button id="presetSave" class="menu-btn">Save</button>
-                <button id="presetDel" class="menu-btn">Del</button>
+                <button id="presetSave" class="menu-btn btn-ok"><span class="btn-icon">⭳</span><span class="btn-text">Save</span></button>
+                <button id="presetDel" class="menu-btn btn-danger"><span class="btn-icon">✖</span><span class="btn-text">Del</span></button>
             </div>
             <div id="presetDesc" style="font-size:8px; color:#888; margin-top:2px;">&nbsp;</div>
         </div>
     </div>
     <div class="ui-group">
         <div class="ui-title">System</div>
-        <div class="box" style="flex:0.4"><label>Full</label><button id="fsBtn" class="menu-btn">FS</button></div>
+        <div class="box" style="flex:0.4"><label>Full</label><button id="fsBtn" class="menu-btn btn-accent" title="Full Screen"><span class="btn-icon">⛶</span><span class="btn-text">FS</span></button></div>
     </div>
 </div>
 
@@ -290,19 +331,10 @@
             <button class="icon-btn" id="octUpBtn" title="Oct +">&gt;</button>
         </div>
     </div>
-    <div class="box" style="flex:0.7">
-        <div class="label">Octaves</div>
-        <select id="visibleOctaves" data-param="visibleOctaves">
-            <option value="1" selected>1 Oct</option>
-            <option value="2">2 Oct</option>
-            <option value="3">3 Oct</option>
-            <option value="4">4 Oct</option>
-        </select>
-    </div>
-    <div class="box chord-box">
+    <div class="box chord-box" style="flex:1.1">
         <div class="label">Chords</div>
         <div class="chord-toggle">
-            <button id="chordOffBtn">OFF</button>
+            <button id="chordOffBtn"><span class="btn-icon">○</span><span class="btn-text">OFF</span></button>
             <div id="chordWheel" class="chord-wheel" title="Rotate to change chord">Choose</div>
         </div>
         <select id="chordMode" title="Chords" data-param="chordMode">
@@ -332,21 +364,18 @@
     </div>
     <div class="box" style="flex:0.4">
         <div class="label">Hold</div>
-        <button id="holdBtn" class="hold-btn" title="Hold"><span class="led"></span>HOLD</button>
+        <button id="holdBtn" class="hold-btn" title="Hold"><span class="led"></span><span class="btn-icon">⏸</span><span class="btn-text">HOLD</span></button>
         <input type="checkbox" id="holdNotes" style="display:none" data-param="holdNotes">
     </div>
     <div class="box" style="flex:0.5">
         <div class="label">Stop</div>
-        <button id="panicBtn" class="panic-btn" title="Stop"><span class="full">STOP</span><span class="short">!</span></button>
+        <button id="panicBtn" class="menu-btn btn-danger" title="Stop"><span class="btn-icon">⏹</span><span class="btn-text">STOP</span></button>
     </div>
     <div class="box" style="flex:0.9">
         <div class="label">Fade Out</div>
         <div style="display:flex; gap:6px; align-items:center;">
-            <button id="fadeBtn" class="panic-btn" title="Fade Out">FADE</button>
+            <button id="fadeBtn" class="menu-btn btn-accent" title="Fade Out"><span class="btn-icon">⇣</span><span class="btn-text">FADE</span></button>
             <input type="number" id="fadeSeconds" min="1" max="20" value="4" style="width:54px;">
-            <label style="font-size:9px; text-transform:none; color:#ddd; margin:0;">
-                <input type="checkbox" id="fadeEcho" checked> Echo
-            </label>
         </div>
     </div>
     <div class="arp-group">
@@ -354,10 +383,6 @@
         <div class="box" style="flex:0.5">
             <div class="label">On</div>
             <input type="checkbox" id="arpEnabled" data-param="arpEnabled">
-        </div>
-        <div class="box" style="flex:0.5">
-            <div class="label">Hold</div>
-            <input type="checkbox" id="arpHold" data-param="arpHold">
         </div>
         <div class="box" style="flex:0.5">
             <div class="label">Latch</div>
@@ -455,7 +480,6 @@ const els = {
     arpGate: document.getElementById('arpGate'),
     arpSync: document.getElementById('arpSync'),
     arpBpm: document.getElementById('arpBpm'),
-    arpHold: document.getElementById('arpHold'),
     arpLatch: document.getElementById('arpLatch'),
     octDownBtn: document.getElementById('octDownBtn'),
     octUpBtn: document.getElementById('octUpBtn'),
@@ -465,7 +489,6 @@ const els = {
     panicBtn: document.getElementById('panicBtn'),
     fadeBtn: document.getElementById('fadeBtn'),
     fadeSeconds: document.getElementById('fadeSeconds'),
-    fadeEcho: document.getElementById('fadeEcho'),
     chordOffBtn: document.getElementById('chordOffBtn'),
     chordWheel: document.getElementById('chordWheel'),
     midiStatus: document.getElementById('midiStatus')
@@ -478,6 +501,8 @@ const physicalNotes = new Map(); // note -> array di voci esterne attive
 const mpeChannels = Array.from({length: 15}, (_, i) => i + 2);
 let currentOctave = 0;
 let heldVoices = [];
+let arpHoldTouches = [];
+let arpColorIndex = 0;
 const PRESET_KEY = 'genca_presets_v1';
 const MPE_PRESET_KEY = 'genca_mpe_presets_v1';
 const CUSTOM_SCALE_KEY = 'genca_custom_scales_v1';
@@ -486,6 +511,7 @@ const MICROTONAL_SCALES = {
     'Balinese Pelog': { cents: [0, 150, 350, 550, 700, 900, 1050] },
     'Just Major (5-limit)': { cents: [0, 204, 386, 498, 702, 884, 1088] },
     'Just Minor (5-limit)': { cents: [0, 204, 316, 498, 702, 814, 1018] },
+    'Maqam Rast': { cents: [0, 204, 350, 498, 702, 904, 1050] },
     '19-TET': { cents: makeEqualTemperament(19) },
     '24-TET': { cents: makeEqualTemperament(24) },
     '31-TET': { cents: makeEqualTemperament(31) }
@@ -508,6 +534,7 @@ const ECHO_TAIL_STEPS = 7;
 const ECHO_INTERVAL_MS = 140;
 const ECHO_NOTE_MS = 90;
 const ECHO_DECAY = 0.75;
+const FADE_ECHO_ENABLED = true;
 const PRESET_DESCRIPTIONS = {
     Init: 'Default baseline settings.',
     Ableton: 'Studio-friendly sync: MIDI clock ARP and cleaner control.',
@@ -587,7 +614,7 @@ function setPitchBendRange(semitones) {
 function releaseHeldNotes() {
     if (!midiOutput) return;
     heldVoices.forEach(v => {
-        midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+        sendMidi([0x80 + v.chan - 1, v.note, 0]);
         mpeChannels.push(v.chan);
     });
     heldVoices = [];
@@ -604,6 +631,7 @@ function allNotesOff() {
     physicalNotes.clear();
     mpeChannels.splice(0, mpeChannels.length, ...Array.from({length: 15}, (_, i) => i + 2));
     heldVoices = [];
+    arpHoldTouches = [];
     arp.notes = [];
     stopAllArpNotes();
 }
@@ -619,6 +647,12 @@ function applyChordVoicing(notes, inversion, spread) {
         result[i] += i * spread;
     }
     return result;
+}
+
+function nextArpColor() {
+    const hue = (arpColorIndex * 137.5) % 360;
+    arpColorIndex = (arpColorIndex + 1) % 10000;
+    return `hsl(${hue.toFixed(1)}, 85%, 55%)`;
 }
 
 function getPresetState() {
@@ -654,7 +688,6 @@ function getPresetState() {
         arpGate: els.arpGate.value,
         arpSync: els.arpSync.value,
         arpBpm: els.arpBpm.value,
-        arpHold: els.arpHold.checked,
         arpLatch: els.arpLatch.checked,
         currentOctave
     };
@@ -728,7 +761,6 @@ function applyPresetState(state) {
     els.arpGate.value = state.arpGate ?? els.arpGate.value;
     els.arpSync.value = state.arpSync ?? els.arpSync.value;
     els.arpBpm.value = state.arpBpm ?? els.arpBpm.value;
-    els.arpHold.checked = !!state.arpHold;
     els.arpLatch.checked = !!state.arpLatch;
     currentOctave = state.currentOctave || 0;
     els.octVal.innerText = (currentOctave > 0 ? "+" : "") + currentOctave;
@@ -911,15 +943,16 @@ function updateScaleModeUI() {
 function getScaleDefinition() {
     const root = parseInt(els.rootNote.value, 10);
     const mode = getScaleMode();
+    let def = null;
     if (mode === 'microtonal') {
         const name = els.microScaleSelect.value;
         const micro = MICROTONAL_SCALES[name];
         if (micro && Array.isArray(micro.cents) && micro.cents.length) {
-            return { root, name, mode, degrees: micro.cents.map(c => c / 100) };
+            def = { root, name, mode, degrees: micro.cents.map(c => c / 100) };
+        } else {
+            def = { root, name: 'chromatic', mode, degrees: SCALES.chromatic.slice(0) };
         }
-        return { root, name: 'chromatic', mode, degrees: SCALES.chromatic.slice(0) };
-    }
-    if (mode === 'custom') {
+    } else if (mode === 'custom') {
         const name = els.customScaleName.value.trim();
         const custom = customScales[name];
         const useNotes = els.customModeNotes.checked;
@@ -927,12 +960,15 @@ function getScaleDefinition() {
             ? (custom && custom.type === 'notes' ? custom.degrees : parseNotesList(els.customScaleNotes.value))
             : (custom && custom.type === 'cents' ? custom.cents.map(c => c / 100) : parseCentsList(els.customScaleCents.value).map(c => c / 100));
         if (degrees.length) {
-            return { root, name: name || 'custom', mode, degrees };
+            def = { root, name: name || 'custom', mode, degrees };
+        } else {
+            def = { root, name: 'chromatic', mode, degrees: SCALES.chromatic.slice(0) };
         }
-        return { root, name: 'chromatic', mode, degrees: SCALES.chromatic.slice(0) };
+    } else {
+        const scaleType = els.scaleType.value;
+        def = { root, name: scaleType, mode, degrees: SCALES[scaleType].slice(0) };
     }
-    const scaleType = els.scaleType.value;
-    return { root, name: scaleType, mode, degrees: SCALES[scaleType].slice(0) };
+    return def;
 }
 
 function getGridDegrees() {
@@ -1131,6 +1167,11 @@ function applySmoothing(touch, m) {
     };
 }
 
+function sendMidi(data) {
+    if (!midiOutput) return;
+    midiOutput.send(data);
+}
+
 
 
 
@@ -1174,16 +1215,16 @@ function arpNoteOn(noteObj, stepMs) {
     const m = noteObj.lastM || { pbValue: 8192, slide: 0, press: 90 };
     const vel = Math.max(1, Math.min(127, Math.round(m.press || 90)));
     const pb = getVoicePb(m, noteObj);
-    midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
-    midiOutput.send([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-    midiOutput.send([0xD0 + chan - 1, m.press]);
-    midiOutput.send([0x90 + chan - 1, noteObj.note, vel]);
+    sendMidi([0xB0 + chan - 1, 74, m.slide]);
+    sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+    sendMidi([0xD0 + chan - 1, m.press]);
+    sendMidi([0x90 + chan - 1, noteObj.note, vel]);
     markLocalNoteOn(noteObj.note);
-    const entry = { chan, note: noteObj.note };
+    const entry = { chan, note: noteObj.note, color: noteObj.color };
     arp.active.push(entry);
     const gateMs = Math.max(10, stepMs * arp.gate);
     setTimeout(() => {
-        midiOutput.send([0x80 + entry.chan - 1, entry.note, 0]);
+        sendMidi([0x80 + entry.chan - 1, entry.note, 0]);
         mpeChannels.push(entry.chan);
         mpeChannels.sort((a,b)=>a-b);
         arp.active = arp.active.filter(e => e !== entry);
@@ -1217,7 +1258,6 @@ function syncArpFromUI() {
     arp.gate = parseInt(els.arpGate.value, 10) / 100;
     arp.sync = els.arpSync.value;
     arp.bpm = parseInt(els.arpBpm.value, 10) || 120;
-    arp.hold = els.arpHold.checked;
     arp.latch = els.arpLatch.checked;
     updateArpTiming();
     if (!arp.enabled) {
@@ -1225,6 +1265,7 @@ function syncArpFromUI() {
         stopInternalArp();
         stopAllArpNotes();
         arp.notes = [];
+        arpHoldTouches = [];
         return;
     }
     if (arp.sync === 'internal') {
@@ -1271,6 +1312,7 @@ function handleClockMessage(status) {
 function removeArpNotes(noteObjs) {
     if (!noteObjs || !noteObjs.length) return;
     arp.notes = arp.notes.filter(n => !noteObjs.includes(n));
+    if (!arp.notes.length) arpHoldTouches = [];
 }
 
 function getMPEData(e, voice = null, forceSnap = false) {
@@ -1367,6 +1409,7 @@ function collectActiveChannels() {
     });
     heldVoices.forEach(v => { if (v.chan) set.add(v.chan); });
     physicalNotes.forEach(arr => arr.forEach(v => { if (v.chan) set.add(v.chan); }));
+    arp.active.forEach(v => { if (v.chan) set.add(v.chan); });
     return Array.from(set);
 }
 
@@ -1384,6 +1427,7 @@ function collectFadeTargets() {
     });
     heldVoices.forEach(v => push(v.chan, v.lastM?.slide, v.lastM?.press));
     physicalNotes.forEach(arr => arr.forEach(v => push(v.chan, v.lastSlide, v.lastPress)));
+    arp.active.forEach(v => push(v.chan, 0, 80));
     return targets;
 }
 
@@ -1400,11 +1444,12 @@ function collectActiveNotes() {
     });
     heldVoices.forEach(v => addNote(v.chan, v.note, v.lastM?.press));
     physicalNotes.forEach(arr => arr.forEach(v => addNote(v.chan, v.note, v.lastPress)));
+    arp.active.forEach(v => addNote(v.chan, v.note, 80));
     return Array.from(map.values());
 }
 
 function runEchoTail() {
-    if (!midiOutput || !els.fadeEcho.checked) return 0;
+    if (!midiOutput || !FADE_ECHO_ENABLED) return 0;
     const notes = collectActiveNotes();
     if (!notes.length) return 0;
     for (let i = 1; i <= ECHO_TAIL_STEPS; i++) {
@@ -1497,9 +1542,45 @@ function computeChordNotes(rootNote) {
         const chordSteps = CHORDS[chordMode] || CHORDS.off;
         chordNotes = chordSteps.map(step => rootNote + step);
     }
+    if (chordNotes.length) {
+        const snapped = chordNotes.map(note => mapMidiNoteToScale(note));
+        const seen = new Set();
+        chordNotes = snapped.filter(note => {
+            const key = Number.isFinite(note) ? note.toFixed(4) : String(note);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }
     const inversion = parseInt(els.chordInversion.value, 10) || 0;
     const spread = parseInt(els.chordSpread.value, 10) || 0;
     return applyChordVoicing(chordNotes, inversion, spread);
+}
+
+function refreshArpNotes(noteObjs, m, rootNote) {
+    const chordNotes = computeChordNotes(rootNote);
+    if (noteObjs.length > chordNotes.length) {
+        const extra = noteObjs.splice(chordNotes.length);
+        removeArpNotes(extra);
+    } else if (noteObjs.length < chordNotes.length) {
+        const add = chordNotes.slice(noteObjs.length).map(noteFloat => ({
+            noteFloat,
+            ...makeVoiceFromNote(noteFloat),
+            lastM: m,
+            color: nextArpColor()
+        }));
+        noteObjs.push(...add);
+        arp.notes.push(...add);
+    }
+    for (let i = 0; i < chordNotes.length && i < noteObjs.length; i++) {
+        const noteFloat = chordNotes[i];
+        const voice = makeVoiceFromNote(noteFloat);
+        noteObjs[i].noteFloat = noteFloat;
+        noteObjs[i].note = voice.note;
+        noteObjs[i].basePb = voice.basePb;
+        noteObjs[i].lastM = m;
+    }
+    return chordNotes;
 }
 
 function updateHeldChords() {
@@ -1519,7 +1600,7 @@ function updateHeldChords() {
             return;
         }
         list.forEach(v => {
-            midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+            sendMidi([0x80 + v.chan - 1, v.note, 0]);
             mpeChannels.push(v.chan);
         });
         mpeChannels.sort((a,b)=>a-b);
@@ -1530,10 +1611,10 @@ function updateHeldChords() {
             if (!chan) return;
             const voice = makeVoiceFromNote(noteFloat);
             const pb = getVoicePb(m, voice);
-            midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
-            midiOutput.send([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-            midiOutput.send([0xD0 + chan - 1, m.press]);
-            midiOutput.send([0x90 + chan - 1, voice.note, Math.max(1, Math.min(127, Math.round(m.press || 90)))]);
+            sendMidi([0xB0 + chan - 1, 74, m.slide]);
+            sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+            sendMidi([0xD0 + chan - 1, m.press]);
+            sendMidi([0x90 + chan - 1, voice.note, Math.max(1, Math.min(127, Math.round(m.press || 90)))]);
             nextHeld.push({
                 chan,
                 note: voice.note,
@@ -1570,14 +1651,33 @@ canvas.addEventListener('pointerdown', e => {
         const m = getMPEData(e, tmpVoice);
         grabbed.forEach(gv => {
             const pb = getVoicePb(m, gv);
-            midiOutput.send([0xE0 + gv.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-            midiOutput.send([0xB0 + gv.chan - 1, 74, m.slide]);
-            midiOutput.send([0xD0 + gv.chan - 1, m.press]);
+            sendMidi([0xE0 + gv.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+            sendMidi([0xB0 + gv.chan - 1, 74, m.slide]);
+            sendMidi([0xD0 + gv.chan - 1, m.press]);
         });
         activeTouches.set(e.pointerId, { 
             voices: grabbed.map(gv => ({ chan: gv.chan, note: gv.note, basePb: gv.basePb })), 
             initialExact: hv.rootNote ?? hv.note, lastX: e.clientX, isGrab: false, isHoldGrab: true, holdGroup: groupId,
             vibratoSpeed: 0, phase: hv.phase || 0, color: hv.color, lastM: m 
+        });
+        return;
+    }
+    const arpHoldHit = findArpHoldAt(e.clientX, e.clientY);
+    if (arpHoldHit) {
+        const hold = arpHoldTouches[arpHoldHit.idx];
+        const tmpVoice = { initialExact: hold.lastM?.exact ?? 0, lastX: e.clientX, vibratoSpeed: 0 };
+        const m = getMPEData(e, tmpVoice);
+        activeTouches.set(e.pointerId, { 
+            voices: [],
+            initialExact: hold.lastM?.exact ?? 0,
+            lastX: e.clientX,
+            isGrab: false,
+            isArpHoldGrab: true,
+            holdIdx: arpHoldHit.idx,
+            vibratoSpeed: 0,
+            phase: hold.phase || 0,
+            color: hold.color || '#ffaa00',
+            lastM: m
         });
         return;
     }
@@ -1593,6 +1693,7 @@ canvas.addEventListener('pointerdown', e => {
         updateScaleNotes();
     }
     const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
+    const touchColor = `hsl(${(e.pointerId * 47) % 360}, 85%, 55%)`;
 
     // AUTO-GRAB: Se tocchi una nota gia' attiva fisicamente
     if (physicalNotes.has(rootNote)) {
@@ -1613,7 +1714,12 @@ canvas.addEventListener('pointerdown', e => {
     let chordNotes = computeChordNotes(rootNote);
     if (!chordNotes.length) return;
     if (arp.enabled && !arp.latch) {
-        const noteObjs = chordNotes.map(noteFloat => ({ noteFloat, ...makeVoiceFromNote(noteFloat), lastM: m }));
+        const noteObjs = chordNotes.map(noteFloat => ({
+            noteFloat,
+            ...makeVoiceFromNote(noteFloat),
+            lastM: m,
+            color: nextArpColor()
+        }));
         arp.notes.push(...noteObjs);
         activeTouches.set(e.pointerId, {
             voices: noteObjs.map(n => ({ chan: 0, note: n.note, basePb: n.basePb })),
@@ -1624,7 +1730,7 @@ canvas.addEventListener('pointerdown', e => {
             isArp: true,
             vibratoSpeed: 0,
             phase: 0,
-            color: '#ffaa00',
+            color: touchColor,
             lastM: m,
             smoothPb: touchState.smoothPb,
             smoothSlide: touchState.smoothSlide,
@@ -1637,9 +1743,9 @@ canvas.addEventListener('pointerdown', e => {
         if(chan) {
             const voice = makeVoiceFromNote(chordNotes[i]);
             const pb = getVoicePb(m, voice);
-            midiOutput.send([0xB0 + chan - 1, 74, m.slide]);
-            midiOutput.send([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-            midiOutput.send([0x90 + chan - 1, voice.note, 90]);
+            sendMidi([0xB0 + chan - 1, 74, m.slide]);
+            sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+            sendMidi([0x90 + chan - 1, voice.note, 90]);
             markLocalNoteOn(voice.note);
             voices.push({ chan, note: voice.note, basePb: voice.basePb });
         } else {
@@ -1655,15 +1761,51 @@ canvas.addEventListener('pointermove', e => {
     if (!t || !midiOutput) return;
     const m = applySmoothing(t, getMPEData(e, t));
     t.lastM = m;
+    if (t.isArpHoldGrab) {
+        const hold = arpHoldTouches[t.holdIdx];
+        if (hold) {
+            const root = parseInt(els.rootNote.value, 10);
+            const def = getScaleDefinition();
+            const scaleKey = `${def.mode}:${def.name}`;
+            if (!scaleNotes.length || scaleNotes.root !== root || scaleNotes.scale !== scaleKey) {
+                updateScaleNotes();
+            }
+            const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
+            if (hold.noteObjs) {
+                refreshArpNotes(hold.noteObjs, m, rootNote);
+            }
+            const pbRange = parseInt(els.pbRange.value, 10) || 12;
+            const detune = m.exact - rootNote;
+            m.pbValue = clampPb(Math.round(8192 + (detune * (8192 / pbRange))));
+            t.initialExact = rootNote;
+            hold.lastM = m;
+            hold.phase = t.phase;
+            hold.color = hold.noteObjs?.[0]?.color || t.color;
+        }
+        return;
+    }
     if (t.isArp) {
-        if (t.arpNotes) t.arpNotes.forEach(n => { n.lastM = m; });
+        if (t.arpNotes) {
+            const root = parseInt(els.rootNote.value, 10);
+            const def = getScaleDefinition();
+            const scaleKey = `${def.mode}:${def.name}`;
+            if (!scaleNotes.length || scaleNotes.root !== root || scaleNotes.scale !== scaleKey) {
+                updateScaleNotes();
+            }
+            const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
+            refreshArpNotes(t.arpNotes, m, rootNote);
+            const pbRange = parseInt(els.pbRange.value, 10) || 12;
+            const detune = m.exact - rootNote;
+            m.pbValue = clampPb(Math.round(8192 + (detune * (8192 / pbRange))));
+            t.initialExact = rootNote;
+        }
         return;
     }
     t.voices.forEach(v => {
         const pb = getVoicePb(m, v);
-        midiOutput.send([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-        midiOutput.send([0xB0 + v.chan - 1, 74, m.slide]);
-        midiOutput.send([0xD0 + v.chan - 1, m.press]);
+        sendMidi([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+        sendMidi([0xB0 + v.chan - 1, 74, m.slide]);
+        sendMidi([0xD0 + v.chan - 1, m.press]);
     });
 });
 
@@ -1671,19 +1813,34 @@ canvas.addEventListener('pointerup', e => {
     const t = activeTouches.get(e.pointerId);
     if (t) {
         const hold = els.holdNotes.checked;
+        if (t.isArpHoldGrab) {
+            const item = arpHoldTouches[t.holdIdx];
+            if (item) {
+                item.lastM = t.lastM;
+                item.phase = t.phase;
+                item.color = t.color;
+            }
+            activeTouches.delete(e.pointerId);
+            return;
+        }
         if (!t.isGrab && !t.isArp && els.quantizeRelease.checked) {
             const snapM = getMPEData(e, t, true);
             t.lastM = snapM;
             t.voices.forEach(v => {
                 const pb = getVoicePb(snapM, v);
-                midiOutput.send([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-                midiOutput.send([0xB0 + v.chan - 1, 74, snapM.slide]);
-                midiOutput.send([0xD0 + v.chan - 1, snapM.press]);
+                sendMidi([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+                sendMidi([0xB0 + v.chan - 1, 74, snapM.slide]);
+                sendMidi([0xD0 + v.chan - 1, snapM.press]);
             });
         }
         if (t.isArp) {
-            const keep = hold || arp.hold;
-            if (!keep) removeArpNotes(t.arpNotes);
+            const keep = hold;
+            if (!keep) {
+                removeArpNotes(t.arpNotes);
+            } else {
+                const holdColor = t.arpNotes?.[0]?.color || t.color;
+                arpHoldTouches.push({ lastM: t.lastM, color: holdColor, phase: t.phase || 0, noteObjs: t.arpNotes });
+            }
             activeTouches.delete(e.pointerId);
             return;
         }
@@ -1695,7 +1852,7 @@ canvas.addEventListener('pointerup', e => {
                 });
             } else {
                 t.voices.forEach(v => {
-                    midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+                    sendMidi([0x80 + v.chan - 1, v.note, 0]);
                     mpeChannels.push(v.chan);
                 });
             }
@@ -1707,12 +1864,12 @@ canvas.addEventListener('pointerup', e => {
             if(!t.isGrab) {
                 if (hold) {
                     const groupId = t.holdGroup || holdGroupSeq++;
-                    midiOutput.send([0xB0 + v.chan - 1, 74, t.lastM.slide]);
-                    midiOutput.send([0xD0 + v.chan - 1, t.lastM.press]);
+                    sendMidi([0xB0 + v.chan - 1, 74, t.lastM.slide]);
+                    sendMidi([0xD0 + v.chan - 1, t.lastM.press]);
                     heldVoices.push({ chan: v.chan, note: v.note, basePb: v.basePb, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId, rootNote: t.initialExact });
                     t.holdGroup = groupId;
                 } else {
-                    midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+                    sendMidi([0x80 + v.chan - 1, v.note, 0]);
                     mpeChannels.push(v.chan);
                 }
             } else {
@@ -1722,9 +1879,9 @@ canvas.addEventListener('pointerup', e => {
                     if (pNote) {
                         pNote.grabbed = false;
                         const pb = pNote.lastPb || 8192;
-                        midiOutput.send([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-                        midiOutput.send([0xB0 + v.chan - 1, 74, pNote.lastSlide || 0]);
-                        midiOutput.send([0xD0 + v.chan - 1, pNote.lastPress || 0]);
+                        sendMidi([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+                        sendMidi([0xB0 + v.chan - 1, 74, pNote.lastSlide || 0]);
+                        sendMidi([0xD0 + v.chan - 1, pNote.lastPress || 0]);
                     }
                 }
             }
@@ -1738,7 +1895,7 @@ function cancelActivePointer(pointerId) {
     const t = activeTouches.get(pointerId);
     if (!t) return;
     if (t.isArp) {
-        const keep = els.holdNotes.checked || arp.hold;
+        const keep = els.holdNotes.checked;
         if (!keep) removeArpNotes(t.arpNotes);
         activeTouches.delete(pointerId);
         return;
@@ -1748,7 +1905,7 @@ function cancelActivePointer(pointerId) {
         return;
     }
     t.voices.forEach(v => {
-        midiOutput.send([0x80 + v.chan - 1, v.note, 0]);
+        sendMidi([0x80 + v.chan - 1, v.note, 0]);
         mpeChannels.push(v.chan);
     });
     mpeChannels.sort((a,b)=>a-b);
@@ -1794,7 +1951,6 @@ els.arpRate.onchange = syncArpFromUI;
 els.arpGate.onchange = syncArpFromUI;
 els.arpSync.onchange = syncArpFromUI;
 els.arpBpm.onchange = syncArpFromUI;
-els.arpHold.onchange = syncArpFromUI;
 els.arpLatch.onchange = syncArpFromUI;
 
 function setupChordKnob() {
@@ -1886,6 +2042,20 @@ function findHeldVoiceAt(x, y) {
         const dy = y - m.y;
         if ((dx * dx + dy * dy) <= ((radius + 10) * (radius + 10))) {
             return { idx: i, group: heldVoices[i].group || 0 };
+        }
+    }
+    return null;
+}
+
+function findArpHoldAt(x, y) {
+    for (let i = arpHoldTouches.length - 1; i >= 0; i--) {
+        const m = arpHoldTouches[i].lastM;
+        if (!m) continue;
+        const radius = 10 + (m.press / 127) * 18;
+        const dx = x - m.x;
+        const dy = y - m.y;
+        if ((dx * dx + dy * dy) <= ((radius + 10) * (radius + 10))) {
+            return { idx: i };
         }
     }
     return null;
@@ -2116,6 +2286,20 @@ function draw() {
     const root = grid.root;
     const baseMIDI = 48 + (currentOctave * 12) + root;
     const time = Date.now();
+    const chordHighlightNotes = new Map();
+    const arpActiveNotes = new Map();
+    if (els.chordMode.value !== 'off') {
+        activeTouches.forEach(t => {
+            if (t.isArp && t.arpNotes) {
+                t.arpNotes.forEach(n => chordHighlightNotes.set(Math.round(n.note), t.color));
+            } else {
+                t.voices.forEach(v => chordHighlightNotes.set(v.note, t.color));
+            }
+        });
+        heldVoices.forEach(v => chordHighlightNotes.set(v.note, v.color));
+        arp.notes.forEach(n => chordHighlightNotes.set(Math.round(n.note), n.color));
+    }
+    arp.active.forEach(entry => arpActiveNotes.set(entry.note, entry.color));
 
     for (let i = 0; i < (numOct * grid.stepsPerOct); i++) {
         const n = getGridNoteAt(i, grid.degrees, baseMIDI);
@@ -2125,6 +2309,20 @@ function draw() {
         const isRoot = (nRound % 12 === root);
         ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.15)';
         ctx.fillRect(x, 0, noteW, height);
+        if (chordHighlightNotes.has(nRound)) {
+            const color = chordHighlightNotes.get(nRound) || '#ffaa00';
+            ctx.globalAlpha = 0.25;
+            ctx.fillStyle = color;
+            ctx.fillRect(x, 0, noteW, height);
+            ctx.globalAlpha = 1;
+        }
+        if (arpActiveNotes.has(nRound)) {
+            const color = arpActiveNotes.get(nRound) || '#00ff77';
+            ctx.globalAlpha = 0.45;
+            ctx.fillStyle = color;
+            ctx.fillRect(x, 0, noteW, height);
+            ctx.globalAlpha = 1;
+        }
         ctx.strokeStyle = isOctStart ? '#ff3333' : (isRoot ? '#ff0000' : '#666');
         ctx.lineWidth = isOctStart ? 3 : (isRoot ? 3 : 1);
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
@@ -2181,6 +2379,23 @@ function draw() {
         });
     }
 
+    if (arpHoldTouches.length) {
+        arpHoldTouches.forEach(t => {
+            const m = t.lastM;
+            if (!m) return;
+            const radius = 10 + (m.press / 127) * 18;
+            t.phase = (t.phase || 0) + 0.2;
+            const y = m.y + ((height - m.y) * fadeDrop);
+            const glow = t.color || '#ffaa00';
+            ctx.globalAlpha = fadeMul;
+            ctx.shadowBlur = 18; ctx.shadowColor = glow; ctx.fillStyle = glow;
+            ctx.beginPath(); ctx.arc(m.x, y, radius, 0, Math.PI * 2); ctx.fill();
+            ctx.shadowBlur = 0; ctx.fillStyle = "#fff"; ctx.font = "bold 12px Arial"; ctx.textAlign = 'center';
+            ctx.fillText("ARP HOLD", m.x, y - radius - 14);
+            ctx.globalAlpha = 1;
+        });
+    }
+
     activeTouches.forEach(t => {
         const radius = 12 + (t.lastM.press / 127) * 22;
         t.phase += 0.2 + (t.vibratoSpeed * 0.06);
@@ -2196,7 +2411,7 @@ function draw() {
         ctx.shadowBlur = 30; ctx.shadowColor = t.color; ctx.fillStyle = t.color;
         ctx.beginPath(); ctx.arc(t.lastM.x, y, radius, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0; ctx.fillStyle = "#fff"; ctx.font = "bold 14px Arial"; ctx.textAlign = 'center';
-        const label = t.isGrab ? "GRAB" : (t.isArp ? "ARP" : `CH${t.voices[0].chan}`);
+        const label = t.isGrab ? "GRAB" : (t.isArpHoldGrab ? "ARP HOLD" : (t.isArp ? "ARP" : `CH${t.voices[0].chan}`));
         ctx.fillText(label, t.lastM.x, y - radius - 20);
         ctx.globalAlpha = 1;
     });
