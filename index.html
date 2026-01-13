@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -13,20 +15,25 @@
             --btn-bg: #1b1b1b;
             --btn-border: #444;
             --btn-text: #eee;
+            --ui-pad: 8px;
+            --ui-gap: 6px;
+            --ctrl-h: 30px;
+            --ctrl-font: 10px;
+            --label-font: 8px;
         }
         body { margin: 0; background: #000; color: #eee; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; touch-action: none; }
         #ui { 
             position: absolute; top: 0; left: 0; right: 0; 
-            background: linear-gradient(180deg, rgba(30, 30, 30, 0.98), rgba(12, 12, 12, 0.98)); padding: 10px; 
-            border-bottom: 2px solid var(--red); display: flex; flex-wrap: wrap; gap: 8px; 
+            background: linear-gradient(180deg, rgba(30, 30, 30, 0.98), rgba(12, 12, 12, 0.98)); padding: var(--ui-pad); 
+            border-bottom: 2px solid var(--red); display: flex; flex-wrap: wrap; gap: var(--ui-gap); 
             z-index: 100; transform: translateY(-100%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         #ui.active { transform: translateY(0); }
         #ui select, #ui input, #ui .menu-btn { min-width: 0; }
         #ui .ui-group {
             display: flex;
-            gap: 6px;
-            padding: 4px 6px;
+            gap: 4px;
+            padding: 3px 5px;
             border: 1px solid var(--red);
             border-radius: 6px;
             background: var(--bg-panel-soft);
@@ -35,11 +42,11 @@
             flex: 1 1 auto;
         }
         #ui .ui-title {
-            font-size: 8px;
+            font-size: 7px;
             text-transform: uppercase;
             color: var(--amber);
             font-weight: bold;
-            margin-right: 6px;
+            margin-right: 4px;
             letter-spacing: 0.08em;
         }
         .hidden { display: none; }
@@ -51,10 +58,15 @@
             position: fixed; left: 0; right: 0; bottom: 0;
             background: linear-gradient(0deg, rgba(20, 10, 10, 0.98), rgba(6, 6, 6, 0.98));
             border-top: 2px solid var(--red);
-            display: flex; gap: 8px; padding: 6px 8px; flex-wrap: wrap; align-items: center;
+            display: flex; gap: 50px; padding: 4px 6px; flex-wrap: nowrap; align-items: center;
+            overflow-x: auto;
             z-index: 110;
             transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
+        #performance button,
+        #performance .menu-btn,
+        #performance select,
+        #performance input { min-height: var(--ctrl-h); }
         #performance.collapsed { transform: translateY(100%); }
         #uiToggle {
             position: fixed;
@@ -68,76 +80,82 @@
             bottom: 8px;
             z-index: 120;
         }
-        #performance .box { min-width: 90px; flex: 1 1 90px; }
+        #performance .box { min-width: 0; flex: 0 0 auto !important; }
         #performance .menu-btn .short { display: none; }
-        #performance .label { font-size: 8px; text-transform: uppercase; color: var(--amber); font-weight: bold; margin-bottom: 2px; letter-spacing: 0.08em; }
+        #performance .label { display: none; }
+        #performance .label.show-label { display: block; }
         #performance .icon-btn {
             display: inline-flex; align-items: center; justify-content: center;
-            height: 24px; min-width: 30px;
+            height: 22px; min-width: 22px;
             border: 1px solid var(--red); border-radius: 4px;
             background: #1c1c1c; color: #fff; font-weight: bold;
         }
         #performance .hold-btn {
-            display: inline-flex; align-items: center; gap: 6px; padding: 0 10px;
-            height: 24px; border: 1px solid var(--red); border-radius: 4px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 0;
+            width: 56px; height: 56px; border: 1px solid var(--red); border-radius: 6px;
             background: #1c1c1c; color: #fff; font-weight: bold;
         }
         #performance .hold-btn .led {
             width: 8px; height: 8px; border-radius: 50%;
             background: #222; border: 1px solid #555;
         }
-        #performance .hold-btn.active { background: #330000; }
+        #performance .hold-btn.active { background: #2a1800; border-color: var(--amber); color: #ffd28a; }
         #performance .hold-btn.active .led { background: #00ff44; border-color: #00ff44; }
+        #performance .hold-btn.toggle-off { background: #330000; border-color: var(--red); color: #ffdede; }
+        #performance .hold-btn.toggle-on { background: #2a1800; border-color: var(--amber); color: #ffd28a; }
         #performance .panic-btn {
-            display: inline-flex; align-items: center; gap: 6px;
-            height: 24px; padding: 0 10px; border: 1px solid #ff3333; border-radius: 4px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+            width: 56px; height: 56px; padding: 0; border: 1px solid #ff3333; border-radius: 6px;
             background: #330000; color: #fff; font-weight: bold;
         }
-        #performance .transpose-wrap { display: flex; gap: 6px; align-items: center; }
-        #performance .transpose-value { min-width: 24px; text-align: center; font-size: 11px; }
+        #performance .transpose-wrap { display: flex; gap: 5px; align-items: center; }
+        #performance .transpose-value { min-width: 20px; text-align: center; font-size: 10px; }
         #performance .chord-toggle {
-            display: flex; gap: 6px; justify-content: center;
+            display: flex; gap: 50px; justify-content: center;
         }
-        #performance .chord-toggle button {
-            display: inline-flex; align-items: center; gap: 4px;
-            height: 24px; padding: 0 10px; border: 1px solid #ff3333; border-radius: 4px;
-            background: #1c1c1c; color: #fff; font-size: 10px; font-weight: bold;
+        #performance .arp-toggle {
+            display: flex; gap: 50px; justify-content: center; align-items: center; position: relative;
         }
-        #performance .chord-toggle button.active { background: #330000; }
-        #performance .chord-box { align-items: center; text-align: center; }
+        #performance .chord-box { flex-direction: row; align-items: center; gap: 3px; text-align: center; }
         #performance #chordMode { display: none; }
+        #performance .arp-legacy { display: none; }
+        #performance .arp-params.hidden { display: none; }
         .chord-wheel {
-            width: 64px; height: 64px;
+            width: 56px; height: 56px;
             border-radius: 50%;
             border: 2px solid var(--red);
             background: radial-gradient(circle at 30% 30%, #3a3a3a, #111);
             display: flex; align-items: center; justify-content: center;
-            color: #fff; font-size: 9px; font-weight: bold;
+            color: #fff; font-size: 16px; font-weight: bold;
             text-align: center; user-select: none; touch-action: none;
             box-shadow: inset 0 0 8px rgba(0,0,0,0.6);
         }
-        .chord-wheel.active { box-shadow: 0 0 10px rgba(255,170,0,0.6); border-color: #ffaa00; }
-        #performance .arp-group {
-            display: flex;
-            gap: 6px;
-            padding: 4px 6px;
+        .chord-wheel.knob-on { box-shadow: 0 0 10px rgba(255,170,0,0.6); border-color: #ffaa00; }
+        .chord-wheel.knob-off { box-shadow: 0 0 8px rgba(255, 60, 60, 0.4); border-color: #ff3333; color: #ffdede; background: radial-gradient(circle at 30% 30%, #4a1a1a, #160606); }
+        .chord-wheel.chord-knob::before,
+        .chord-wheel.arp-knob::before { content: none; }
+        #performance .knob-btn {
+            width: 56px;
+            height: 56px;
+            padding: 0;
+            border-radius: 8px;
+            font-size: 9px;
+        }
+        #performance .arp-params { display: flex; align-items: center; gap: 10px; }
+        #performance .arp-params label { display: inline; font-size: 8px; margin: 0 2px 0 0; }
+        #performance .arp-params {
+            min-height: 56px;
+            position: static;
+            background: rgba(20, 10, 10, 0.98);
             border: 1px solid var(--red);
-            border-radius: 6px;
-            background: rgba(60, 10, 10, 0.6);
-            align-items: center;
-            flex-wrap: wrap;
+            border-radius: 8px;
+            padding: 6px 8px;
         }
-        #performance .arp-title {
-            font-size: 8px;
-            text-transform: uppercase;
-            color: var(--amber);
-            font-weight: bold;
-            margin-right: 6px;
-            letter-spacing: 0.08em;
-        }
-        .box { display: flex; flex-direction: column; flex: 1 1 90px; min-width: 80px; }
-        label { font-size: 9px; text-transform: uppercase; color: var(--amber); margin-bottom: 3px; font-weight: bold; letter-spacing: 0.08em; }
-        select, input { background: #2a2a2a; color: #fff; border: 1px solid #444; padding: 5px; font-size: 11px; border-radius: 4px; outline: none; min-height: 28px; }
+        #performance .toggle-off { background: #330000; border-color: var(--red); color: #ffdede; }
+        #performance .toggle-on { background: #2a1800; border-color: var(--amber); color: #ffd28a; }
+        .box { display: flex; flex-direction: column; flex: 1 1 80px; min-width: 70px; }
+        label { font-size: var(--label-font); text-transform: uppercase; color: var(--amber); margin-bottom: 2px; font-weight: bold; letter-spacing: 0.08em; }
+        select, input { background: #2a2a2a; color: #fff; border: 1px solid #444; padding: 4px; font-size: var(--ctrl-font); border-radius: 4px; outline: none; min-height: var(--ctrl-h); }
         input[type="checkbox"] { width: 16px; height: 16px; }
         .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #2a2a2a; border: 1px solid #ff3333; border-radius: 4px; height: 28px; }
         .oct-btn { background: #300; color: #fff; border: none; width: 30px; height: 100%; cursor: pointer; font-weight: bold; }
@@ -159,14 +177,50 @@
             background: var(--btn-bg);
             color: var(--btn-text);
             border: 1px solid var(--btn-border);
-            padding: 5px 8px;
+            padding: 4px 8px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 10px;
-            min-height: 28px;
+            font-size: var(--ctrl-font);
+            min-height: var(--ctrl-h);
             min-width: 36px;
         }
-        button, .menu-btn, select, input[type="range"], input[type="checkbox"] { min-height: 44px; }
+        #performance .btn-square {
+            width: 56px;
+            height: 56px;
+            padding: 0;
+            border-radius: 6px;
+        }
+        #performance .knob-btn .btn-text { font-size: 12px; letter-spacing: 0.06em; }
+        #performance .fade-wrap { display: inline-flex; align-items: center; gap: 0; }
+        #performance #fadeSeconds {
+            width: 64px;
+            height: 56px;
+            border-left: none;
+            border-radius: 0 6px 6px 0;
+            font-size: 16px;
+            text-align: center;
+        }
+        #performance .fade-sec {
+            font-size: 10px;
+            color: var(--amber);
+            margin-left: 4px;
+            letter-spacing: 0.08em;
+        }
+        #performance #panicBtn .btn-text,
+        #performance #fadeBtn .btn-text,
+        #performance #holdBtn .btn-text { display: none; }
+        #performance #panicBtn .btn-icon,
+        #performance #fadeBtn .btn-icon,
+        #performance #holdBtn .btn-icon { display: inline; font-size: 20px; }
+        #performance .menu-btn.toggle-on { background: #2a1800; border-color: var(--amber); color: #ffd28a; }
+        #performance .menu-btn.toggle-off { background: #330000; border-color: var(--red); color: #ffdede; }
+        #performance #panicBtn:active,
+        #performance #fadeBtn:active {
+            background: #2a1800;
+            border-color: var(--amber);
+            color: #ffd28a;
+        }
+        button, .menu-btn, select, input[type="range"], input[type="checkbox"] { min-height: var(--ctrl-h); }
         .menu-btn.active { background: #552200; border-color: var(--amber); color: #ffd28a; }
         .menu-btn.btn-accent { background: #2a1800; border-color: var(--amber); color: #ffd28a; }
         .menu-btn.btn-danger { background: #330000; border-color: var(--red); color: #ffdede; }
@@ -175,21 +229,21 @@
         .btn-text { letter-spacing: 0.06em; }
         #ui .box select, #ui .box input { width: 100%; }
         @media (max-width: 600px) {
-            #ui { transform: translateY(-100%); max-height: 45vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-top: calc(8px + env(safe-area-inset-top)); }
+            #ui { transform: translateY(-100%); max-height: 45vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-top: calc(6px + env(safe-area-inset-top)); }
             #ui.active { transform: translateY(0); }
             #uiToggle { top: calc(8px + env(safe-area-inset-top)); }
-            #ui { padding: 8px; gap: 6px; }
-            #ui .box { min-width: 70px; }
-            #ui label { font-size: 8px; }
-            #ui select, #ui input, #ui .menu-btn { font-size: 10px; padding: 4px; }
+            #ui { padding: 6px; gap: 5px; }
+            #ui .box { min-width: 64px; }
+            #ui label { font-size: 7px; }
+            #ui select, #ui input, #ui .menu-btn { font-size: 9px; padding: 3px; }
             #ui .ui-group { width: 100%; flex: 1 1 100%; }
             #ui .ui-title { width: 100%; margin-right: 0; }
             #ui .ui-group .box { flex: 1 1 48%; min-width: 120px; }
             #ui .ui-group .box[style*="flex:1.2"] { flex: 1 1 100%; }
-            #performance { gap: 6px; padding: 6px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
-            #performance .box { min-width: 60px; }
+            #performance { gap: 5px; padding: 5px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
+            #performance .box { min-width: 54px; }
             #performance label { display: none; }
-            #performance select, #performance input, #performance .menu-btn { font-size: 10px; padding: 4px; }
+            #performance select, #performance input, #performance .menu-btn { font-size: 9px; padding: 3px; }
             #performance .arp-group { width: 100%; }
             #performance .arp-group .box { flex: 1 1 45%; min-width: 120px; }
             #performance .oct-ctrl { height: 24px; }
@@ -202,7 +256,7 @@
             input[type="checkbox"] { width: 14px; height: 14px; }
         }
         @media (max-width: 900px) {
-            select, input, .menu-btn { min-height: 32px; }
+            select, input, .menu-btn { min-height: 28px; }
             .menu-btn { min-width: 44px; }
             input[type="checkbox"] { width: 18px; height: 18px; }
             #performance .icon-btn, #performance .hold-btn, #performance .panic-btn { min-height: 32px; }
@@ -219,7 +273,7 @@
 </head>
 <body>
 
-<button id="uiToggle" class="menu-btn btn-accent" title="Toggle UI"><span class="btn-text">SET</span></button>
+<button id="uiToggle" class="menu-btn btn-accent" title="Toggle UI"><span class="btn-text">SET ARP</span></button>
 <button id="perfToggle" class="menu-btn btn-accent" title="Toggle Performance"><span class="btn-text">PLAY</span></button>
 
 <div id="ui">
@@ -367,10 +421,9 @@
         </div>
     </div>
     <div class="box chord-box" style="flex:1.1">
-        <div class="label">Chords</div>
+        <div class="label show-label">Chords</div>
         <div class="chord-toggle">
-            <button id="chordOffBtn"><span class="btn-icon">○</span><span class="btn-text">OFF</span></button>
-            <div id="chordWheel" class="chord-wheel" title="Rotate to change chord">Choose</div>
+            <div id="chordWheel" class="chord-wheel chord-knob" title="Rotate to change chord">Choose</div>
         </div>
         <select id="chordMode" title="Chords" data-param="chordMode">
         <option value="off">Off</option>
@@ -397,59 +450,51 @@
         <option value="thirteenth">13th</option>
         </select>
     </div>
-    <div class="box" style="flex:0.4">
-        <div class="label">Hold</div>
+    <div class="box chord-box" style="flex:0.9">
+        <div class="label show-label">HOLD</div>
         <button id="holdBtn" class="hold-btn" title="Hold"><span class="led"></span><span class="btn-icon">⏸</span><span class="btn-text">HOLD</span></button>
         <input type="checkbox" id="holdNotes" style="display:none" data-param="holdNotes">
     </div>
-    <div class="box" style="flex:0.5">
-        <div class="label">Stop</div>
-        <button id="panicBtn" class="menu-btn btn-danger" title="Stop"><span class="btn-icon">⏹</span><span class="btn-text">STOP</span></button>
+    <div class="box chord-box" style="flex:0.9">
+        <div class="label show-label">STOP</div>
+        <button id="panicBtn" class="menu-btn btn-danger btn-square toggle-off" title="Stop"><span class="btn-icon">⏹</span><span class="btn-text">STOP</span></button>
     </div>
-    <div class="box" style="flex:0.9">
-        <div class="label">Fade Out</div>
-        <div style="display:flex; gap:6px; align-items:center;">
-            <button id="fadeBtn" class="menu-btn btn-accent" title="Fade Out"><span class="btn-icon">⇣</span><span class="btn-text">FADE</span></button>
-            <input type="number" id="fadeSeconds" min="1" max="20" value="4" style="width:54px;">
+    <div class="box chord-box" style="flex:0.9">
+        <div class="label show-label">FADE</div>
+        <div class="fade-wrap">
+            <button id="fadeBtn" class="menu-btn btn-accent btn-square toggle-off" title="Fade Out"><span class="btn-icon">⇣</span><span class="btn-text">FADE</span></button>
+            <input type="number" id="fadeSeconds" min="1" max="20" value="4">
+            <div class="fade-sec">sec</div>
         </div>
     </div>
-    <div class="arp-group">
-        <div class="arp-title">ARP</div>
-        <div class="box" style="flex:0.5">
-            <div class="label">On</div>
-            <input type="checkbox" id="arpEnabled" data-param="arpEnabled">
-        </div>
-        <div class="box" style="flex:0.5">
-            <div class="label">Latch</div>
-            <input type="checkbox" id="arpLatch" data-param="arpLatch">
-        </div>
-        <div class="box" style="flex:0.6">
-            <div class="label">Rate</div>
-            <select id="arpRate" data-param="arpRate">
-                <option value="1/4">1/4</option>
-                <option value="1/8">1/8</option>
-                <option value="1/8T">1/8T</option>
-                <option value="1/16" selected>1/16</option>
-                <option value="1/16T">1/16T</option>
-                <option value="1/32">1/32</option>
-            </select>
-        </div>
-        <div class="box" style="flex:0.6">
-            <div class="label">Gate</div>
+    <div class="box chord-box" style="flex:1.1">
+        <div class="label show-label">ARP</div>
+        <div class="arp-toggle">
+            <div id="arpWheel" class="chord-wheel arp-knob" title="Rotate to change rate">1/16</div>
+            <button id="arpParamsToggle" class="menu-btn btn-accent knob-btn" title="ARP Settings"><span class="btn-text">SET ARP</span></button>
+            <div id="arpParamsPanel" class="arp-params hidden">
+            <label for="arpGate">Gate</label>
             <input type="range" id="arpGate" min="10" max="100" value="60" data-param="arpGate">
-        </div>
-        <div class="box" style="flex:0.6">
-            <div class="label">Sync</div>
+            <label for="arpSync">Sync</label>
             <select id="arpSync" data-param="arpSync">
                 <option value="internal" selected>Internal</option>
                 <option value="midi">MIDI</option>
             </select>
-        </div>
-        <div class="box" style="flex:0.5">
-            <div class="label">BPM</div>
+            <label for="arpBpm">BPM</label>
             <input type="number" id="arpBpm" min="40" max="240" value="120" data-param="arpBpm">
+            </div>
         </div>
     </div>
+    <input type="checkbox" id="arpEnabled" data-param="arpEnabled" style="display:none">
+    <input type="checkbox" id="arpLatch" data-param="arpLatch" style="display:none">
+    <select id="arpRate" data-param="arpRate" style="display:none">
+        <option value="1/4">1/4</option>
+        <option value="1/8">1/8</option>
+        <option value="1/8T">1/8T</option>
+        <option value="1/16" selected>1/16</option>
+        <option value="1/16T">1/16T</option>
+        <option value="1/32">1/32</option>
+    </select>
 </div>
 
 <div id="playArea">
@@ -526,8 +571,10 @@ const els = {
     panicBtn: document.getElementById('panicBtn'),
     fadeBtn: document.getElementById('fadeBtn'),
     fadeSeconds: document.getElementById('fadeSeconds'),
-    chordOffBtn: document.getElementById('chordOffBtn'),
     chordWheel: document.getElementById('chordWheel'),
+    arpWheel: document.getElementById('arpWheel'),
+    arpParamsToggle: document.getElementById('arpParamsToggle'),
+    arpParamsPanel: document.getElementById('arpParamsPanel'),
     midiStatus: document.getElementById('midiStatus')
 };
 let midiOutput = null;
@@ -563,6 +610,8 @@ let scaleNotes = [];
 const localNoteOnTimes = new Map();
 const LOCAL_SUPPRESS_MS = 30;
 const externalNoteMap = new Map();
+let gridCache = null;
+const groupDragStates = new Map();
 let fadeTimer = null;
 let fadeState = { active: false, start: 0, durationMs: 0 };
 const FADE_TAIL_MS = 200;
@@ -790,7 +839,7 @@ function applyPresetState(state) {
     els.yDeadzone.value = state.yDeadzone ?? els.yDeadzone.value;
     els.quantizeRelease.checked = state.quantizeRelease ?? els.quantizeRelease.checked;
     els.holdNotes.checked = state.holdNotes;
-    els.holdBtn.classList.toggle('active', !!state.holdNotes);
+    updateHoldButtonUI();
     els.pbRange.value = state.pbRange;
     els.midiThru.checked = state.midiThru;
     els.arpEnabled.checked = !!state.arpEnabled;
@@ -935,6 +984,28 @@ function refreshMpePresetSelect(presets, selected) {
 
 function updateMpePresetDescription(name) {
     els.mpePresetDesc.innerText = MPE_PRESET_DESCRIPTIONS[name] || 'Custom MPE preset.';
+}
+
+function updateArpControlsUI() {
+    const isOn = !!els.arpEnabled.checked;
+    els.arpWheel.classList.toggle('knob-on', isOn);
+    els.arpWheel.classList.toggle('knob-off', !isOn);
+    els.arpWheel.innerText = isOn ? els.arpRate.value : 'Off';
+}
+
+function updateHoldButtonUI() {
+    const isOn = !!els.holdNotes.checked;
+    els.holdBtn.classList.toggle('active', isOn);
+    els.holdBtn.classList.toggle('toggle-on', isOn);
+    els.holdBtn.classList.toggle('toggle-off', !isOn);
+}
+
+function updateArpParamsToggleLabel() {
+    const label = els.arpParamsToggle.querySelector('.btn-text');
+    const isOpen = !els.arpParamsPanel.classList.contains('hidden');
+    if (label) label.textContent = isOpen ? 'X' : 'SET';
+    els.arpParamsToggle.classList.toggle('toggle-on', isOpen);
+    els.arpParamsToggle.classList.toggle('toggle-off', !isOpen);
 }
 
 function loadCustomScaleByName(name) {
@@ -1242,6 +1313,26 @@ function stopAllArpNotes() {
     mpeChannels.sort((a,b)=>a-b);
 }
 
+function stopArpActiveNote(note) {
+    if (!midiOutput || note == null) return;
+    const remaining = [];
+    arp.active.forEach(entry => {
+        if (entry.note === note) {
+            midiOutput.send([0x80 + entry.chan - 1, entry.note, 0]);
+            mpeChannels.push(entry.chan);
+        } else {
+            remaining.push(entry);
+        }
+    });
+    arp.active = remaining;
+    mpeChannels.sort((a,b)=>a-b);
+}
+
+function stopArpActiveNotes(noteObjs) {
+    if (!noteObjs || !noteObjs.length) return;
+    noteObjs.forEach(n => stopArpActiveNote(n.note));
+}
+
 function arpNoteOn(noteObj, stepMs) {
     if (!midiOutput) return;
     const chan = mpeChannels.shift();
@@ -1250,7 +1341,12 @@ function arpNoteOn(noteObj, stepMs) {
         return;
     }
     const m = noteObj.lastM || { pbValue: 8192, slide: 0, press: 90 };
-    const vel = Math.max(1, Math.min(127, Math.round(m.press || 90)));
+    const vel = Math.max(0, Math.min(127, Math.round(m.press ?? 90)));
+    if (vel <= 0) {
+        mpeChannels.push(chan);
+        mpeChannels.sort((a,b)=>a-b);
+        return;
+    }
     const pb = getVoicePb(m, noteObj);
     sendMidi([0xB0 + chan - 1, 74, m.slide]);
     sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
@@ -1297,6 +1393,7 @@ function syncArpFromUI() {
     arp.bpm = parseInt(els.arpBpm.value, 10) || 120;
     arp.latch = els.arpLatch.checked;
     updateArpTiming();
+    updateArpControlsUI();
     if (!arp.enabled) {
         arp.running = false;
         stopInternalArp();
@@ -1437,6 +1534,272 @@ function makeVoiceFromNote(noteFloat) {
 function getVoicePb(m, voice) {
     const base = voice.basePb || 0;
     return clampPb(m.pbValue + base);
+}
+
+function getVoiceNoteFloat(voice) {
+    const pbRange = parseInt(els.pbRange.value, 10) || 12;
+    const basePb = voice.basePb || 0;
+    return (voice.note || 0) + (basePb * (pbRange / 8192));
+}
+
+function updateGridCache() {
+    const numOct = parseInt(els.visibleOctaves.value, 10);
+    const grid = getGridDegrees();
+    const baseMIDI = 48 + (currentOctave * 12) + grid.root;
+    const totalNotes = numOct * grid.stepsPerOct;
+    const noteW = canvasRect.width / totalNotes;
+    const cols = [];
+    for (let i = 0; i < totalNotes; i++) {
+        const n = getGridNoteAt(i, grid.degrees, baseMIDI);
+        cols.push({ note: n, x: (i * noteW) + (noteW / 2) });
+    }
+    gridCache = { cols, noteW, baseMIDI, grid, numOct, totalNotes };
+}
+
+function getNearestNoteX(noteFloat) {
+    if (!gridCache || !gridCache.cols.length) return null;
+    let best = null;
+    let bestDist = Infinity;
+    for (let i = 0; i < gridCache.cols.length; i++) {
+        const col = gridCache.cols[i];
+        const dist = Math.abs(col.note - noteFloat);
+        if (dist < bestDist) {
+            bestDist = dist;
+            best = col.x;
+        }
+    }
+    return best;
+}
+
+function drawNoteBubble(x, y, radius, color, label) {
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = color;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    if (label) {
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 12px Arial";
+        ctx.textAlign = 'center';
+        ctx.fillText(label, x, y - radius - 16);
+    }
+}
+
+function getGroupDragKey(type, id) {
+    return `${type}:${id}`;
+}
+
+function getActiveGroupTouches(key) {
+    const list = [];
+    activeTouches.forEach(t => {
+        if (t.isGroupDrag && t.groupDragKey === key) list.push(t);
+    });
+    return list;
+}
+
+function startHoldGroupDrag(groupId) {
+    if (!groupId) return null;
+    const key = getGroupDragKey('hold', groupId);
+    if (groupDragStates.has(key)) return groupDragStates.get(key);
+    const voices = [];
+    heldVoices.forEach(v => { if (v.group === groupId) voices.push(v); });
+    activeTouches.forEach(t => {
+        if (t.isHoldGrab && t.holdGroup === groupId && t.voices) {
+            t.voices.forEach(v => voices.push(v));
+        }
+    });
+    const pbRange = parseInt(els.pbRange.value, 10) || 12;
+    const origBasePb = new Map();
+    let sumExact = 0;
+    voices.forEach(v => {
+        origBasePb.set(v, v.basePb || 0);
+        const noteFloat = (v.note || 0) + ((v.basePb || 0) * (pbRange / 8192));
+        sumExact += noteFloat;
+    });
+    const anchorExact = voices.length ? sumExact / voices.length : 0;
+    const state = { key, type: 'hold', groupId, voices, origBasePb, anchorExact, lastX: null };
+    groupDragStates.set(key, state);
+    return state;
+}
+
+function startArpGroupDrag(holdIdx) {
+    const key = getGroupDragKey('arp', holdIdx);
+    if (groupDragStates.has(key)) return groupDragStates.get(key);
+    const hold = arpHoldTouches[holdIdx];
+    if (!hold || !hold.noteObjs) return null;
+    const noteObjs = hold.noteObjs.slice(0);
+    let sumExact = 0;
+    noteObjs.forEach(n => { sumExact += (n.noteFloat ?? n.note ?? 0); });
+    const anchorExact = noteObjs.length ? sumExact / noteObjs.length : 0;
+    const origNoteFloat = new Map();
+    noteObjs.forEach(n => origNoteFloat.set(n, n.noteFloat ?? n.note ?? 0));
+    const state = { key, type: 'arp', holdIdx, noteObjs, origNoteFloat, anchorExact, lastX: null };
+    groupDragStates.set(key, state);
+    return state;
+}
+
+function handleGroupDrag(t) {
+    const state = groupDragStates.get(t.groupDragKey);
+    if (!state) return;
+    const touches = getActiveGroupTouches(state.key);
+    if (!touches.length) return;
+    const avgX = touches.reduce((s, item) => s + (item.lastX ?? 0), 0) / touches.length;
+    const avgY = touches.reduce((s, item) => s + (item.lastM?.y ?? 0), 0) / touches.length;
+    const fakeEvent = { clientX: avgX, clientY: avgY, width: 0, height: 0 };
+    const voiceRef = { initialExact: state.anchorExact, lastX: state.lastX ?? avgX, vibratoSpeed: 0 };
+    const m = getMPEData(fakeEvent, voiceRef);
+    state.lastX = avgX;
+    const pbRange = parseInt(els.pbRange.value, 10) || 12;
+    const deltaExact = m.exact - state.anchorExact;
+    const pbDelta = Math.round(deltaExact * (8192 / pbRange));
+    if (state.type === 'hold') {
+        state.voices.forEach(v => {
+            const basePbOrig = state.origBasePb.get(v) || 0;
+            const newBasePb = basePbOrig + pbDelta;
+            v.basePb = newBasePb;
+            v.lastM = { ...m, x: avgX, y: avgY, exact: (v.note || 0) + (newBasePb * (pbRange / 8192)) };
+            const pb = clampPb(8192 + basePbOrig + pbDelta);
+            if (v.chan) {
+                sendMidi([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+                sendMidi([0xB0 + v.chan - 1, 74, m.slide]);
+                sendMidi([0xD0 + v.chan - 1, m.press]);
+            }
+        });
+    } else if (state.type === 'arp') {
+        state.noteObjs.forEach(n => {
+            const base = state.origNoteFloat.get(n) || 0;
+            const noteFloat = base + deltaExact;
+            const voice = makeVoiceFromNote(noteFloat);
+            n.noteFloat = noteFloat;
+            n.note = voice.note;
+            n.basePb = voice.basePb;
+            n.lastM = { ...m, x: avgX, y: avgY, exact: noteFloat };
+        });
+    }
+}
+
+function cleanupGroupDrag(key) {
+    if (!key) return;
+    const stillActive = Array.from(activeTouches.values()).some(t => t.isGroupDrag && t.groupDragKey === key);
+    if (!stillActive) groupDragStates.delete(key);
+}
+
+const DROP_DURATION_MS = 1000;
+const DOUBLE_TAP_MS = 280;
+const DOUBLE_TAP_PX = 24;
+const heldTapState = new Map();
+
+function isDoubleTap(obj, x, y) {
+    if (!obj) return false;
+    const now = performance.now();
+    const last = obj._tapTime || 0;
+    const dx = (obj._tapX ?? x) - x;
+    const dy = (obj._tapY ?? y) - y;
+    obj._tapTime = now;
+    obj._tapX = x;
+    obj._tapY = y;
+    return (now - last) <= DOUBLE_TAP_MS && (dx * dx + dy * dy) <= (DOUBLE_TAP_PX * DOUBLE_TAP_PX);
+}
+
+function isDoubleTapKey(key, x, y) {
+    if (!key) return false;
+    const now = performance.now();
+    const last = heldTapState.get(key) || { t: 0, x, y };
+    const dx = last.x - x;
+    const dy = last.y - y;
+    heldTapState.set(key, { t: now, x, y });
+    return (now - last.t) <= DOUBLE_TAP_MS && (dx * dx + dy * dy) <= (DOUBLE_TAP_PX * DOUBLE_TAP_PX);
+}
+
+function getCanvasBottomY() {
+    const yMax = Math.max(1, canvasRect.height - perfHeight);
+    return canvasRect.top + yMax;
+}
+
+function getSlideFromY(y) {
+    const yMax = Math.max(1, canvasRect.height - perfHeight);
+    const yClamped = Math.max(0, Math.min(y - canvasRect.top, yMax));
+    let yNorm = Math.max(0, Math.min(1, 1 - (yClamped / yMax)));
+    const dz = parseInt(els.yDeadzone.value, 10) / 100;
+    if (dz > 0) {
+        yNorm = yNorm < dz ? 0 : (yNorm - dz) / (1 - dz);
+    }
+    yNorm = applyCurve(yNorm);
+    return Math.floor(yNorm * 127);
+}
+
+function startHoldDrop(voice) {
+    if (!voice || voice.dropActive) return;
+    const m = voice.lastM || { x: 0, y: getCanvasBottomY(), press: 90, slide: 0 };
+    voice.dropActive = true;
+    const startY = m.y;
+    const endY = getCanvasBottomY();
+    const startPress = Number.isFinite(m.press) ? m.press : 90;
+    const start = performance.now();
+
+    function tick(now) {
+        const t = Math.min(1, (now - start) / DROP_DURATION_MS);
+        const y = startY + (endY - startY) * t;
+        const press = Math.max(0, Math.round(startPress * (1 - t)));
+        const slide = getSlideFromY(y);
+        m.y = y;
+        m.press = press;
+        m.slide = slide;
+        voice.lastM = m;
+        if (voice.chan) {
+            sendMidi([0xB0 + voice.chan - 1, 74, slide]);
+            sendMidi([0xD0 + voice.chan - 1, press]);
+        }
+        if (t < 1) {
+            voice.dropRaf = requestAnimationFrame(tick);
+        } else {
+            if (voice.chan) {
+                sendMidi([0x80 + voice.chan - 1, voice.note, 0]);
+                mpeChannels.push(voice.chan);
+                mpeChannels.sort((a,b)=>a-b);
+            }
+            heldVoices = heldVoices.filter(v => v !== voice);
+            voice.dropActive = false;
+        }
+    }
+    voice.dropRaf = requestAnimationFrame(tick);
+}
+
+function startArpHoldDrop(hold, noteObj) {
+    if (!hold || !noteObj || noteObj.dropActive) return;
+    const baseM = noteObj.lastM || hold.lastM || { x: 0, y: getCanvasBottomY(), press: 90, slide: 0 };
+    noteObj.dropActive = true;
+    const startY = baseM.y;
+    const endY = getCanvasBottomY();
+    const startPress = Number.isFinite(baseM.press) ? baseM.press : 90;
+    const start = performance.now();
+
+    function tick(now) {
+        const t = Math.min(1, (now - start) / DROP_DURATION_MS);
+        const y = startY + (endY - startY) * t;
+        const press = Math.max(0, Math.round(startPress * (1 - t)));
+        const slide = getSlideFromY(y);
+        baseM.y = y;
+        baseM.press = press;
+        baseM.slide = slide;
+        noteObj.lastM = baseM;
+        if (t < 1) {
+            noteObj.dropRaf = requestAnimationFrame(tick);
+        } else {
+            stopArpActiveNote(noteObj.note);
+            removeArpNotes([noteObj]);
+            if (hold.noteObjs) {
+                hold.noteObjs = hold.noteObjs.filter(n => n !== noteObj);
+                if (!hold.noteObjs.length) {
+                    arpHoldTouches = arpHoldTouches.filter(h => h !== hold);
+                }
+            }
+            noteObj.dropActive = false;
+        }
+    }
+    noteObj.dropRaf = requestAnimationFrame(tick);
 }
 
 function collectActiveChannels() {
@@ -1678,12 +2041,16 @@ canvas.addEventListener('pointerdown', e => {
 
     const holdHit = findHeldVoiceAt(e.clientX, e.clientY);
     if (holdHit) {
-        const groupId = holdHit.group || 0;
-        const grabbed = groupId
-            ? heldVoices.filter(v => v.group === groupId)
-            : [heldVoices[holdHit.idx]];
+        const hv = heldVoices[holdHit.idx];
+        if (hv?.dropActive) return;
+        const tapKey = `${hv.chan}:${hv.note}`;
+        if (isDoubleTapKey(tapKey, e.clientX, e.clientY)) {
+            startHoldDrop(hv);
+            return;
+        }
+        const groupId = hv.group || 0;
+        const grabbed = [hv];
         heldVoices = heldVoices.filter(v => !grabbed.includes(v));
-        const hv = grabbed[0];
         const tmpVoice = { initialExact: hv.note, lastX: e.clientX, vibratoSpeed: 0 };
         const m = getMPEData(e, tmpVoice);
         grabbed.forEach(gv => {
@@ -1693,10 +2060,65 @@ canvas.addEventListener('pointerdown', e => {
             sendMidi([0xD0 + gv.chan - 1, m.press]);
         });
         activeTouches.set(e.pointerId, { 
-            voices: grabbed.map(gv => ({ chan: gv.chan, note: gv.note, basePb: gv.basePb })), 
+            voices: grabbed.map(gv => ({ chan: gv.chan, note: gv.note, basePb: gv.basePb, group: gv.group })), 
             initialExact: hv.rootNote ?? hv.note, lastX: e.clientX, isGrab: false, isHoldGrab: true, holdGroup: groupId,
             vibratoSpeed: 0, phase: hv.phase || 0, color: hv.color, lastM: m 
         });
+        if (groupId) {
+            const existingEntry = Array.from(activeTouches.entries()).find(([id, t]) => t.isHoldGrab && t.holdGroup === groupId && id !== e.pointerId);
+            const existing = existingEntry ? existingEntry[1] : null;
+            if (existing) {
+                const key = getGroupDragKey('hold', groupId);
+                startHoldGroupDrag(groupId);
+                const cur = activeTouches.get(e.pointerId);
+                existing.isGroupDrag = true;
+                existing.groupDragKey = key;
+                if (cur) {
+                    cur.isGroupDrag = true;
+                    cur.groupDragKey = key;
+                }
+            }
+        }
+        return;
+    }
+    const arpNoteHit = findArpHoldNoteAt(e.clientX, e.clientY);
+    if (arpNoteHit) {
+        const hold = arpHoldTouches[arpNoteHit.holdIdx];
+        const noteObj = hold.noteObjs[arpNoteHit.noteIdx];
+        if (noteObj?.dropActive) return;
+        if (isDoubleTap(noteObj, e.clientX, e.clientY)) {
+            startArpHoldDrop(hold, noteObj);
+            return;
+        }
+        const tmpVoice = { initialExact: noteObj.noteFloat ?? noteObj.note, lastX: e.clientX, vibratoSpeed: 0 };
+        const m = getMPEData(e, tmpVoice);
+        activeTouches.set(e.pointerId, { 
+            voices: [],
+            initialExact: noteObj.noteFloat ?? noteObj.note,
+            lastX: e.clientX,
+            isGrab: false,
+            isArpHoldGrab: true,
+            holdIdx: arpNoteHit.holdIdx,
+            arpNoteIdx: arpNoteHit.noteIdx,
+            arpNoteObj: noteObj,
+            vibratoSpeed: 0,
+            phase: hold.phase || 0,
+            color: noteObj.color || hold.color || '#ffaa00',
+            lastM: m
+        });
+        const existingEntry = Array.from(activeTouches.entries()).find(([id, t]) => t.isArpHoldGrab && t.holdIdx === arpNoteHit.holdIdx && id !== e.pointerId);
+        const existing = existingEntry ? existingEntry[1] : null;
+        if (existing) {
+            const key = getGroupDragKey('arp', arpNoteHit.holdIdx);
+            startArpGroupDrag(arpNoteHit.holdIdx);
+            const cur = activeTouches.get(e.pointerId);
+            existing.isGroupDrag = true;
+            existing.groupDragKey = key;
+            if (cur) {
+                cur.isGroupDrag = true;
+                cur.groupDragKey = key;
+            }
+        }
         return;
     }
     const arpHoldHit = findArpHoldAt(e.clientX, e.clientY);
@@ -1796,28 +2218,52 @@ canvas.addEventListener('pointerdown', e => {
 canvas.addEventListener('pointermove', e => {
     const t = activeTouches.get(e.pointerId);
     if (!t || !midiOutput) return;
+    t.lastX = e.clientX;
+    t.lastM = t.lastM ? { ...t.lastM, x: e.clientX, y: e.clientY } : { x: e.clientX, y: e.clientY, press: 0, slide: 0, pbValue: 8192, exact: t.initialExact ?? 0 };
+    if (t.isGroupDrag) {
+        handleGroupDrag(t);
+        return;
+    }
     const m = applySmoothing(t, getMPEData(e, t));
     t.lastM = m;
     if (t.isArpHoldGrab) {
         const hold = arpHoldTouches[t.holdIdx];
         if (hold) {
-            const root = parseInt(els.rootNote.value, 10);
-            const def = getScaleDefinition();
-            const scaleKey = `${def.mode}:${def.name}`;
-            if (!scaleNotes.length || scaleNotes.root !== root || scaleNotes.scale !== scaleKey) {
-                updateScaleNotes();
+            if (t.arpNoteObj) {
+                const root = parseInt(els.rootNote.value, 10);
+                const def = getScaleDefinition();
+                const scaleKey = `${def.mode}:${def.name}`;
+                if (!scaleNotes.length || scaleNotes.root !== root || scaleNotes.scale !== scaleKey) {
+                    updateScaleNotes();
+                }
+                const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
+                const voice = makeVoiceFromNote(rootNote);
+                t.arpNoteObj.noteFloat = rootNote;
+                t.arpNoteObj.note = voice.note;
+                t.arpNoteObj.basePb = voice.basePb;
+                t.arpNoteObj.lastM = m;
+                t.initialExact = rootNote;
+                if (m.press <= 0) stopArpActiveNote(t.arpNoteObj.note);
+            } else {
+                const root = parseInt(els.rootNote.value, 10);
+                const def = getScaleDefinition();
+                const scaleKey = `${def.mode}:${def.name}`;
+                if (!scaleNotes.length || scaleNotes.root !== root || scaleNotes.scale !== scaleKey) {
+                    updateScaleNotes();
+                }
+                const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
+                if (hold.noteObjs) {
+                    refreshArpNotes(hold.noteObjs, m, rootNote);
+                }
+                const pbRange = parseInt(els.pbRange.value, 10) || 12;
+                const detune = m.exact - rootNote;
+                m.pbValue = clampPb(Math.round(8192 + (detune * (8192 / pbRange))));
+                t.initialExact = rootNote;
+                hold.lastM = m;
+                hold.phase = t.phase;
+                hold.color = hold.noteObjs?.[0]?.color || t.color;
+                if (m.press <= 0) stopArpActiveNotes(hold.noteObjs);
             }
-            const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
-            if (hold.noteObjs) {
-                refreshArpNotes(hold.noteObjs, m, rootNote);
-            }
-            const pbRange = parseInt(els.pbRange.value, 10) || 12;
-            const detune = m.exact - rootNote;
-            m.pbValue = clampPb(Math.round(8192 + (detune * (8192 / pbRange))));
-            t.initialExact = rootNote;
-            hold.lastM = m;
-            hold.phase = t.phase;
-            hold.color = hold.noteObjs?.[0]?.color || t.color;
         }
         return;
     }
@@ -1835,6 +2281,7 @@ canvas.addEventListener('pointermove', e => {
             const detune = m.exact - rootNote;
             m.pbValue = clampPb(Math.round(8192 + (detune * (8192 / pbRange))));
             t.initialExact = rootNote;
+            if (m.press <= 0) stopArpActiveNotes(t.arpNotes);
         }
         return;
     }
@@ -1849,15 +2296,21 @@ canvas.addEventListener('pointermove', e => {
 canvas.addEventListener('pointerup', e => {
     const t = activeTouches.get(e.pointerId);
     if (t) {
+        const groupKey = t.groupDragKey;
         const hold = els.holdNotes.checked;
         if (t.isArpHoldGrab) {
             const item = arpHoldTouches[t.holdIdx];
             if (item) {
-                item.lastM = t.lastM;
+                if (t.arpNoteObj) {
+                    t.arpNoteObj.lastM = t.lastM;
+                } else {
+                    item.lastM = t.lastM;
+                }
                 item.phase = t.phase;
-                item.color = t.color;
+                item.color = item.noteObjs?.[0]?.color || t.color;
             }
             activeTouches.delete(e.pointerId);
+            cleanupGroupDrag(groupKey);
             return;
         }
         if (!t.isGrab && !t.isArp && els.quantizeRelease.checked) {
@@ -1879,6 +2332,7 @@ canvas.addEventListener('pointerup', e => {
                 arpHoldTouches.push({ lastM: t.lastM, color: holdColor, phase: t.phase || 0, noteObjs: t.arpNotes });
             }
             activeTouches.delete(e.pointerId);
+            cleanupGroupDrag(groupKey);
             return;
         }
         if (t.isHoldGrab) {
@@ -1895,6 +2349,7 @@ canvas.addEventListener('pointerup', e => {
             }
             mpeChannels.sort((a,b)=>a-b);
             activeTouches.delete(e.pointerId);
+            cleanupGroupDrag(groupKey);
             return;
         }
         t.voices.forEach(v => {
@@ -1925,20 +2380,24 @@ canvas.addEventListener('pointerup', e => {
         });
         if (!hold) mpeChannels.sort((a,b)=>a-b);
         activeTouches.delete(e.pointerId);
+        cleanupGroupDrag(groupKey);
     }
 });
 
 function cancelActivePointer(pointerId) {
     const t = activeTouches.get(pointerId);
     if (!t) return;
+    const groupKey = t.groupDragKey;
     if (t.isArp) {
         const keep = els.holdNotes.checked;
         if (!keep) removeArpNotes(t.arpNotes);
         activeTouches.delete(pointerId);
+        cleanupGroupDrag(groupKey);
         return;
     }
     if (!midiOutput) {
         activeTouches.delete(pointerId);
+        cleanupGroupDrag(groupKey);
         return;
     }
     t.voices.forEach(v => {
@@ -1947,6 +2406,7 @@ function cancelActivePointer(pointerId) {
     });
     mpeChannels.sort((a,b)=>a-b);
     activeTouches.delete(pointerId);
+    cleanupGroupDrag(groupKey);
 }
 
 canvas.addEventListener('pointercancel', e => cancelActivePointer(e.pointerId));
@@ -1968,11 +2428,14 @@ els.octUpBtn.onclick = () => changeOctave(1);
 els.holdBtn.onclick = () => {
     const hold = els.holdNotes;
     hold.checked = !hold.checked;
-    els.holdBtn.classList.toggle('active', hold.checked);
+    updateHoldButtonUI();
     if (!hold.checked) releaseHeldNotes();
 };
 els.pbRange.onchange = e => setPitchBendRange(parseInt(e.target.value, 10));
-els.holdNotes.onchange = e => { if (!e.target.checked) releaseHeldNotes(); };
+els.holdNotes.onchange = e => {
+    updateHoldButtonUI();
+    if (!e.target.checked) releaseHeldNotes();
+};
 els.panicBtn.onclick = () => {
     allNotesOff();
     els.midiStatus.innerText = 'STOP';
@@ -1986,31 +2449,46 @@ els.arpGate.onchange = syncArpFromUI;
 els.arpSync.onchange = syncArpFromUI;
 els.arpBpm.onchange = syncArpFromUI;
 els.arpLatch.onchange = syncArpFromUI;
+els.arpParamsToggle.onclick = () => {
+    els.arpParamsPanel.classList.toggle('hidden');
+    updateArpParamsToggleLabel();
+};
 
 function setupChordKnob() {
     const select = els.chordMode;
-    const btnOff = els.chordOffBtn;
     const wheel = els.chordWheel;
     const options = Array.from(select.options);
     let currentIndex = Math.max(0, options.findIndex(o => o.value === select.value));
+    let lastModeValue = select.value !== 'off' ? select.value : 'triad';
     let lastAngle = null;
     let angleAccum = 0;
+    let didRotate = false;
     const stepAngle = 30;
 
     function applyIndex(idx) {
         currentIndex = Math.max(0, Math.min(options.length - 1, idx));
         select.selectedIndex = currentIndex;
         const isOn = select.value !== 'off';
-        btnOff.classList.toggle('active', !isOn);
+        if (isOn) lastModeValue = select.value;
         wheel.innerText = options[currentIndex].text;
-        wheel.classList.toggle('active', isOn);
+        wheel.classList.toggle('knob-on', isOn);
+        wheel.classList.toggle('knob-off', !isOn);
     }
 
     select.addEventListener('change', () => {
         applyIndex(select.selectedIndex);
         updateHeldChords();
     });
-    btnOff.addEventListener('click', () => applyIndex(0));
+
+    function toggleChord() {
+        if (select.value === 'off') {
+            const idx = Math.max(0, options.findIndex(o => o.value === lastModeValue));
+            applyIndex(idx);
+        } else {
+            applyIndex(0);
+        }
+        updateHeldChords();
+    }
 
     function angleFromEvent(e) {
         const rect = wheel.getBoundingClientRect();
@@ -2026,6 +2504,7 @@ function setupChordKnob() {
         if (options[nextIdx].value === 'off') {
             nextIdx = delta > 0 ? (nextIdx + 1) % options.length : (nextIdx - 1 + options.length) % options.length;
         }
+        didRotate = true;
         applyIndex(nextIdx);
     }
 
@@ -2034,6 +2513,7 @@ function setupChordKnob() {
         wheel.setPointerCapture(e.pointerId);
         lastAngle = angleFromEvent(e);
         angleAccum = 0;
+        didRotate = false;
         wheel.classList.add('active');
     });
     wheel.addEventListener('pointermove', e => {
@@ -2057,14 +2537,101 @@ function setupChordKnob() {
         wheel.releasePointerCapture(e.pointerId);
         lastAngle = null;
         angleAccum = 0;
-        wheel.classList.toggle('active', select.value !== 'off');
+        if (!didRotate) toggleChord();
+        wheel.classList.toggle('knob-on', select.value !== 'off');
+        wheel.classList.toggle('knob-off', select.value === 'off');
     });
     wheel.addEventListener('pointercancel', () => {
         lastAngle = null;
         angleAccum = 0;
-        wheel.classList.toggle('active', select.value !== 'off');
+        wheel.classList.toggle('knob-on', select.value !== 'off');
+        wheel.classList.toggle('knob-off', select.value === 'off');
     });
     applyIndex(currentIndex);
+}
+
+function setupArpKnob() {
+    const select = els.arpRate;
+    const wheel = els.arpWheel;
+    const options = Array.from(select.options);
+    let currentIndex = Math.max(0, options.findIndex(o => o.value === select.value));
+    let lastAngle = null;
+    let angleAccum = 0;
+    let didRotate = false;
+    const stepAngle = 30;
+
+    function applyIndex(idx) {
+        currentIndex = Math.max(0, Math.min(options.length - 1, idx));
+        select.selectedIndex = currentIndex;
+        updateArpControlsUI();
+        syncArpFromUI();
+    }
+
+    select.addEventListener('change', () => {
+        currentIndex = select.selectedIndex;
+        updateArpControlsUI();
+    });
+
+    function toggleArp() {
+        els.arpEnabled.checked = !els.arpEnabled.checked;
+        syncArpFromUI();
+    }
+
+    function angleFromEvent(e) {
+        const rect = wheel.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        return Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+    }
+
+    function stepBy(delta) {
+        let nextIdx = currentIndex + delta;
+        if (nextIdx < 0) nextIdx = options.length - 1;
+        if (nextIdx >= options.length) nextIdx = 0;
+        didRotate = true;
+        applyIndex(nextIdx);
+    }
+
+    wheel.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        wheel.setPointerCapture(e.pointerId);
+        lastAngle = angleFromEvent(e);
+        angleAccum = 0;
+        didRotate = false;
+        wheel.classList.add('active');
+    });
+    wheel.addEventListener('pointermove', e => {
+        if (lastAngle == null) return;
+        const ang = angleFromEvent(e);
+        let delta = ang - lastAngle;
+        if (delta > 180) delta -= 360;
+        if (delta < -180) delta += 360;
+        angleAccum += delta;
+        lastAngle = ang;
+        while (angleAccum >= stepAngle) {
+            stepBy(1);
+            angleAccum -= stepAngle;
+        }
+        while (angleAccum <= -stepAngle) {
+            stepBy(-1);
+            angleAccum += stepAngle;
+        }
+    });
+    wheel.addEventListener('pointerup', e => {
+        wheel.releasePointerCapture(e.pointerId);
+        lastAngle = null;
+        angleAccum = 0;
+        if (!didRotate) toggleArp();
+        wheel.classList.toggle('knob-on', els.arpEnabled.checked);
+        wheel.classList.toggle('knob-off', !els.arpEnabled.checked);
+    });
+    wheel.addEventListener('pointercancel', () => {
+        lastAngle = null;
+        angleAccum = 0;
+        wheel.classList.toggle('knob-on', els.arpEnabled.checked);
+        wheel.classList.toggle('knob-off', !els.arpEnabled.checked);
+    });
+    updateArpControlsUI();
 }
 
 function findHeldVoiceAt(x, y) {
@@ -2072,10 +2639,34 @@ function findHeldVoiceAt(x, y) {
         const m = heldVoices[i].lastM;
         if (!m) continue;
         const radius = 12 + (m.press / 127) * 22;
-        const dx = x - m.x;
-        const dy = y - m.y;
+        const noteFloat = getVoiceNoteFloat(heldVoices[i]);
+        const px = getNearestNoteX(noteFloat) ?? m.x;
+        const py = m.y;
+        const dx = x - px;
+        const dy = y - py;
         if ((dx * dx + dy * dy) <= ((radius + 10) * (radius + 10))) {
-            return { idx: i, group: heldVoices[i].group || 0 };
+            return { idx: i };
+        }
+    }
+    return null;
+}
+
+function findArpHoldNoteAt(x, y) {
+    for (let i = arpHoldTouches.length - 1; i >= 0; i--) {
+        const hold = arpHoldTouches[i];
+        if (!hold || !hold.noteObjs) continue;
+        for (let n = hold.noteObjs.length - 1; n >= 0; n--) {
+            const noteObj = hold.noteObjs[n];
+            const m = noteObj.lastM || hold.lastM;
+            if (!m) continue;
+            const radius = 10 + (m.press / 127) * 18;
+            const px = getNearestNoteX(noteObj.noteFloat ?? noteObj.note) ?? m.x;
+            const py = m.y;
+            const dx = x - px;
+            const dy = y - py;
+            if ((dx * dx + dy * dy) <= ((radius + 10) * (radius + 10))) {
+                return { holdIdx: i, noteIdx: n };
+            }
         }
     }
     return null;
@@ -2239,6 +2830,7 @@ els.customScaleDel.onclick = () => {
     }
 };
 setupChordKnob();
+setupArpKnob();
 
 function updateScaleNotes() {
     const def = getScaleDefinition();
@@ -2319,11 +2911,19 @@ function draw() {
     const noteW = width / (numOct * grid.stepsPerOct);
     const root = grid.root;
     const baseMIDI = 48 + (currentOctave * 12) + root;
+    updateGridCache();
     const time = Date.now();
     const chordHighlightNotes = new Map();
+    const chordDimNotes = new Set();
     const arpActiveNotes = new Map();
     if (els.chordMode.value !== 'off') {
         activeTouches.forEach(t => {
+            if (t.isHoldGrab) {
+                const target = mapMidiNoteToScale(t.lastM?.exact ?? 0);
+                const source = mapMidiNoteToScale(t.initialExact ?? 0);
+                if (Number.isFinite(source)) chordDimNotes.add(Math.round(source));
+                if (Number.isFinite(target)) chordHighlightNotes.set(Math.round(target), t.color);
+            }
             if (t.isArp && t.arpNotes) {
                 t.arpNotes.forEach(n => chordHighlightNotes.set(Math.round(n.note), t.color));
             } else {
@@ -2343,6 +2943,12 @@ function draw() {
         const isRoot = (nRound % 12 === root);
         ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.15)';
         ctx.fillRect(x, 0, noteW, height);
+        if (chordDimNotes.has(nRound)) {
+            ctx.globalAlpha = 0.5;
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x, 0, noteW, height);
+            ctx.globalAlpha = 1;
+        }
         if (chordHighlightNotes.has(nRound)) {
             const color = chordHighlightNotes.get(nRound) || '#ffaa00';
             ctx.globalAlpha = 0.25;
@@ -2392,41 +2998,41 @@ function draw() {
     }
 
     if (heldVoices.length) {
-        heldVoices.forEach(v => {
+        heldVoices.forEach((v, i) => {
             const m = v.lastM;
             const radius = 12 + (m.press / 127) * 22;
             v.phase = (v.phase || 0) + 0.2;
+            const noteFloat = getVoiceNoteFloat(v);
+            const x = getNearestNoteX(noteFloat) ?? m.x;
             const y = m.y + ((height - m.y) * fadeDrop);
             ctx.globalAlpha = fadeMul;
             ctx.beginPath(); ctx.strokeStyle = v.color; ctx.lineWidth = 3;
             for (let ox = -50; ox <= 50; ox += 2) {
                 const oy = Math.sin(ox * 0.15 + v.phase) * 3;
-                if (ox === -50) ctx.moveTo(m.x + ox, y + oy);
-                else ctx.lineTo(m.x + ox, y + oy);
+                if (ox === -50) ctx.moveTo(x + ox, y + oy);
+                else ctx.lineTo(x + ox, y + oy);
             }
             ctx.stroke();
-            ctx.shadowBlur = 20; ctx.shadowColor = v.color; ctx.fillStyle = v.color;
-            ctx.beginPath(); ctx.arc(m.x, y, radius, 0, Math.PI * 2); ctx.fill();
-            ctx.shadowBlur = 0; ctx.fillStyle = "#fff"; ctx.font = "bold 12px Arial"; ctx.textAlign = 'center';
-            ctx.fillText("HOLD", m.x, y - radius - 16);
+            drawNoteBubble(x, y, radius, v.color, i === 0 ? "HOLD" : null);
             ctx.globalAlpha = 1;
         });
     }
 
     if (arpHoldTouches.length) {
         arpHoldTouches.forEach(t => {
-            const m = t.lastM;
-            if (!m) return;
-            const radius = 10 + (m.press / 127) * 18;
-            t.phase = (t.phase || 0) + 0.2;
-            const y = m.y + ((height - m.y) * fadeDrop);
-            const glow = t.color || '#ffaa00';
-            ctx.globalAlpha = fadeMul;
-            ctx.shadowBlur = 18; ctx.shadowColor = glow; ctx.fillStyle = glow;
-            ctx.beginPath(); ctx.arc(m.x, y, radius, 0, Math.PI * 2); ctx.fill();
-            ctx.shadowBlur = 0; ctx.fillStyle = "#fff"; ctx.font = "bold 12px Arial"; ctx.textAlign = 'center';
-            ctx.fillText("ARP HOLD", m.x, y - radius - 14);
-            ctx.globalAlpha = 1;
+            const list = t.noteObjs || [];
+            list.forEach((n, idx) => {
+                const m = n.lastM || t.lastM;
+                if (!m) return;
+                const radius = 10 + (m.press / 127) * 18;
+                t.phase = (t.phase || 0) + 0.2;
+                const x = getNearestNoteX(n.noteFloat ?? n.note) ?? m.x;
+                const y = m.y + ((height - m.y) * fadeDrop);
+                const glow = n.color || t.color || '#ffaa00';
+                ctx.globalAlpha = fadeMul;
+                drawNoteBubble(x, y, radius, glow, idx === 0 ? "ARP HOLD" : null);
+                ctx.globalAlpha = 1;
+            });
         });
     }
 
@@ -2442,11 +3048,21 @@ function draw() {
             else ctx.lineTo(t.lastM.x + ox, y + oy);
         }
         ctx.stroke();
-        ctx.shadowBlur = 30; ctx.shadowColor = t.color; ctx.fillStyle = t.color;
-        ctx.beginPath(); ctx.arc(t.lastM.x, y, radius, 0, Math.PI * 2); ctx.fill();
-        ctx.shadowBlur = 0; ctx.fillStyle = "#fff"; ctx.font = "bold 14px Arial"; ctx.textAlign = 'center';
         const label = t.isGrab ? "GRAB" : (t.isArpHoldGrab ? "ARP HOLD" : (t.isArp ? "ARP" : `CH${t.voices[0].chan}`));
-        ctx.fillText(label, t.lastM.x, y - radius - 20);
+        drawNoteBubble(t.lastM.x, y, radius, t.color, label);
+        if (t.isArp && t.arpNotes) {
+            t.arpNotes.forEach(n => {
+                const noteFloat = n.noteFloat ?? n.note;
+                const nx = getNearestNoteX(noteFloat) ?? t.lastM.x;
+                drawNoteBubble(nx, y, Math.max(8, radius * 0.7), n.color || t.color, null);
+            });
+        } else if (t.voices && t.voices.length > 1) {
+            t.voices.forEach(v => {
+                const noteFloat = getVoiceNoteFloat(v);
+                const nx = getNearestNoteX(noteFloat) ?? t.lastM.x;
+                drawNoteBubble(nx, y, Math.max(8, radius * 0.7), t.color, null);
+            });
+        }
         ctx.globalAlpha = 1;
     });
     requestAnimationFrame(draw);
@@ -2481,7 +3097,7 @@ function refreshLayout() {
 window.onresize = refreshLayout;
 els.ui.addEventListener('transitionend', refreshLayout);
 els.performance.addEventListener('transitionend', refreshLayout);
-refreshLayout(); updateScaleModeUI(); updateScaleNotes(); syncArpFromUI(); setupMIDI(); draw();
+refreshLayout(); updateScaleModeUI(); updateScaleNotes(); syncArpFromUI(); updateHoldButtonUI(); updateArpParamsToggleLabel(); setupMIDI(); draw();
 
 function updateToggleLabels() {
     const uiLabel = uiToggle.querySelector('.btn-text');
