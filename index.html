@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -21,9 +19,9 @@
             position: absolute; top: 0; left: 0; right: 0; 
             background: linear-gradient(180deg, rgba(30, 30, 30, 0.98), rgba(12, 12, 12, 0.98)); padding: 10px; 
             border-bottom: 2px solid var(--red); display: flex; flex-wrap: wrap; gap: 8px; 
-            z-index: 100; transform: translateY(-93%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100; transform: translateY(-100%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        #ui:hover, #ui.active { transform: translateY(0); }
+        #ui.active { transform: translateY(0); }
         #ui select, #ui input, #ui .menu-btn { min-width: 0; }
         #ui .ui-group {
             display: flex;
@@ -55,11 +53,19 @@
             border-top: 2px solid var(--red);
             display: flex; gap: 8px; padding: 6px 8px; flex-wrap: wrap; align-items: center;
             z-index: 110;
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
+        #performance.collapsed { transform: translateY(100%); }
         #uiToggle {
             position: fixed;
             top: 8px;
             right: 8px;
+            z-index: 120;
+        }
+        #perfToggle {
+            position: fixed;
+            right: 8px;
+            bottom: 8px;
             z-index: 120;
         }
         #performance .box { min-width: 90px; flex: 1 1 90px; }
@@ -136,7 +142,14 @@
         .oct-ctrl { display: flex; align-items: center; justify-content: space-between; background: #2a2a2a; border: 1px solid #ff3333; border-radius: 4px; height: 28px; }
         .oct-btn { background: #300; color: #fff; border: none; width: 30px; height: 100%; cursor: pointer; font-weight: bold; }
         #octVal { font-size: 12px; color: #fff; width: 25px; text-align: center; }
-        canvas { display: block; width: 100vw; height: 100vh; }
+        #playArea {
+            position: absolute;
+            top: var(--ui-h, 0px);
+            bottom: var(--perf-h, 0px);
+            left: 0;
+            right: 0;
+        }
+        canvas { display: block; width: 100%; height: 100%; }
         .footer { position: absolute; bottom: 44px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: none; font-size: 9px; color: #444; }
         .menu-btn {
             display: inline-flex;
@@ -194,11 +207,20 @@
             input[type="checkbox"] { width: 18px; height: 18px; }
             #performance .icon-btn, #performance .hold-btn, #performance .panic-btn { min-height: 32px; }
         }
+        @media (max-width: 480px) {
+            #performance { gap: 4px; }
+            #performance .box { min-width: 54px; flex: 1 1 54px; }
+            #performance .arp-group .box { min-width: 100px; }
+            #performance .transpose-wrap { gap: 4px; }
+            #performance .chord-wheel { width: 52px; height: 52px; }
+            #perfToggle { bottom: calc(8px + env(safe-area-inset-bottom)); }
+        }
     </style>
 </head>
 <body>
 
-<button id="uiToggle" class="menu-btn btn-accent" title="Toggle UI"><span class="btn-text">UI</span></button>
+<button id="uiToggle" class="menu-btn btn-accent" title="Toggle UI"><span class="btn-text">SET</span></button>
+<button id="perfToggle" class="menu-btn btn-accent" title="Toggle Performance"><span class="btn-text">PLAY</span></button>
 
 <div id="ui">
     <div class="ui-group">
@@ -430,10 +452,12 @@
     </div>
 </div>
 
-<canvas id="surface"></canvas>
-<div class="footer">
-    <div id="midiStatus">HYBRID ENGINE READY</div>
-    <div>SPOSTA GIU' PER IL MENU</div>
+<div id="playArea">
+    <canvas id="surface"></canvas>
+    <div class="footer">
+        <div id="midiStatus">HYBRID ENGINE READY</div>
+        <div>SPOSTA GIU' PER IL MENU</div>
+    </div>
 </div>
 
 <script>
@@ -1929,21 +1953,16 @@ canvas.addEventListener('pointercancel', e => cancelActivePointer(e.pointerId));
 canvas.addEventListener('pointerleave', e => cancelActivePointer(e.pointerId));
 
 const uiToggle = document.getElementById('uiToggle');
-uiToggle.onclick = () => els.ui.classList.toggle('active');
+const perfToggle = document.getElementById('perfToggle');
+uiToggle.onclick = () => {
+    els.ui.classList.toggle('active');
+    refreshLayout();
+};
+perfToggle.onclick = () => {
+    els.performance.classList.toggle('collapsed');
+    refreshLayout();
+};
 els.fsBtn.onclick = () => { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); };
-document.addEventListener('pointerdown', e => {
-    const ui = els.ui;
-    const uiRect = ui.getBoundingClientRect();
-    const isTopEdge = e.clientY < (uiRect.height * 0.35);
-    const inUi = ui.contains(e.target);
-    if (isTopEdge) {
-        ui.classList.toggle('active');
-        return;
-    }
-    if (ui.classList.contains('active') && !inUi) {
-        ui.classList.remove('active');
-    }
-});
 els.octDownBtn.onclick = () => changeOctave(-1);
 els.octUpBtn.onclick = () => changeOctave(1);
 els.holdBtn.onclick = () => {
@@ -2439,11 +2458,37 @@ function resizeCanvas() {
     canvas.width = Math.floor(canvasRect.width * dpr);
     canvas.height = Math.floor(canvasRect.height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    perfHeight = els.performance.getBoundingClientRect().height;
 }
 
-window.onresize = resizeCanvas;
-resizeCanvas(); updateScaleModeUI(); updateScaleNotes(); syncArpFromUI(); setupMIDI(); draw();
+function updateLayoutVars() {
+    const uiRect = els.ui.getBoundingClientRect();
+    const perfRect = els.performance.getBoundingClientRect();
+    const isActive = els.ui.classList.contains('active');
+    const isPerfCollapsed = els.performance.classList.contains('collapsed');
+    const uiH = isActive ? uiRect.height : 0;
+    const perfH = isPerfCollapsed ? 0 : perfRect.height;
+    perfHeight = perfH;
+    document.documentElement.style.setProperty('--ui-h', `${uiH}px`);
+    document.documentElement.style.setProperty('--perf-h', `${perfH}px`);
+}
+
+function refreshLayout() {
+    updateLayoutVars();
+    resizeCanvas();
+    updateToggleLabels();
+}
+
+window.onresize = refreshLayout;
+els.ui.addEventListener('transitionend', refreshLayout);
+els.performance.addEventListener('transitionend', refreshLayout);
+refreshLayout(); updateScaleModeUI(); updateScaleNotes(); syncArpFromUI(); setupMIDI(); draw();
+
+function updateToggleLabels() {
+    const uiLabel = uiToggle.querySelector('.btn-text');
+    const perfLabel = perfToggle.querySelector('.btn-text');
+    if (uiLabel) uiLabel.textContent = els.ui.classList.contains('active') ? 'X' : 'SET';
+    if (perfLabel) perfLabel.textContent = els.performance.classList.contains('collapsed') ? 'PLAY' : 'X';
+}
 </script>
 </body>
 </html>
