@@ -1,9 +1,10 @@
 
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GENCA MPE Ultra Continuum: Hybrid Edition</title>
     <style>
         :root {
@@ -54,6 +55,12 @@
             border-top: 2px solid var(--red);
             display: flex; gap: 8px; padding: 6px 8px; flex-wrap: wrap; align-items: center;
             z-index: 110;
+        }
+        #uiToggle {
+            position: fixed;
+            top: 8px;
+            right: 8px;
+            z-index: 120;
         }
         #performance .box { min-width: 90px; flex: 1 1 90px; }
         #performance .menu-btn .short { display: none; }
@@ -146,6 +153,7 @@
             min-height: 28px;
             min-width: 36px;
         }
+        button, .menu-btn, select, input[type="range"], input[type="checkbox"] { min-height: 44px; }
         .menu-btn.active { background: #552200; border-color: var(--amber); color: #ffd28a; }
         .menu-btn.btn-accent { background: #2a1800; border-color: var(--amber); color: #ffd28a; }
         .menu-btn.btn-danger { background: #330000; border-color: var(--red); color: #ffdede; }
@@ -154,6 +162,9 @@
         .btn-text { letter-spacing: 0.06em; }
         #ui .box select, #ui .box input { width: 100%; }
         @media (max-width: 600px) {
+            #ui { transform: translateY(-100%); max-height: 45vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-top: calc(8px + env(safe-area-inset-top)); }
+            #ui.active { transform: translateY(0); }
+            #uiToggle { top: calc(8px + env(safe-area-inset-top)); }
             #ui { padding: 8px; gap: 6px; }
             #ui .box { min-width: 70px; }
             #ui label { font-size: 8px; }
@@ -162,7 +173,7 @@
             #ui .ui-title { width: 100%; margin-right: 0; }
             #ui .ui-group .box { flex: 1 1 48%; min-width: 120px; }
             #ui .ui-group .box[style*="flex:1.2"] { flex: 1 1 100%; }
-            #performance { gap: 6px; padding: 6px; }
+            #performance { gap: 6px; padding: 6px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
             #performance .box { min-width: 60px; }
             #performance label { display: none; }
             #performance select, #performance input, #performance .menu-btn { font-size: 10px; padding: 4px; }
@@ -186,6 +197,8 @@
     </style>
 </head>
 <body>
+
+<button id="uiToggle" class="menu-btn btn-accent" title="Toggle UI"><span class="btn-text">UI</span></button>
 
 <div id="ui">
     <div class="ui-group">
@@ -1915,6 +1928,8 @@ function cancelActivePointer(pointerId) {
 canvas.addEventListener('pointercancel', e => cancelActivePointer(e.pointerId));
 canvas.addEventListener('pointerleave', e => cancelActivePointer(e.pointerId));
 
+const uiToggle = document.getElementById('uiToggle');
+uiToggle.onclick = () => els.ui.classList.toggle('active');
 els.fsBtn.onclick = () => { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); };
 document.addEventListener('pointerdown', e => {
     const ui = els.ui;
