@@ -1577,6 +1577,41 @@ function getVoiceNoteFloat(voice) {
     return (voice.note || 0) + (basePb * (pbRange / 8192));
 }
 
+function getNearestScaleNote(exact) {
+    const root = parseInt(els.rootNote.value, 10);
+    const def = getScaleDefinition();
+    const scaleKey = `${def.mode}:${def.name}`;
+    if (!state.scaleNotes.notes.length || state.scaleNotes.root !== root || state.scaleNotes.scale !== scaleKey) {
+        updateScaleNotes();
+    }
+    if (!state.scaleNotes.notes.length) return exact;
+    return state.scaleNotes.notes.reduce((prev, curr) => Math.abs(curr - exact) < Math.abs(prev - exact) ? curr : prev);
+}
+
+function snapHoldVoicesToScale(t) {
+    if (!t || !t.voices || !t.voices.length) return;
+    const exact = t.lastM?.exact ?? t.initialExact ?? 0;
+    const rootNote = getNearestScaleNote(exact);
+    const chordNotes = computeChordNotes(rootNote);
+    const m = t.lastM ? { ...t.lastM, exact: rootNote } : { pbValue: 8192, slide: 0, press: 90, exact: rootNote, x: 0, y: 0 };
+    const pbRange = parseInt(els.pbRange.value, 10) || 12;
+    m.pbValue = 8192;
+    t.lastM = m;
+    t.initialExact = rootNote;
+    for (let i = 0; i < t.voices.length; i++) {
+        const v = t.voices[i];
+        const noteFloat = chordNotes[i] ?? rootNote;
+        const basePb = Math.round((noteFloat - (v.note || 0)) * (8192 / pbRange));
+        v.basePb = Math.max(-8192, Math.min(8191, basePb));
+        const pb = getVoicePb(m, v);
+        if (v.chan) {
+            sendMidi([0xB0 + v.chan - 1, 74, m.slide]);
+            sendMidi([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+            sendMidi([0xD0 + v.chan - 1, m.press]);
+        }
+    }
+}
+
 function drawGridBaseToContext(gctx, width, height, grid, numOct, noteW, baseMIDI) {
     const mode = getScaleMode();
     gctx.clearRect(0, 0, width, height);
@@ -2024,25 +2059,7 @@ function collectActiveNotes() {
 }
 
 function runEchoTail() {
-    if (!state.midi.output || !FADE_ECHO_ENABLED) return 0;
-    const notes = collectActiveNotes();
-    if (!notes.length) return 0;
-    for (let i = 1; i <= ECHO_TAIL_STEPS; i++) {
-        const delay = i * ECHO_INTERVAL_MS;
-        const gain = Math.pow(ECHO_DECAY, i);
-        setTimeout(() => {
-            notes.forEach(n => {
-                const vel = Math.max(1, Math.round(n.vel * gain));
-                state.midi.output.send([0x90 + n.chan - 1, n.note, vel]);
-            });
-            setTimeout(() => {
-                notes.forEach(n => {
-                    state.midi.output.send([0x80 + n.chan - 1, n.note, 0]);
-                });
-            }, ECHO_NOTE_MS);
-        }, delay);
-    }
-    return (ECHO_TAIL_STEPS * ECHO_INTERVAL_MS) + ECHO_NOTE_MS;
+    return 0;
 }
 
 function fadeOutAll() {
@@ -2074,12 +2091,11 @@ function fadeOutAll() {
         if (step >= steps) {
             clearInterval(state.fadeTimer);
             state.fadeTimer = null;
-            const echoTailMs = runEchoTail();
             setTimeout(() => {
                 state.fadeState = { active: false, start: 0, durationMs: 0 };
                 allNotesOff();
                 els.midiStatus.innerText = 'FADE OUT';
-            }, FADE_TAIL_MS + echoTailMs);
+            }, FADE_TAIL_MS);
         }
     }, intervalMs);
 }
@@ -2537,6 +2553,7 @@ canvas.addEventListener('pointerup', e => {
         }
         if (t.isHoldGrab) {
             if (hold) {
+                snapHoldVoicesToScale(t);
                 const groupId = t.holdGroup || state.holdGroupSeq++;
                 t.voices.forEach(v => {
                     state.heldVoices.push({ chan: v.chan, note: v.note, basePb: v.basePb, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId, rootNote: t.initialExact });
@@ -2551,6 +2568,9 @@ canvas.addEventListener('pointerup', e => {
             state.activeTouches.delete(e.pointerId);
             cleanupGroupDrag(groupKey);
             return;
+        }
+        if (!t.isGrab && hold) {
+            snapHoldVoicesToScale(t);
         }
         t.voices.forEach(v => {
             if(!t.isGrab) {
@@ -3170,29 +3190,27 @@ function collectHighlightMaps() {
     const chordHighlightNotes = new Map();
     const chordDimNotes = new Set();
     const arpActiveNotes = new Map();
-    if (els.chordMode.value !== 'off') {
-        state.activeTouches.forEach(t => {
-            if (t.isHoldGrab) {
-                const target = mapMidiNoteToScale(t.lastM?.exact ?? 0);
-                const source = mapMidiNoteToScale(t.initialExact ?? 0);
-                if (Number.isFinite(source)) chordDimNotes.add(Math.round(source));
-                if (Number.isFinite(target)) chordHighlightNotes.set(Math.round(target), t.color);
-            }
-            if (t.isArp && t.arpNotes) {
-                t.arpNotes.forEach(n => chordHighlightNotes.set(Math.round(n.note), t.color));
-            } else {
-                t.voices.forEach(v => {
-                    const noteFloat = getVoiceNoteFloat(v);
-                    chordHighlightNotes.set(Math.round(noteFloat), t.color);
-                });
-            }
-        });
-        state.heldVoices.forEach(v => {
-            const noteFloat = getVoiceNoteFloat(v);
-            chordHighlightNotes.set(Math.round(noteFloat), v.color);
-        });
-        state.arp.notes.forEach(n => chordHighlightNotes.set(Math.round(n.note), n.color));
-    }
+    state.activeTouches.forEach(t => {
+        if (t.isHoldGrab) {
+            const target = mapMidiNoteToScale(t.lastM?.exact ?? 0);
+            const source = mapMidiNoteToScale(t.initialExact ?? 0);
+            if (Number.isFinite(source)) chordDimNotes.add(Math.round(source));
+            if (Number.isFinite(target)) chordHighlightNotes.set(Math.round(target), t.color);
+        }
+        if (t.isArp && t.arpNotes) {
+            t.arpNotes.forEach(n => chordHighlightNotes.set(Math.round(n.note), t.color));
+        } else {
+            t.voices.forEach(v => {
+                const noteFloat = getVoiceNoteFloat(v);
+                chordHighlightNotes.set(Math.round(noteFloat), t.color);
+            });
+        }
+    });
+    state.heldVoices.forEach(v => {
+        const noteFloat = getVoiceNoteFloat(v);
+        chordHighlightNotes.set(Math.round(noteFloat), v.color);
+    });
+    state.arp.notes.forEach(n => chordHighlightNotes.set(Math.round(n.note), n.color));
     state.arp.active.forEach(entry => arpActiveNotes.set(entry.note, entry.color));
     return { chordHighlightNotes, chordDimNotes, arpActiveNotes };
 }
