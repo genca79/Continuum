@@ -514,6 +514,7 @@
 <script>
 const canvas = document.getElementById('surface');
 const ctx = canvas.getContext('2d');
+const CANVAS_FONT_FAMILY = "'Segoe UI', Roboto, sans-serif";
 const els = {
     ui: document.getElementById('ui'),
     performance: document.getElementById('performance'),
@@ -584,16 +585,6 @@ const els = {
     groupShiftBtn: document.getElementById('groupShiftBtn'),
     midiStatus: document.getElementById('midiStatus')
 };
-let midiOutput = null;
-let midiInput = null;
-let midiAccess = null;
-const activeTouches = new Map(); 
-const physicalNotes = new Map(); // note -> array di voci esterne attive
-const mpeChannels = Array.from({length: 15}, (_, i) => i + 2);
-let currentOctave = 0;
-let heldVoices = [];
-let arpHoldTouches = [];
-let arpColorIndex = 0;
 const PRESET_KEY = 'genca_presets_v1';
 const MPE_PRESET_KEY = 'genca_mpe_presets_v1';
 const CUSTOM_SCALE_KEY = 'genca_custom_scales_v1';
@@ -610,18 +601,34 @@ const MICROTONAL_SCALES = {
 const DEFAULT_CUSTOM_SCALES = {
     'Custom 1': { type: 'cents', cents: [0, 240, 480, 720, 960] }
 };
-let holdGroupSeq = 1;
-let perfHeight = 0;
-let canvasRect = canvas.getBoundingClientRect();
-let scaleNotes = [];
-const localNoteOnTimes = new Map();
 const LOCAL_SUPPRESS_MS = 30;
-const externalNoteMap = new Map();
-let gridCache = null;
-const groupDragStates = new Map();
-let groupShiftEnabled = false;
-let fadeTimer = null;
-let fadeState = { active: false, start: 0, durationMs: 0 };
+const GHOST_NOTE_MS = 220;
+const state = {
+    midi: { output: null, input: null, access: null },
+    currentOctave: 0,
+    perfHeight: 0,
+    canvasRect: canvas.getBoundingClientRect(),
+    activeTouches: new Map(),
+    physicalNotes: new Map(),
+    mpeChannels: Array.from({length: 15}, (_, i) => i + 2),
+    localNoteOnTimes: new Map(),
+    externalNoteMap: new Map(),
+    groupDragStates: new Map(),
+    presets: {},
+    mpePresets: {},
+    customScales: {},
+    scaleNotes: { notes: [], root: 0, scale: '' },
+    gridCache: null,
+    groupShiftEnabled: false,
+    fadeState: { active: false, start: 0, durationMs: 0 },
+    drawRaf: null,
+    scaleUpdateRaf: null,
+    fadeTimer: null,
+    heldVoices: [],
+    arpHoldTouches: [],
+    arpColorIndex: 0,
+    holdGroupSeq: 1
+};
 const FADE_TAIL_MS = 200;
 const FADE_EASE_POW = 2.2;
 const ECHO_TAIL_STEPS = 7;
@@ -641,7 +648,7 @@ const MPE_PRESET_DESCRIPTIONS = {
     Tight: 'High precision snap and strong dead-center.',
     Glide: 'Free pitch glide with no snap or dead-center.'
 };
-const arp = {
+state.arp = {
     enabled: false,
     rate: '1/16',
     gate: 0.6,
@@ -694,39 +701,39 @@ const CHORDS = {
 };
 
 function setPitchBendRange(semitones) {
-    if (!midiOutput) return;
+    if (!state.midi.output) return;
     for (let ch = 0; ch < 16; ch++) {
-        midiOutput.send([0xB0 + ch, 101, 0]);
-        midiOutput.send([0xB0 + ch, 100, 0]);
-        midiOutput.send([0xB0 + ch, 6, semitones]);
-        midiOutput.send([0xB0 + ch, 38, 0]);
-        midiOutput.send([0xB0 + ch, 101, 127]);
-        midiOutput.send([0xB0 + ch, 100, 127]);
+        state.midi.output.send([0xB0 + ch, 101, 0]);
+        state.midi.output.send([0xB0 + ch, 100, 0]);
+        state.midi.output.send([0xB0 + ch, 6, semitones]);
+        state.midi.output.send([0xB0 + ch, 38, 0]);
+        state.midi.output.send([0xB0 + ch, 101, 127]);
+        state.midi.output.send([0xB0 + ch, 100, 127]);
     }
 }
 
 function releaseHeldNotes() {
-    if (!midiOutput) return;
-    heldVoices.forEach(v => {
+    if (!state.midi.output) return;
+    state.heldVoices.forEach(v => {
         sendMidi([0x80 + v.chan - 1, v.note, 0]);
-        mpeChannels.push(v.chan);
+        state.mpeChannels.push(v.chan);
     });
-    heldVoices = [];
-    mpeChannels.sort((a,b)=>a-b);
+    state.heldVoices = [];
+    state.mpeChannels.sort((a,b)=>a-b);
 }
 
 function allNotesOff() {
-    if (!midiOutput) return;
+    if (!state.midi.output) return;
     for (let ch = 0; ch < 16; ch++) {
-        midiOutput.send([0xB0 + ch, 123, 0]);
-        midiOutput.send([0xB0 + ch, 120, 0]);
+        state.midi.output.send([0xB0 + ch, 123, 0]);
+        state.midi.output.send([0xB0 + ch, 120, 0]);
     }
-    activeTouches.clear();
-    physicalNotes.clear();
-    mpeChannels.splice(0, mpeChannels.length, ...Array.from({length: 15}, (_, i) => i + 2));
-    heldVoices = [];
-    arpHoldTouches = [];
-    arp.notes = [];
+    state.activeTouches.clear();
+    state.physicalNotes.clear();
+    state.mpeChannels.splice(0, state.mpeChannels.length, ...Array.from({length: 15}, (_, i) => i + 2));
+    state.heldVoices = [];
+    state.arpHoldTouches = [];
+    state.arp.notes = [];
     stopAllArpNotes();
 }
 
@@ -744,8 +751,8 @@ function applyChordVoicing(notes, inversion, spread) {
 }
 
 function nextArpColor() {
-    const hue = (arpColorIndex * 137.5) % 360;
-    arpColorIndex = (arpColorIndex + 1) % 10000;
+    const hue = (state.arpColorIndex * 137.5) % 360;
+    state.arpColorIndex = (state.arpColorIndex + 1) % 10000;
     return `hsl(${hue.toFixed(1)}, 85%, 55%)`;
 }
 
@@ -783,83 +790,83 @@ function getPresetState() {
         arpSync: els.arpSync.value,
         arpBpm: els.arpBpm.value,
         arpLatch: els.arpLatch.checked,
-        currentOctave
+        currentOctave: state.currentOctave
     };
 }
 
-function applyPresetState(state) {
-    if (!state) return;
-    els.rootNote.value = state.rootNote;
-    els.scaleType.value = state.scaleType;
-    if (state.scaleMode === 'microtonal') {
+function applyPresetState(presetState) {
+    if (!presetState) return;
+    els.rootNote.value = presetState.rootNote;
+    els.scaleType.value = presetState.scaleType;
+    if (presetState.scaleMode === 'microtonal') {
         els.scaleModeMicro.checked = true;
-    } else if (state.scaleMode === 'custom') {
+    } else if (presetState.scaleMode === 'custom') {
         els.scaleModeCustom.checked = true;
     } else {
         els.scaleModeDiatonic.checked = true;
     }
-    if (state.microScaleName && MICROTONAL_SCALES[state.microScaleName]) {
-        els.microScaleSelect.value = state.microScaleName;
+    if (presetState.microScaleName && MICROTONAL_SCALES[presetState.microScaleName]) {
+        els.microScaleSelect.value = presetState.microScaleName;
     }
-    els.microtonalizeIn.checked = !!state.microtonalizeIn;
-    if (state.customScaleName) {
-        els.customScaleName.value = state.customScaleName;
-        if (customScales[state.customScaleName]) {
-            if (customScales[state.customScaleName].type === 'notes') {
+    els.microtonalizeIn.checked = !!presetState.microtonalizeIn;
+    if (presetState.customScaleName) {
+        els.customScaleName.value = presetState.customScaleName;
+        if (state.customScales[presetState.customScaleName]) {
+            if (state.customScales[presetState.customScaleName].type === 'notes') {
                 els.customModeNotes.checked = true;
-                els.customScaleNotes.value = formatNotesList(customScales[state.customScaleName].degrees || []);
+                els.customScaleNotes.value = formatNotesList(state.customScales[presetState.customScaleName].degrees || []);
             } else {
                 els.customModeCents.checked = true;
-                els.customScaleCents.value = formatCentsList(customScales[state.customScaleName].cents || []);
+                els.customScaleCents.value = formatCentsList(state.customScales[presetState.customScaleName].cents || []);
             }
         }
     }
-    if (state.customScaleMode === 'notes') {
+    if (presetState.customScaleMode === 'notes') {
         els.customModeNotes.checked = true;
-        if (state.customScaleNotes) els.customScaleNotes.value = state.customScaleNotes;
-    } else if (state.customScaleMode === 'cents') {
+        if (presetState.customScaleNotes) els.customScaleNotes.value = presetState.customScaleNotes;
+    } else if (presetState.customScaleMode === 'cents') {
         els.customModeCents.checked = true;
-        if (state.customScaleCents) els.customScaleCents.value = state.customScaleCents;
+        if (presetState.customScaleCents) els.customScaleCents.value = presetState.customScaleCents;
     }
-    els.visibleOctaves.value = state.visibleOctaves;
-    els.chordMode.value = state.chordMode;
+    els.visibleOctaves.value = presetState.visibleOctaves;
+    els.chordMode.value = presetState.chordMode;
     els.chordMode.dispatchEvent(new Event('change'));
-    els.chordInversion.value = state.chordInversion;
-    els.chordSpread.value = state.chordSpread;
-    els.roundRate.value = state.roundRate;
-    els.deadCenter.checked = state.deadCenter;
-    els.deadCenterForce.value = state.deadCenterForce;
-    if (midiAccess) {
-        if (state.midiOutId && midiAccess.outputs.has(state.midiOutId)) {
-            els.midiOutSelect.value = state.midiOutId;
-            midiOutput = midiAccess.outputs.get(state.midiOutId);
+    els.chordInversion.value = presetState.chordInversion;
+    els.chordSpread.value = presetState.chordSpread;
+    els.roundRate.value = presetState.roundRate;
+    els.deadCenter.checked = presetState.deadCenter;
+    els.deadCenterForce.value = presetState.deadCenterForce;
+    if (state.midi.access) {
+        if (presetState.midiOutId && state.midi.access.outputs.has(presetState.midiOutId)) {
+            els.midiOutSelect.value = presetState.midiOutId;
+            state.midi.output = state.midi.access.outputs.get(presetState.midiOutId);
         }
-        if (state.midiInId && midiAccess.inputs.has(state.midiInId)) {
-            els.midiInSelect.value = state.midiInId;
-            if (midiInput) midiInput.onmidimessage = null;
-            midiInput = midiAccess.inputs.get(state.midiInId);
-            if (midiInput) midiInput.onmidimessage = handleExternalMIDI;
+        if (presetState.midiInId && state.midi.access.inputs.has(presetState.midiInId)) {
+            els.midiInSelect.value = presetState.midiInId;
+            if (state.midi.input) state.midi.input.onmidimessage = null;
+            state.midi.input = state.midi.access.inputs.get(presetState.midiInId);
+            if (state.midi.input) state.midi.input.onmidimessage = handleExternalMIDI;
         }
     }
-    els.linkPressToY.checked = state.linkPressToY;
-    els.smoothAmt.value = state.smoothAmt ?? els.smoothAmt.value;
-    els.curveType.value = state.curveType ?? els.curveType.value;
-    els.yDeadzone.value = state.yDeadzone ?? els.yDeadzone.value;
-    els.quantizeRelease.checked = state.quantizeRelease ?? els.quantizeRelease.checked;
-    els.holdNotes.checked = state.holdNotes;
+    els.linkPressToY.checked = presetState.linkPressToY;
+    els.smoothAmt.value = presetState.smoothAmt ?? els.smoothAmt.value;
+    els.curveType.value = presetState.curveType ?? els.curveType.value;
+    els.yDeadzone.value = presetState.yDeadzone ?? els.yDeadzone.value;
+    els.quantizeRelease.checked = presetState.quantizeRelease ?? els.quantizeRelease.checked;
+    els.holdNotes.checked = presetState.holdNotes;
     updateHoldButtonUI();
-    els.pbRange.value = state.pbRange;
-    els.midiThru.checked = state.midiThru;
-    els.arpEnabled.checked = !!state.arpEnabled;
-    els.arpRate.value = state.arpRate ?? els.arpRate.value;
-    els.arpGate.value = state.arpGate ?? els.arpGate.value;
-    els.arpSync.value = state.arpSync ?? els.arpSync.value;
-    els.arpBpm.value = state.arpBpm ?? els.arpBpm.value;
-    els.arpLatch.checked = !!state.arpLatch;
-    currentOctave = state.currentOctave || 0;
-    els.octVal.innerText = (currentOctave > 0 ? "+" : "") + currentOctave;
-    setPitchBendRange(parseInt(state.pbRange, 10));
-    if (!state.holdNotes) releaseHeldNotes();
+    els.pbRange.value = presetState.pbRange;
+    els.midiThru.checked = presetState.midiThru;
+    els.arpEnabled.checked = !!presetState.arpEnabled;
+    els.arpRate.value = presetState.arpRate ?? els.arpRate.value;
+    els.arpGate.value = presetState.arpGate ?? els.arpGate.value;
+    els.arpSync.value = presetState.arpSync ?? els.arpSync.value;
+    els.arpBpm.value = presetState.arpBpm ?? els.arpBpm.value;
+    els.arpLatch.checked = !!presetState.arpLatch;
+    state.currentOctave = presetState.currentOctave || 0;
+    els.octVal.innerText = (state.currentOctave > 0 ? "+" : "") + state.currentOctave;
+    setPitchBendRange(parseInt(presetState.pbRange, 10));
+    if (!presetState.holdNotes) releaseHeldNotes();
     updateScaleNotes();
     syncArpFromUI();
     updateScaleModeUI();
@@ -949,17 +956,17 @@ function getMpePresetState() {
     };
 }
 
-function applyMpePresetState(state) {
-    if (!state) return;
-    els.pbRange.value = state.pbRange ?? els.pbRange.value;
-    els.roundRate.value = state.roundRate ?? els.roundRate.value;
-    els.deadCenter.checked = !!state.deadCenter;
-    els.deadCenterForce.value = state.deadCenterForce ?? els.deadCenterForce.value;
-    els.linkPressToY.checked = state.linkPressToY ?? els.linkPressToY.checked;
-    els.smoothAmt.value = state.smoothAmt ?? els.smoothAmt.value;
-    els.curveType.value = state.curveType ?? els.curveType.value;
-    els.yDeadzone.value = state.yDeadzone ?? els.yDeadzone.value;
-    els.quantizeRelease.checked = state.quantizeRelease ?? els.quantizeRelease.checked;
+function applyMpePresetState(mpePresetState) {
+    if (!mpePresetState) return;
+    els.pbRange.value = mpePresetState.pbRange ?? els.pbRange.value;
+    els.roundRate.value = mpePresetState.roundRate ?? els.roundRate.value;
+    els.deadCenter.checked = !!mpePresetState.deadCenter;
+    els.deadCenterForce.value = mpePresetState.deadCenterForce ?? els.deadCenterForce.value;
+    els.linkPressToY.checked = mpePresetState.linkPressToY ?? els.linkPressToY.checked;
+    els.smoothAmt.value = mpePresetState.smoothAmt ?? els.smoothAmt.value;
+    els.curveType.value = mpePresetState.curveType ?? els.curveType.value;
+    els.yDeadzone.value = mpePresetState.yDeadzone ?? els.yDeadzone.value;
+    els.quantizeRelease.checked = mpePresetState.quantizeRelease ?? els.quantizeRelease.checked;
     setPitchBendRange(parseInt(els.pbRange.value, 10));
 }
 
@@ -1017,13 +1024,13 @@ function updateArpParamsToggleLabel() {
 }
 
 function updateGroupShiftUI() {
-    els.groupShiftBtn.classList.toggle('toggle-on', groupShiftEnabled);
-    els.groupShiftBtn.classList.toggle('toggle-off', !groupShiftEnabled);
+    els.groupShiftBtn.classList.toggle('toggle-on', state.groupShiftEnabled);
+    els.groupShiftBtn.classList.toggle('toggle-off', !state.groupShiftEnabled);
 }
 
 function loadCustomScaleByName(name) {
-    if (customScales[name]) {
-        const entry = customScales[name];
+    if (state.customScales[name]) {
+        const entry = state.customScales[name];
         if (entry.type === 'notes') {
             els.customModeNotes.checked = true;
             els.customScaleNotes.value = formatNotesList(entry.degrees || []);
@@ -1041,7 +1048,7 @@ function populateMicrotonalSelect() {
 }
 
 function refreshCustomScaleDatalist() {
-    const names = Object.keys(customScales).sort();
+    const names = Object.keys(state.customScales).sort();
     els.customScaleNames.innerHTML = names.map(n => `<option value="${n}"></option>`).join('');
     els.customScaleSaved.innerHTML = `<option value="">(saved)</option>` + names.map(n => `<option value="${n}">${n}</option>`).join('');
 }
@@ -1075,7 +1082,7 @@ function getScaleDefinition() {
         }
     } else if (mode === 'custom') {
         const name = els.customScaleName.value.trim();
-        const custom = customScales[name];
+        const custom = state.customScales[name];
         const useNotes = els.customModeNotes.checked;
         const degrees = useNotes
             ? (custom && custom.type === 'notes' ? custom.degrees : parseNotesList(els.customScaleNotes.value))
@@ -1107,38 +1114,39 @@ function getGridNoteAt(index, degrees, baseNote) {
 }
 
 function changeOctave(delta) {
-    currentOctave = Math.max(-2, Math.min(2, currentOctave + delta));
-    els.octVal.innerText = (currentOctave > 0 ? "+" : "") + currentOctave;
+    state.currentOctave = Math.max(-2, Math.min(2, state.currentOctave + delta));
+    els.octVal.innerText = (state.currentOctave > 0 ? "+" : "") + state.currentOctave;
+    requestDraw();
 }
 
 function setupMIDI() {
     if (navigator.requestMIDIAccess) {
         navigator.requestMIDIAccess({ sysex: false }).then(access => {
-            midiAccess = access;
+            state.midi.access = access;
             const outputs = Array.from(access.outputs.values());
             const inputs = Array.from(access.inputs.values());
             
             els.midiOutSelect.innerHTML = outputs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
-            midiOutput = outputs[0] || null;
+            state.midi.output = outputs[0] || null;
             els.midiOutSelect.onchange = () => {
-                midiOutput = access.outputs.get(els.midiOutSelect.value);
+                state.midi.output = access.outputs.get(els.midiOutSelect.value);
                 setPitchBendRange(parseInt(els.pbRange.value, 10));
             };
-            els.midiStatus.innerText = midiOutput ? 'MIDI OUT READY' : 'NESSUN MIDI OUT';
+            els.midiStatus.innerText = state.midi.output ? 'MIDI OUT READY' : 'NESSUN MIDI OUT';
             setPitchBendRange(parseInt(els.pbRange.value, 10));
 
             els.midiInSelect.innerHTML = `<option value="">Scegli Input...</option>` + inputs.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
             if (inputs[0]) {
                 els.midiInSelect.value = inputs[0].id;
-                midiInput = inputs[0];
-                midiInput.onmidimessage = handleExternalMIDI;
+                state.midi.input = inputs[0];
+                state.midi.input.onmidimessage = handleExternalMIDI;
                 els.midiStatus.innerText = 'MIDI IN READY';
             }
             els.midiInSelect.onchange = () => {
-                if (midiInput) midiInput.onmidimessage = null;
-                midiInput = access.inputs.get(els.midiInSelect.value);
-                if (midiInput) midiInput.onmidimessage = handleExternalMIDI;
-                els.midiStatus.innerText = midiInput ? 'MIDI IN READY' : 'NESSUN MIDI IN';
+                if (state.midi.input) state.midi.input.onmidimessage = null;
+                state.midi.input = access.inputs.get(els.midiInSelect.value);
+                if (state.midi.input) state.midi.input.onmidimessage = handleExternalMIDI;
+                els.midiStatus.innerText = state.midi.input ? 'MIDI IN READY' : 'NESSUN MIDI IN';
             };
         }).catch(() => {
             els.midiStatus.innerText = 'MIDI NON DISPONIBILE';
@@ -1151,9 +1159,10 @@ function handleExternalMIDI(message) {
     const [status, data1, data2] = message.data;
     if (status >= 0xF8) {
         handleClockMessage(status);
-        if (els.midiThru.checked && midiOutput) midiOutput.send(message.data);
+        if (els.midiThru.checked && state.midi.output) state.midi.output.send(message.data);
         return;
     }
+    requestDraw();
     const note = data1;
     const velocity = data2;
     const type = status & 0xf0;
@@ -1164,96 +1173,96 @@ function handleExternalMIDI(message) {
     }
     const thruOnly = els.midiThru.checked && !microtonalize;
     if (thruOnly) {
-        if (midiOutput) midiOutput.send(message.data);
+        if (state.midi.output) state.midi.output.send(message.data);
     }
     if (type === 0x90 && velocity > 0) {
         if (microtonalize) {
             const noteFloat = mapMidiNoteToScale(note);
             const voice = makeVoiceFromNote(noteFloat);
-            const chan = mpeChannels.shift();
+            const chan = state.mpeChannels.shift();
             if (!chan) {
                 els.midiStatus.innerText = 'MPE CHANNELS FULL';
             }
-            if (chan && midiOutput) {
+            if (chan && state.midi.output) {
                 const pb = clampPb(8192 + voice.basePb);
-                midiOutput.send([0xB0 + chan - 1, 74, 0]);
-                midiOutput.send([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-                midiOutput.send([0x90 + chan - 1, voice.note, velocity]);
+                state.midi.output.send([0xB0 + chan - 1, 74, 0]);
+                state.midi.output.send([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+                state.midi.output.send([0x90 + chan - 1, voice.note, velocity]);
             }
-            const list = physicalNotes.get(voice.note) || [];
-            list.push({ chan: chan || 0, note: voice.note, basePb: voice.basePb, velocity, grabbed: false, srcChan, srcNote: note, lastPb: 8192, lastSlide: 0, lastPress: 0 });
-            physicalNotes.set(voice.note, list);
-            externalNoteMap.set(`${srcChan}:${note}`, { keyNote: voice.note, chan: chan || 0 });
+            const list = state.physicalNotes.get(voice.note) || [];
+            list.push({ chan: chan || 0, note: voice.note, basePb: voice.basePb, velocity, grabbed: false, srcChan, srcNote: note, lastPb: 8192, lastSlide: 0, lastPress: 0, onTs: Date.now() });
+            state.physicalNotes.set(voice.note, list);
+            state.externalNoteMap.set(`${srcChan}:${note}`, { keyNote: voice.note, chan: chan || 0 });
         } else {
-            const chan = thruOnly ? 0 : mpeChannels.shift();
+            const chan = thruOnly ? 0 : state.mpeChannels.shift();
             if (!thruOnly && !chan) {
                 els.midiStatus.innerText = 'MPE CHANNELS FULL';
             }
-            if (!thruOnly && chan && midiOutput) {
-                midiOutput.send([0x90 + chan - 1, note, velocity]);
+            if (!thruOnly && chan && state.midi.output) {
+                state.midi.output.send([0x90 + chan - 1, note, velocity]);
             }
-            const list = physicalNotes.get(note) || [];
-            list.push({ chan: chan || 0, velocity, grabbed: false, srcChan, lastPb: 8192, lastSlide: 0, lastPress: 0 });
-            physicalNotes.set(note, list);
+            const list = state.physicalNotes.get(note) || [];
+            list.push({ chan: chan || 0, velocity, grabbed: false, srcChan, lastPb: 8192, lastSlide: 0, lastPress: 0, onTs: Date.now() });
+            state.physicalNotes.set(note, list);
         }
     } else if (type === 0x80 || (type === 0x90 && velocity === 0)) {
         if (microtonalize) {
-            const key = externalNoteMap.get(`${srcChan}:${note}`);
+            const key = state.externalNoteMap.get(`${srcChan}:${note}`);
             if (key) {
-                const list = physicalNotes.get(key.keyNote);
+                const list = state.physicalNotes.get(key.keyNote);
                 if (list && list.length) {
                     const idx = list.findIndex(d => d.srcChan === srcChan && d.srcNote === note);
                     const data = idx >= 0 ? list.splice(idx, 1)[0] : list.shift();
                     if (data && data.chan) {
-                        if (midiOutput) midiOutput.send([0x80 + data.chan - 1, data.note || key.keyNote, 0]);
-                        mpeChannels.push(data.chan);
-                        mpeChannels.sort((a,b)=>a-b);
+                        if (state.midi.output) state.midi.output.send([0x80 + data.chan - 1, data.note || key.keyNote, 0]);
+                        state.mpeChannels.push(data.chan);
+                        state.mpeChannels.sort((a,b)=>a-b);
                     }
-                    if (!list.length) physicalNotes.delete(key.keyNote);
+                    if (!list.length) state.physicalNotes.delete(key.keyNote);
                 }
-                externalNoteMap.delete(`${srcChan}:${note}`);
+                state.externalNoteMap.delete(`${srcChan}:${note}`);
             }
         } else {
-            const list = physicalNotes.get(note);
+            const list = state.physicalNotes.get(note);
             if (list && list.length) {
                 const idx = list.findIndex(d => d.srcChan === srcChan);
                 const data = idx >= 0 ? list.splice(idx, 1)[0] : list.shift();
                 if (data) {
                     if (data.chan) {
-                        if (!thruOnly && midiOutput) midiOutput.send([0x80 + data.chan - 1, note, 0]);
-                        mpeChannels.push(data.chan);
-                        mpeChannels.sort((a,b)=>a-b);
+                        if (!thruOnly && state.midi.output) state.midi.output.send([0x80 + data.chan - 1, note, 0]);
+                        state.mpeChannels.push(data.chan);
+                        state.mpeChannels.sort((a,b)=>a-b);
                     }
                 }
-                if (!list.length) physicalNotes.delete(note);
+                if (!list.length) state.physicalNotes.delete(note);
             }
         }
     } else if (type === 0xE0 || type === 0xD0 || type === 0xB0) {
         const list = [];
-        physicalNotes.forEach(arr => arr.forEach(v => { if (v.srcChan === srcChan) list.push(v); }));
+        state.physicalNotes.forEach(arr => arr.forEach(v => { if (v.srcChan === srcChan) list.push(v); }));
         if (!list.length) return;
         if (type === 0xE0) {
             const pb = (message.data[2] << 7) | message.data[1];
             list.forEach(v => {
                 v.lastPb = pb;
-                if (!thruOnly && v.chan && !v.grabbed && midiOutput) {
-                    midiOutput.send([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+                if (!thruOnly && v.chan && !v.grabbed && state.midi.output) {
+                    state.midi.output.send([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
                 }
             });
         } else if (type === 0xD0) {
             const press = message.data[1];
             list.forEach(v => {
                 v.lastPress = press;
-                if (!thruOnly && v.chan && !v.grabbed && midiOutput) {
-                    midiOutput.send([0xD0 + v.chan - 1, press]);
+                if (!thruOnly && v.chan && !v.grabbed && state.midi.output) {
+                    state.midi.output.send([0xD0 + v.chan - 1, press]);
                 }
             });
         } else if (type === 0xB0 && message.data[1] === 74) {
             const slide = message.data[2];
             list.forEach(v => {
                 v.lastSlide = slide;
-                if (!thruOnly && v.chan && !v.grabbed && midiOutput) {
-                    midiOutput.send([0xB0 + v.chan - 1, 74, slide]);
+                if (!thruOnly && v.chan && !v.grabbed && state.midi.output) {
+                    state.midi.output.send([0xB0 + v.chan - 1, 74, slide]);
                 }
             });
         }
@@ -1289,8 +1298,8 @@ function applySmoothing(touch, m) {
 }
 
 function sendMidi(data) {
-    if (!midiOutput) return;
-    midiOutput.send(data);
+    if (!state.midi.output) return;
+    state.midi.output.send(data);
 }
 
 
@@ -1307,38 +1316,38 @@ function getRateFactor(rate) {
 }
 
 function updateArpTiming() {
-    const factor = getRateFactor(arp.rate);
-    arp.ticksPerStep = Math.max(1, Math.round(24 * factor));
+    const factor = getRateFactor(state.arp.rate);
+    state.arp.ticksPerStep = Math.max(1, Math.round(24 * factor));
 }
 
 function getStepMs() {
-    const factor = getRateFactor(arp.rate);
-    return (60 / Math.max(40, arp.bpm)) * 1000 * factor;
+    const factor = getRateFactor(state.arp.rate);
+    return (60 / Math.max(40, state.arp.bpm)) * 1000 * factor;
 }
 
 function stopAllArpNotes() {
-    if (!midiOutput) return;
-    arp.active.forEach(entry => {
-        midiOutput.send([0x80 + entry.chan - 1, entry.note, 0]);
-        mpeChannels.push(entry.chan);
+    if (!state.midi.output) return;
+    state.arp.active.forEach(entry => {
+        state.midi.output.send([0x80 + entry.chan - 1, entry.note, 0]);
+        state.mpeChannels.push(entry.chan);
     });
-    arp.active = [];
-    mpeChannels.sort((a,b)=>a-b);
+    state.arp.active = [];
+    state.mpeChannels.sort((a,b)=>a-b);
 }
 
 function stopArpActiveNote(note) {
-    if (!midiOutput || note == null) return;
+    if (!state.midi.output || note == null) return;
     const remaining = [];
-    arp.active.forEach(entry => {
+    state.arp.active.forEach(entry => {
         if (entry.note === note) {
-            midiOutput.send([0x80 + entry.chan - 1, entry.note, 0]);
-            mpeChannels.push(entry.chan);
+            state.midi.output.send([0x80 + entry.chan - 1, entry.note, 0]);
+            state.mpeChannels.push(entry.chan);
         } else {
             remaining.push(entry);
         }
     });
-    arp.active = remaining;
-    mpeChannels.sort((a,b)=>a-b);
+    state.arp.active = remaining;
+    state.mpeChannels.sort((a,b)=>a-b);
 }
 
 function stopArpActiveNotes(noteObjs) {
@@ -1347,8 +1356,8 @@ function stopArpActiveNotes(noteObjs) {
 }
 
 function arpNoteOn(noteObj, stepMs) {
-    if (!midiOutput) return;
-    const chan = mpeChannels.shift();
+    if (!state.midi.output) return;
+    const chan = state.mpeChannels.shift();
     if (!chan) {
         els.midiStatus.innerText = 'MPE CHANNELS FULL';
         return;
@@ -1356,8 +1365,8 @@ function arpNoteOn(noteObj, stepMs) {
     const m = noteObj.lastM || { pbValue: 8192, slide: 0, press: 90 };
     const vel = Math.max(0, Math.min(127, Math.round(m.press ?? 90)));
     if (vel <= 0) {
-        mpeChannels.push(chan);
-        mpeChannels.sort((a,b)=>a-b);
+        state.mpeChannels.push(chan);
+        state.mpeChannels.sort((a,b)=>a-b);
         return;
     }
     const pb = getVoicePb(m, noteObj);
@@ -1367,55 +1376,60 @@ function arpNoteOn(noteObj, stepMs) {
     sendMidi([0x90 + chan - 1, noteObj.note, vel]);
     markLocalNoteOn(noteObj.note);
     const entry = { chan, note: noteObj.note, color: noteObj.color };
-    arp.active.push(entry);
-    const gateMs = Math.max(10, stepMs * arp.gate);
+    state.arp.active.push(entry);
+    const gateMs = Math.max(10, stepMs * state.arp.gate);
     setTimeout(() => {
         sendMidi([0x80 + entry.chan - 1, entry.note, 0]);
-        mpeChannels.push(entry.chan);
-        mpeChannels.sort((a,b)=>a-b);
-        arp.active = arp.active.filter(e => e !== entry);
+        state.mpeChannels.push(entry.chan);
+        state.mpeChannels.sort((a,b)=>a-b);
+        state.arp.active = state.arp.active.filter(e => e !== entry);
     }, gateMs);
 }
 
 function arpStep(stepMsOverride) {
-    if (!arp.enabled || !arp.notes.length) return;
+    if (!state.arp.enabled || !state.arp.notes.length) return;
     const stepMs = stepMsOverride || getStepMs();
-    const noteObj = arp.notes[arp.stepIndex % arp.notes.length];
-    arp.stepIndex++;
+    const noteObj = state.arp.notes[state.arp.stepIndex % state.arp.notes.length];
+    state.arp.stepIndex++;
     arpNoteOn(noteObj, stepMs);
+    requestDraw();
 }
 
 function restartInternalArp() {
-    if (arp.timer) clearInterval(arp.timer);
-    if (!arp.enabled || arp.sync !== 'internal') return;
+    if (state.arp.timer) clearInterval(state.arp.timer);
+    if (!state.arp.enabled || state.arp.sync !== 'internal') return;
     const stepMs = getStepMs();
-    arp.running = true;
-    arp.timer = setInterval(() => arpStep(stepMs), stepMs);
+    state.arp.running = true;
+    state.arp.timer = setInterval(() => arpStep(stepMs), stepMs);
 }
 
 function stopInternalArp() {
-    if (arp.timer) clearInterval(arp.timer);
-    arp.timer = null;
+    if (state.arp.timer) clearInterval(state.arp.timer);
+    state.arp.timer = null;
 }
 
 function syncArpFromUI() {
-    arp.enabled = els.arpEnabled.checked;
-    arp.rate = els.arpRate.value;
-    arp.gate = parseInt(els.arpGate.value, 10) / 100;
-    arp.sync = els.arpSync.value;
-    arp.bpm = parseInt(els.arpBpm.value, 10) || 120;
-    arp.latch = els.arpLatch.checked;
+    const wasEnabled = state.arp.enabled;
+    state.arp.enabled = els.arpEnabled.checked;
+    state.arp.rate = els.arpRate.value;
+    state.arp.gate = parseInt(els.arpGate.value, 10) / 100;
+    state.arp.sync = els.arpSync.value;
+    state.arp.bpm = parseInt(els.arpBpm.value, 10) || 120;
+    state.arp.latch = els.arpLatch.checked;
     updateArpTiming();
     updateArpControlsUI();
-    if (!arp.enabled) {
-        arp.running = false;
+    if (!state.arp.enabled) {
+        state.arp.running = false;
         stopInternalArp();
         stopAllArpNotes();
-        arp.notes = [];
-        arpHoldTouches = [];
+        state.arp.notes = [];
+        state.arpHoldTouches = [];
         return;
     }
-    if (arp.sync === 'internal') {
+    if (!wasEnabled && els.holdNotes.checked && state.heldVoices.length) {
+        convertHeldToArp();
+    }
+    if (state.arp.sync === 'internal') {
         restartInternalArp();
     } else {
         stopInternalArp();
@@ -1424,33 +1438,33 @@ function syncArpFromUI() {
 
 
 function handleClockMessage(status) {
-    if (!arp.enabled || arp.sync !== 'midi') return;
+    if (!state.arp.enabled || state.arp.sync !== 'midi') return;
     if (status === 0xFA) {
-        arp.running = true;
-        arp.stepIndex = 0;
-        arp.clockTicks = 0;
-        arp.lastClockTime = 0;
+        state.arp.running = true;
+        state.arp.stepIndex = 0;
+        state.arp.clockTicks = 0;
+        state.arp.lastClockTime = 0;
         stopAllArpNotes();
         return;
     }
     if (status === 0xFC) {
-        arp.running = false;
-        arp.lastClockTime = 0;
+        state.arp.running = false;
+        state.arp.lastClockTime = 0;
         stopAllArpNotes();
         return;
     }
     if (status === 0xFB) {
-        arp.running = true;
+        state.arp.running = true;
         return;
     }
     if (status === 0xF8) {
         const now = performance.now();
-        if (arp.lastClockTime) arp.tickMs = now - arp.lastClockTime;
-        arp.lastClockTime = now;
-        if (!arp.running) return;
-        arp.clockTicks++;
-        if (arp.clockTicks % arp.ticksPerStep === 0) {
-            const stepMs = arp.tickMs ? arp.tickMs * arp.ticksPerStep : getStepMs();
+        if (state.arp.lastClockTime) state.arp.tickMs = now - state.arp.lastClockTime;
+        state.arp.lastClockTime = now;
+        if (!state.arp.running) return;
+        state.arp.clockTicks++;
+        if (state.arp.clockTicks % state.arp.ticksPerStep === 0) {
+            const stepMs = state.arp.tickMs ? state.arp.tickMs * state.arp.ticksPerStep : getStepMs();
             arpStep(stepMs);
         }
     }
@@ -1458,8 +1472,8 @@ function handleClockMessage(status) {
 
 function removeArpNotes(noteObjs) {
     if (!noteObjs || !noteObjs.length) return;
-    arp.notes = arp.notes.filter(n => !noteObjs.includes(n));
-    if (!arp.notes.length) arpHoldTouches = [];
+    state.arp.notes = state.arp.notes.filter(n => !noteObjs.includes(n));
+    if (!state.arp.notes.length) state.arpHoldTouches = [];
 }
 
 function getMPEData(e, voice = null, forceSnap = false) {
@@ -1472,9 +1486,9 @@ function getMPEData(e, voice = null, forceSnap = false) {
         deadCenter = false;
     }
     const grid = getGridDegrees();
-    const baseMIDI = 48 + (currentOctave * 12) + grid.root;
+    const baseMIDI = 48 + (state.currentOctave * 12) + grid.root;
     const totalNotes = numOct * grid.stepsPerOct;
-    const stepExact = ((e.clientX - canvasRect.left) / canvasRect.width) * totalNotes;
+    const stepExact = ((e.clientX - state.canvasRect.left) / state.canvasRect.width) * totalNotes;
     const centerExact = stepExact - 0.5;
     const stepIdx = Math.max(0, Math.min(totalNotes - 1, Math.floor(centerExact)));
     const stepFrac = centerExact - stepIdx;
@@ -1502,8 +1516,8 @@ function getMPEData(e, voice = null, forceSnap = false) {
     const pbRange = parseInt(els.pbRange.value, 10) || 12;
     let pbValue = Math.floor(8192 + (detune * (8192 / pbRange)));
     pbValue = Math.max(0, Math.min(16383, pbValue));
-    const yMax = Math.max(1, canvasRect.height - perfHeight);
-    const yClamped = Math.max(0, Math.min(e.clientY - canvasRect.top, yMax));
+    const yMax = Math.max(1, state.canvasRect.height - state.perfHeight);
+    const yClamped = Math.max(0, Math.min(e.clientY - state.canvasRect.top, yMax));
     const yNorm = Math.max(0, Math.min(1, 1 - (yClamped / yMax)));
     const dz = parseInt(els.yDeadzone.value, 10) / 100;
     let slideNorm = yNorm;
@@ -1523,14 +1537,14 @@ function clampPb(value) {
 }
 
 function markLocalNoteOn(note) {
-    localNoteOnTimes.set(note, Date.now());
+    state.localNoteOnTimes.set(note, Date.now());
 }
 
 function isLocalNoteOn(note) {
-    const ts = localNoteOnTimes.get(note);
+    const ts = state.localNoteOnTimes.get(note);
     if (!ts) return false;
     if (Date.now() - ts > LOCAL_SUPPRESS_MS) {
-        localNoteOnTimes.delete(note);
+        state.localNoteOnTimes.delete(note);
         return false;
     }
     return true;
@@ -1555,26 +1569,73 @@ function getVoiceNoteFloat(voice) {
     return (voice.note || 0) + (basePb * (pbRange / 8192));
 }
 
+function drawGridBaseToContext(gctx, width, height, grid, numOct, noteW, baseMIDI) {
+    const mode = getScaleMode();
+    gctx.clearRect(0, 0, width, height);
+    for (let i = 0; i < (numOct * grid.stepsPerOct); i++) {
+        const n = getGridNoteAt(i, grid.degrees, baseMIDI);
+        const x = i * noteW;
+        const isOctStart = (i % grid.stepsPerOct === 0);
+        const nRound = Math.round(n);
+        const isRoot = (nRound % 12 === grid.root);
+        gctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.15)';
+        gctx.fillRect(x, 0, noteW, height);
+        gctx.strokeStyle = isOctStart ? '#ff3333' : (isRoot ? '#ff0000' : '#666');
+        gctx.lineWidth = isOctStart ? 3 : (isRoot ? 3 : 1);
+        gctx.beginPath(); gctx.moveTo(x, 0); gctx.lineTo(x, height); gctx.stroke();
+        const degree = grid.degrees[i % grid.stepsPerOct];
+        if (!(degree === 12 && i < (numOct * grid.stepsPerOct - 1))) {
+            gctx.font = `bold ${Math.max(13, Math.floor(noteW * 0.5))}px ${CANVAS_FONT_FAMILY}`; gctx.textAlign = 'center';
+            gctx.fillStyle = isRoot ? '#ff4444' : '#ffffff';
+            gctx.strokeStyle = '#000'; gctx.lineWidth = 4;
+            const noteY = Math.floor(height * 0.5);
+            gctx.strokeText(NOTE_NAMES[nRound % 12], x + noteW/2, noteY);
+            gctx.fillText(NOTE_NAMES[nRound % 12], x + noteW/2, noteY);
+            if (mode !== 'diatonic' && noteW >= 48) {
+                const cents = Math.round((degree % 12) * 100);
+                gctx.font = `bold 9px ${CANVAS_FONT_FAMILY}`; gctx.textAlign = 'center';
+                gctx.fillStyle = '#ffaa00';
+                gctx.fillText(`${cents}c`, x + noteW/2, noteY + 16);
+            }
+        }
+    }
+}
+
 function updateGridCache() {
     const numOct = parseInt(els.visibleOctaves.value, 10);
     const grid = getGridDegrees();
-    const baseMIDI = 48 + (currentOctave * 12) + grid.root;
+    const baseMIDI = 48 + (state.currentOctave * 12) + grid.root;
     const totalNotes = numOct * grid.stepsPerOct;
-    const noteW = canvasRect.width / totalNotes;
+    const width = Math.floor(state.canvasRect.width);
+    const height = Math.floor(state.canvasRect.height);
+    const noteW = width / totalNotes;
+    const key = [
+        width, height, numOct, state.currentOctave, grid.root, grid.degrees.join(','),
+        getScaleMode()
+    ].join('|');
     const cols = [];
     for (let i = 0; i < totalNotes; i++) {
         const n = getGridNoteAt(i, grid.degrees, baseMIDI);
         cols.push({ note: n, x: (i * noteW) + (noteW / 2) });
     }
-    gridCache = { cols, noteW, baseMIDI, grid, numOct, totalNotes };
+    const needBg = !state.gridCache || state.gridCache.key !== key;
+    let bgCanvas = state.gridCache ? state.gridCache.bgCanvas : null;
+    if (needBg) {
+        if (!bgCanvas) bgCanvas = document.createElement('canvas');
+        bgCanvas.width = width;
+        bgCanvas.height = height;
+        const gctx = bgCanvas.getContext('2d');
+        drawGridBaseToContext(gctx, width, height, grid, numOct, noteW, baseMIDI);
+    }
+    state.gridCache = { cols, noteW, baseMIDI, grid, numOct, totalNotes, key, bgCanvas };
 }
 
 function getNearestNoteX(noteFloat) {
-    if (!gridCache || !gridCache.cols.length) return null;
+    if (!state.gridCache || !state.gridCache.cols.length) return null;
     let best = null;
     let bestDist = Infinity;
-    for (let i = 0; i < gridCache.cols.length; i++) {
-        const col = gridCache.cols[i];
+    for (let i = 0; i < state.gridCache.cols.length; i++) {
+        const col = state.gridCache.cols[i];
         const dist = Math.abs(col.note - noteFloat);
         if (dist < bestDist) {
             bestDist = dist;
@@ -1594,7 +1655,7 @@ function drawNoteBubble(x, y, radius, color, label) {
     ctx.shadowBlur = 0;
     if (label) {
         ctx.fillStyle = "#fff";
-        ctx.font = "bold 12px Arial";
+        ctx.font = `bold 12px ${CANVAS_FONT_FAMILY}`;
         ctx.textAlign = 'center';
         ctx.fillText(label, x, y - radius - 16);
     }
@@ -1606,7 +1667,7 @@ function getGroupDragKey(type, id) {
 
 function getActiveGroupTouches(key) {
     const list = [];
-    activeTouches.forEach(t => {
+    state.activeTouches.forEach(t => {
         if (t.isGroupDrag && t.groupDragKey === key) list.push(t);
     });
     return list;
@@ -1615,10 +1676,10 @@ function getActiveGroupTouches(key) {
 function startHoldGroupDrag(groupId) {
     if (!groupId) return null;
     const key = getGroupDragKey('hold', groupId);
-    if (groupDragStates.has(key)) return groupDragStates.get(key);
+    if (state.groupDragStates.has(key)) return state.groupDragStates.get(key);
     const voices = [];
-    heldVoices.forEach(v => { if (v.group === groupId) voices.push(v); });
-    activeTouches.forEach(t => {
+    state.heldVoices.forEach(v => { if (v.group === groupId) voices.push(v); });
+    state.activeTouches.forEach(t => {
         if (t.isHoldGrab && t.holdGroup === groupId && t.voices) {
             t.voices.forEach(v => voices.push(v));
         }
@@ -1632,15 +1693,15 @@ function startHoldGroupDrag(groupId) {
         sumExact += noteFloat;
     });
     const anchorExact = voices.length ? sumExact / voices.length : 0;
-    const state = { key, type: 'hold', groupId, voices, origBasePb, anchorExact, lastX: null };
-    groupDragStates.set(key, state);
-    return state;
+    const dragState = { key, type: 'hold', groupId, voices, origBasePb, anchorExact, lastX: null };
+    state.groupDragStates.set(key, dragState);
+    return dragState;
 }
 
 function startArpGroupDrag(holdIdx) {
     const key = getGroupDragKey('arp', holdIdx);
-    if (groupDragStates.has(key)) return groupDragStates.get(key);
-    const hold = arpHoldTouches[holdIdx];
+    if (state.groupDragStates.has(key)) return state.groupDragStates.get(key);
+    const hold = state.arpHoldTouches[holdIdx];
     if (!hold || !hold.noteObjs) return null;
     const noteObjs = hold.noteObjs.slice(0);
     let sumExact = 0;
@@ -1648,28 +1709,28 @@ function startArpGroupDrag(holdIdx) {
     const anchorExact = noteObjs.length ? sumExact / noteObjs.length : 0;
     const origNoteFloat = new Map();
     noteObjs.forEach(n => origNoteFloat.set(n, n.noteFloat ?? n.note ?? 0));
-    const state = { key, type: 'arp', holdIdx, noteObjs, origNoteFloat, anchorExact, lastX: null };
-    groupDragStates.set(key, state);
-    return state;
+    const dragState = { key, type: 'arp', holdIdx, noteObjs, origNoteFloat, anchorExact, lastX: null };
+    state.groupDragStates.set(key, dragState);
+    return dragState;
 }
 
 function handleGroupDrag(t) {
-    const state = groupDragStates.get(t.groupDragKey);
-    if (!state) return;
-    const touches = getActiveGroupTouches(state.key);
+    const dragState = state.groupDragStates.get(t.groupDragKey);
+    if (!dragState) return;
+    const touches = getActiveGroupTouches(dragState.key);
     if (!touches.length) return;
     const avgX = touches.reduce((s, item) => s + (item.lastX ?? 0), 0) / touches.length;
     const avgY = touches.reduce((s, item) => s + (item.lastM?.y ?? 0), 0) / touches.length;
     const fakeEvent = { clientX: avgX, clientY: avgY, width: 0, height: 0 };
-    const voiceRef = { initialExact: state.anchorExact, lastX: state.lastX ?? avgX, vibratoSpeed: 0 };
+    const voiceRef = { initialExact: dragState.anchorExact, lastX: dragState.lastX ?? avgX, vibratoSpeed: 0 };
     const m = getMPEData(fakeEvent, voiceRef);
-    state.lastX = avgX;
+    dragState.lastX = avgX;
     const pbRange = parseInt(els.pbRange.value, 10) || 12;
-    const deltaExact = m.exact - state.anchorExact;
+    const deltaExact = m.exact - dragState.anchorExact;
     const pbDelta = Math.round(deltaExact * (8192 / pbRange));
-    if (state.type === 'hold') {
-        state.voices.forEach(v => {
-            const basePbOrig = state.origBasePb.get(v) || 0;
+    if (dragState.type === 'hold') {
+        dragState.voices.forEach(v => {
+            const basePbOrig = dragState.origBasePb.get(v) || 0;
             const newBasePb = basePbOrig + pbDelta;
             v.basePb = newBasePb;
             v.lastM = { ...m, x: avgX, y: avgY, exact: (v.note || 0) + (newBasePb * (pbRange / 8192)) };
@@ -1680,9 +1741,9 @@ function handleGroupDrag(t) {
                 sendMidi([0xD0 + v.chan - 1, m.press]);
             }
         });
-    } else if (state.type === 'arp') {
-        state.noteObjs.forEach(n => {
-            const base = state.origNoteFloat.get(n) || 0;
+    } else if (dragState.type === 'arp') {
+        dragState.noteObjs.forEach(n => {
+            const base = dragState.origNoteFloat.get(n) || 0;
             const noteFloat = base + deltaExact;
             const voice = makeVoiceFromNote(noteFloat);
             n.noteFloat = noteFloat;
@@ -1695,21 +1756,21 @@ function handleGroupDrag(t) {
 
 function cleanupGroupDrag(key) {
     if (!key) return;
-    const stillActive = Array.from(activeTouches.values()).some(t => t.isGroupDrag && t.groupDragKey === key);
-    if (!stillActive) groupDragStates.delete(key);
+    const stillActive = Array.from(state.activeTouches.values()).some(t => t.isGroupDrag && t.groupDragKey === key);
+    if (!stillActive) state.groupDragStates.delete(key);
 }
 
 function startGroupShiftDrag(e) {
     const holdHit = findHeldVoiceAt(e.clientX, e.clientY);
     if (holdHit) {
-        const hv = heldVoices[holdHit.idx];
+        const hv = state.heldVoices[holdHit.idx];
         const groupId = hv.group || 0;
         if (!groupId) return false;
         const key = getGroupDragKey('hold', groupId);
         startHoldGroupDrag(groupId);
         const tmpVoice = { initialExact: hv.rootNote ?? hv.note, lastX: e.clientX, vibratoSpeed: 0 };
         const m = getMPEData(e, tmpVoice);
-        activeTouches.set(e.pointerId, {
+        state.activeTouches.set(e.pointerId, {
             voices: [],
             isGroupDrag: true,
             groupDragKey: key,
@@ -1725,14 +1786,14 @@ function startGroupShiftDrag(e) {
     const arpHoldHit = arpNoteHit ? null : findArpHoldAt(e.clientX, e.clientY);
     const holdIdx = arpNoteHit ? arpNoteHit.holdIdx : (arpHoldHit ? arpHoldHit.idx : null);
     if (holdIdx != null) {
-        const hold = arpHoldTouches[holdIdx];
+        const hold = state.arpHoldTouches[holdIdx];
         if (!hold) return false;
         const key = getGroupDragKey('arp', holdIdx);
         startArpGroupDrag(holdIdx);
         const baseExact = hold.lastM?.exact ?? 0;
         const tmpVoice = { initialExact: baseExact, lastX: e.clientX, vibratoSpeed: 0 };
         const m = getMPEData(e, tmpVoice);
-        activeTouches.set(e.pointerId, {
+        state.activeTouches.set(e.pointerId, {
             voices: [],
             isGroupDrag: true,
             groupDragKey: key,
@@ -1748,11 +1809,11 @@ function startGroupShiftDrag(e) {
 }
 
 function tryStartTwoFingerGroupDrag(e) {
-    if (Array.from(activeTouches.values()).some(t => t.isGroupDrag)) return true;
-    if (!activeTouches.size) return false;
+    if (Array.from(state.activeTouches.values()).some(t => t.isGroupDrag)) return true;
+    if (!state.activeTouches.size) return false;
     let holdEntry = null;
     let arpEntry = null;
-    activeTouches.forEach((t, id) => {
+    state.activeTouches.forEach((t, id) => {
         if (!holdEntry && t.isHoldGrab && t.holdGroup) holdEntry = { id, t };
         if (!arpEntry && t.isArpHoldGrab && Number.isInteger(t.holdIdx)) arpEntry = { id, t };
     });
@@ -1762,7 +1823,7 @@ function tryStartTwoFingerGroupDrag(e) {
         startHoldGroupDrag(groupId);
         holdEntry.t.isGroupDrag = true;
         holdEntry.t.groupDragKey = key;
-        activeTouches.set(e.pointerId, {
+        state.activeTouches.set(e.pointerId, {
             voices: [],
             isGroupDrag: true,
             groupDragKey: key,
@@ -1778,7 +1839,7 @@ function tryStartTwoFingerGroupDrag(e) {
         startArpGroupDrag(arpEntry.t.holdIdx);
         arpEntry.t.isGroupDrag = true;
         arpEntry.t.groupDragKey = key;
-        activeTouches.set(e.pointerId, {
+        state.activeTouches.set(e.pointerId, {
             voices: [],
             isGroupDrag: true,
             groupDragKey: key,
@@ -1820,13 +1881,13 @@ function isDoubleTapKey(key, x, y) {
 }
 
 function getCanvasBottomY() {
-    const yMax = Math.max(1, canvasRect.height - perfHeight);
-    return canvasRect.top + yMax;
+    const yMax = Math.max(1, state.canvasRect.height - state.perfHeight);
+    return state.canvasRect.top + yMax;
 }
 
 function getSlideFromY(y) {
-    const yMax = Math.max(1, canvasRect.height - perfHeight);
-    const yClamped = Math.max(0, Math.min(y - canvasRect.top, yMax));
+    const yMax = Math.max(1, state.canvasRect.height - state.perfHeight);
+    const yClamped = Math.max(0, Math.min(y - state.canvasRect.top, yMax));
     let yNorm = Math.max(0, Math.min(1, 1 - (yClamped / yMax)));
     const dz = parseInt(els.yDeadzone.value, 10) / 100;
     if (dz > 0) {
@@ -1863,10 +1924,10 @@ function startHoldDrop(voice) {
         } else {
             if (voice.chan) {
                 sendMidi([0x80 + voice.chan - 1, voice.note, 0]);
-                mpeChannels.push(voice.chan);
-                mpeChannels.sort((a,b)=>a-b);
+                state.mpeChannels.push(voice.chan);
+                state.mpeChannels.sort((a,b)=>a-b);
             }
-            heldVoices = heldVoices.filter(v => v !== voice);
+            state.heldVoices = state.heldVoices.filter(v => v !== voice);
             voice.dropActive = false;
         }
     }
@@ -1899,7 +1960,7 @@ function startArpHoldDrop(hold, noteObj) {
             if (hold.noteObjs) {
                 hold.noteObjs = hold.noteObjs.filter(n => n !== noteObj);
                 if (!hold.noteObjs.length) {
-                    arpHoldTouches = arpHoldTouches.filter(h => h !== hold);
+                    state.arpHoldTouches = state.arpHoldTouches.filter(h => h !== hold);
                 }
             }
             noteObj.dropActive = false;
@@ -1910,12 +1971,12 @@ function startArpHoldDrop(hold, noteObj) {
 
 function collectActiveChannels() {
     const set = new Set();
-    activeTouches.forEach(t => {
+    state.activeTouches.forEach(t => {
         t.voices.forEach(v => { if (v.chan) set.add(v.chan); });
     });
-    heldVoices.forEach(v => { if (v.chan) set.add(v.chan); });
-    physicalNotes.forEach(arr => arr.forEach(v => { if (v.chan) set.add(v.chan); }));
-    arp.active.forEach(v => { if (v.chan) set.add(v.chan); });
+    state.heldVoices.forEach(v => { if (v.chan) set.add(v.chan); });
+    state.physicalNotes.forEach(arr => arr.forEach(v => { if (v.chan) set.add(v.chan); }));
+    state.arp.active.forEach(v => { if (v.chan) set.add(v.chan); });
     return Array.from(set);
 }
 
@@ -1928,12 +1989,12 @@ function collectFadeTargets() {
         const p = Number.isFinite(press) ? press : 0;
         targets.set(ch, { slide: Math.max(cur.slide, s), press: Math.max(cur.press, p) });
     }
-    activeTouches.forEach(t => {
+    state.activeTouches.forEach(t => {
         t.voices.forEach(v => push(v.chan, t.lastM?.slide, t.lastM?.press));
     });
-    heldVoices.forEach(v => push(v.chan, v.lastM?.slide, v.lastM?.press));
-    physicalNotes.forEach(arr => arr.forEach(v => push(v.chan, v.lastSlide, v.lastPress)));
-    arp.active.forEach(v => push(v.chan, 0, 80));
+    state.heldVoices.forEach(v => push(v.chan, v.lastM?.slide, v.lastM?.press));
+    state.physicalNotes.forEach(arr => arr.forEach(v => push(v.chan, v.lastSlide, v.lastPress)));
+    state.arp.active.forEach(v => push(v.chan, 0, 80));
     return targets;
 }
 
@@ -1945,17 +2006,17 @@ function collectActiveNotes() {
         const vel = Math.max(1, Math.min(127, Math.round(press || 80)));
         map.set(key, { chan, note, vel });
     }
-    activeTouches.forEach(t => {
+    state.activeTouches.forEach(t => {
         t.voices.forEach(v => addNote(v.chan, v.note, t.lastM?.press));
     });
-    heldVoices.forEach(v => addNote(v.chan, v.note, v.lastM?.press));
-    physicalNotes.forEach(arr => arr.forEach(v => addNote(v.chan, v.note, v.lastPress)));
-    arp.active.forEach(v => addNote(v.chan, v.note, 80));
+    state.heldVoices.forEach(v => addNote(v.chan, v.note, v.lastM?.press));
+    state.physicalNotes.forEach(arr => arr.forEach(v => addNote(v.chan, v.note, v.lastPress)));
+    state.arp.active.forEach(v => addNote(v.chan, v.note, 80));
     return Array.from(map.values());
 }
 
 function runEchoTail() {
-    if (!midiOutput || !FADE_ECHO_ENABLED) return 0;
+    if (!state.midi.output || !FADE_ECHO_ENABLED) return 0;
     const notes = collectActiveNotes();
     if (!notes.length) return 0;
     for (let i = 1; i <= ECHO_TAIL_STEPS; i++) {
@@ -1964,11 +2025,11 @@ function runEchoTail() {
         setTimeout(() => {
             notes.forEach(n => {
                 const vel = Math.max(1, Math.round(n.vel * gain));
-                midiOutput.send([0x90 + n.chan - 1, n.note, vel]);
+                state.midi.output.send([0x90 + n.chan - 1, n.note, vel]);
             });
             setTimeout(() => {
                 notes.forEach(n => {
-                    midiOutput.send([0x80 + n.chan - 1, n.note, 0]);
+                    state.midi.output.send([0x80 + n.chan - 1, n.note, 0]);
                 });
             }, ECHO_NOTE_MS);
         }, delay);
@@ -1977,10 +2038,10 @@ function runEchoTail() {
 }
 
 function fadeOutAll() {
-    if (!midiOutput) return;
-    if (fadeTimer) {
-        clearInterval(fadeTimer);
-        fadeTimer = null;
+    if (!state.midi.output) return;
+    if (state.fadeTimer) {
+        clearInterval(state.fadeTimer);
+        state.fadeTimer = null;
     }
     const seconds = Math.max(1, Math.min(20, parseFloat(els.fadeSeconds.value) || 4));
     const channels = collectActiveChannels();
@@ -1989,8 +2050,9 @@ function fadeOutAll() {
     const intervalMs = 30;
     const steps = Math.max(1, Math.floor((seconds * 1000) / intervalMs));
     let step = 0;
-    fadeState = { active: true, start: Date.now(), durationMs: seconds * 1000 };
-    fadeTimer = setInterval(() => {
+    state.fadeState = { active: true, start: Date.now(), durationMs: seconds * 1000 };
+    requestDraw();
+    state.fadeTimer = setInterval(() => {
         step += 1;
         channels.forEach(ch => {
             const t = targets.get(ch) || { slide: 0, press: 0 };
@@ -1998,15 +2060,15 @@ function fadeOutAll() {
             const factor = Math.pow(1 - progress, FADE_EASE_POW);
             const slide = Math.max(0, Math.round(t.slide * factor));
             const press = Math.max(0, Math.round(t.press * factor));
-            midiOutput.send([0xB0 + ch - 1, 74, slide]);
-            midiOutput.send([0xD0 + ch - 1, press]);
+            state.midi.output.send([0xB0 + ch - 1, 74, slide]);
+            state.midi.output.send([0xD0 + ch - 1, press]);
         });
         if (step >= steps) {
-            clearInterval(fadeTimer);
-            fadeTimer = null;
+            clearInterval(state.fadeTimer);
+            state.fadeTimer = null;
             const echoTailMs = runEchoTail();
             setTimeout(() => {
-                fadeState = { active: false, start: 0, durationMs: 0 };
+                state.fadeState = { active: false, start: 0, durationMs: 0 };
                 allNotesOff();
                 els.midiStatus.innerText = 'FADE OUT';
             }, FADE_TAIL_MS + echoTailMs);
@@ -2037,12 +2099,12 @@ function mapMidiNoteToScale(note) {
 
 function computeChordNotes(rootNote) {
     const chordMode = els.chordMode.value;
-    const rootIdx = scaleNotes.indexOf(rootNote);
+    const rootIdx = state.scaleNotes.notes.indexOf(rootNote);
     let chordNotes = [];
     if (chordMode === 'auto' || chordMode === 'auto7') {
         const diatonic = chordMode === 'auto7' ? [0, 2, 4, 6] : [0, 2, 4];
         if (rootIdx >= 0) {
-            chordNotes = diatonic.map(step => scaleNotes[rootIdx + step]).filter(n => n !== undefined);
+            chordNotes = diatonic.map(step => state.scaleNotes.notes[rootIdx + step]).filter(n => n !== undefined);
         }
     } else {
         const chordSteps = CHORDS[chordMode] || CHORDS.off;
@@ -2076,7 +2138,7 @@ function refreshArpNotes(noteObjs, m, rootNote) {
             color: nextArpColor()
         }));
         noteObjs.push(...add);
-        arp.notes.push(...add);
+        state.arp.notes.push(...add);
     }
     for (let i = 0; i < chordNotes.length && i < noteObjs.length; i++) {
         const noteFloat = chordNotes[i];
@@ -2089,10 +2151,26 @@ function refreshArpNotes(noteObjs, m, rootNote) {
     return chordNotes;
 }
 
+function convertHeldToArp() {
+    if (!state.heldVoices.length) return;
+    const held = state.heldVoices.slice(0);
+    const noteObjs = held.map(v => {
+        const noteFloat = getVoiceNoteFloat(v);
+        const voice = makeVoiceFromNote(noteFloat);
+        return { noteFloat, ...voice, lastM: v.lastM, color: v.color || nextArpColor() };
+    });
+    const lastM = held[0].lastM;
+    const color = held[0].color || '#ffaa00';
+    releaseHeldNotes();
+    state.arp.notes = noteObjs;
+    state.arpHoldTouches = [{ lastM, color, phase: 0, noteObjs }];
+    requestDraw();
+}
+
 function updateHeldChords() {
-    if (!heldVoices.length || !midiOutput) return;
+    if (!state.heldVoices.length || !state.midi.output) return;
     const groups = new Map();
-    heldVoices.forEach(v => {
+    state.heldVoices.forEach(v => {
         const groupId = v.group || v.chan || 0;
         if (!groups.has(groupId)) groups.set(groupId, []);
         groups.get(groupId).push(v);
@@ -2107,13 +2185,13 @@ function updateHeldChords() {
         }
         list.forEach(v => {
             sendMidi([0x80 + v.chan - 1, v.note, 0]);
-            mpeChannels.push(v.chan);
+            state.mpeChannels.push(v.chan);
         });
-        mpeChannels.sort((a,b)=>a-b);
+        state.mpeChannels.sort((a,b)=>a-b);
         const m = ref.lastM || { pbValue: 8192, slide: 0, press: 90 };
         const chordNotes = computeChordNotes(rootNote);
         chordNotes.forEach(noteFloat => {
-            const chan = mpeChannels.shift();
+            const chan = state.mpeChannels.shift();
             if (!chan) return;
             const voice = makeVoiceFromNote(noteFloat);
             const pb = getVoicePb(m, voice);
@@ -2133,18 +2211,19 @@ function updateHeldChords() {
             });
         });
     });
-    heldVoices = nextHeld;
+    state.heldVoices = nextHeld;
 }
 
 canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
+    requestDraw();
     const uiRect = els.ui.getBoundingClientRect();
     const inUi = els.ui.contains(e.target);
-    if (!midiOutput || (els.ui.classList.contains('active') && e.clientY < (uiRect.height + 5)) || inUi) {
-        if (!midiOutput) els.midiStatus.innerText = 'NESSUN MIDI OUT';
+    if (!state.midi.output || (els.ui.classList.contains('active') && e.clientY < (uiRect.height + 5)) || inUi) {
+        if (!state.midi.output) els.midiStatus.innerText = 'NESSUN MIDI OUT';
         return;
     }
-    if (groupShiftEnabled) {
+    if (state.groupShiftEnabled) {
         startGroupShiftDrag(e);
         return;
     }
@@ -2152,7 +2231,7 @@ canvas.addEventListener('pointerdown', e => {
 
     const holdHit = findHeldVoiceAt(e.clientX, e.clientY);
     if (holdHit) {
-        const hv = heldVoices[holdHit.idx];
+        const hv = state.heldVoices[holdHit.idx];
         if (hv?.dropActive) return;
         const tapKey = `${hv.chan}:${hv.note}`;
         if (isDoubleTapKey(tapKey, e.clientX, e.clientY)) {
@@ -2161,7 +2240,7 @@ canvas.addEventListener('pointerdown', e => {
         }
         const groupId = hv.group || 0;
         const grabbed = [hv];
-        heldVoices = heldVoices.filter(v => !grabbed.includes(v));
+        state.heldVoices = state.heldVoices.filter(v => !grabbed.includes(v));
         const tmpVoice = { initialExact: hv.note, lastX: e.clientX, vibratoSpeed: 0 };
         const m = getMPEData(e, tmpVoice);
         grabbed.forEach(gv => {
@@ -2170,18 +2249,18 @@ canvas.addEventListener('pointerdown', e => {
             sendMidi([0xB0 + gv.chan - 1, 74, m.slide]);
             sendMidi([0xD0 + gv.chan - 1, m.press]);
         });
-        activeTouches.set(e.pointerId, { 
+        state.activeTouches.set(e.pointerId, { 
             voices: grabbed.map(gv => ({ chan: gv.chan, note: gv.note, basePb: gv.basePb, group: gv.group })), 
             initialExact: hv.rootNote ?? hv.note, lastX: e.clientX, isGrab: false, isHoldGrab: true, holdGroup: groupId,
             vibratoSpeed: 0, phase: hv.phase || 0, color: hv.color, lastM: m 
         });
         if (groupId) {
-            const existingEntry = Array.from(activeTouches.entries()).find(([id, t]) => t.isHoldGrab && t.holdGroup === groupId && id !== e.pointerId);
+            const existingEntry = Array.from(state.activeTouches.entries()).find(([id, t]) => t.isHoldGrab && t.holdGroup === groupId && id !== e.pointerId);
             const existing = existingEntry ? existingEntry[1] : null;
             if (existing) {
                 const key = getGroupDragKey('hold', groupId);
                 startHoldGroupDrag(groupId);
-                const cur = activeTouches.get(e.pointerId);
+                const cur = state.activeTouches.get(e.pointerId);
                 existing.isGroupDrag = true;
                 existing.groupDragKey = key;
                 if (cur) {
@@ -2194,7 +2273,7 @@ canvas.addEventListener('pointerdown', e => {
     }
     const arpNoteHit = findArpHoldNoteAt(e.clientX, e.clientY);
     if (arpNoteHit) {
-        const hold = arpHoldTouches[arpNoteHit.holdIdx];
+        const hold = state.arpHoldTouches[arpNoteHit.holdIdx];
         const noteObj = hold.noteObjs[arpNoteHit.noteIdx];
         if (noteObj?.dropActive) return;
         if (isDoubleTap(noteObj, e.clientX, e.clientY)) {
@@ -2203,7 +2282,7 @@ canvas.addEventListener('pointerdown', e => {
         }
         const tmpVoice = { initialExact: noteObj.noteFloat ?? noteObj.note, lastX: e.clientX, vibratoSpeed: 0 };
         const m = getMPEData(e, tmpVoice);
-        activeTouches.set(e.pointerId, { 
+        state.activeTouches.set(e.pointerId, { 
             voices: [],
             initialExact: noteObj.noteFloat ?? noteObj.note,
             lastX: e.clientX,
@@ -2217,12 +2296,12 @@ canvas.addEventListener('pointerdown', e => {
             color: noteObj.color || hold.color || '#ffaa00',
             lastM: m
         });
-        const existingEntry = Array.from(activeTouches.entries()).find(([id, t]) => t.isArpHoldGrab && t.holdIdx === arpNoteHit.holdIdx && id !== e.pointerId);
+        const existingEntry = Array.from(state.activeTouches.entries()).find(([id, t]) => t.isArpHoldGrab && t.holdIdx === arpNoteHit.holdIdx && id !== e.pointerId);
         const existing = existingEntry ? existingEntry[1] : null;
         if (existing) {
             const key = getGroupDragKey('arp', arpNoteHit.holdIdx);
             startArpGroupDrag(arpNoteHit.holdIdx);
-            const cur = activeTouches.get(e.pointerId);
+            const cur = state.activeTouches.get(e.pointerId);
             existing.isGroupDrag = true;
             existing.groupDragKey = key;
             if (cur) {
@@ -2234,10 +2313,10 @@ canvas.addEventListener('pointerdown', e => {
     }
     const arpHoldHit = findArpHoldAt(e.clientX, e.clientY);
     if (arpHoldHit) {
-        const hold = arpHoldTouches[arpHoldHit.idx];
+        const hold = state.arpHoldTouches[arpHoldHit.idx];
         const tmpVoice = { initialExact: hold.lastM?.exact ?? 0, lastX: e.clientX, vibratoSpeed: 0 };
         const m = getMPEData(e, tmpVoice);
-        activeTouches.set(e.pointerId, { 
+        state.activeTouches.set(e.pointerId, { 
             voices: [],
             initialExact: hold.lastM?.exact ?? 0,
             lastX: e.clientX,
@@ -2259,19 +2338,19 @@ canvas.addEventListener('pointerdown', e => {
     const root = parseInt(els.rootNote.value, 10);
     const def = getScaleDefinition();
     const scaleKey = `${def.mode}:${def.name}`;
-    if (!scaleNotes.length || scaleNotes.root !== root || scaleNotes.scale !== scaleKey) {
+    if (!state.scaleNotes.notes.length || state.scaleNotes.root !== root || state.scaleNotes.scale !== scaleKey) {
         updateScaleNotes();
     }
-    const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
+    const rootNote = state.scaleNotes.notes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
     const touchColor = `hsl(${(e.pointerId * 47) % 360}, 85%, 55%)`;
 
     // AUTO-GRAB: Se tocchi una nota gia' attiva fisicamente
-    if (physicalNotes.has(rootNote)) {
-        const list = physicalNotes.get(rootNote);
+    if (state.physicalNotes.has(rootNote)) {
+        const list = state.physicalNotes.get(rootNote);
         const pNote = list.find(d => !d.grabbed);
         if (pNote) {
             pNote.grabbed = true;
-            activeTouches.set(e.pointerId, { 
+            state.activeTouches.set(e.pointerId, { 
                 voices: [{ chan: pNote.chan, note: rootNote }], 
                 initialExact: rootNote, lastX: e.clientX, isGrab: true,
                 vibratoSpeed: 0, phase: 0, color: '#00ff44', lastM: m 
@@ -2283,15 +2362,15 @@ canvas.addEventListener('pointerdown', e => {
     let voices = [];
     let chordNotes = computeChordNotes(rootNote);
     if (!chordNotes.length) return;
-    if (arp.enabled && !arp.latch) {
+    if (state.arp.enabled && !state.arp.latch) {
         const noteObjs = chordNotes.map(noteFloat => ({
             noteFloat,
             ...makeVoiceFromNote(noteFloat),
             lastM: m,
             color: nextArpColor()
         }));
-        arp.notes.push(...noteObjs);
-        activeTouches.set(e.pointerId, {
+        state.arp.notes.push(...noteObjs);
+        state.activeTouches.set(e.pointerId, {
             voices: noteObjs.map(n => ({ chan: 0, note: n.note, basePb: n.basePb })),
             arpNotes: noteObjs,
             initialExact: rootNote,
@@ -2309,7 +2388,7 @@ canvas.addEventListener('pointerdown', e => {
         return;
     }
     for(let i=0; i<chordNotes.length; i++) {
-        const chan = mpeChannels.shift();
+        const chan = state.mpeChannels.shift();
         if(chan) {
             const voice = makeVoiceFromNote(chordNotes[i]);
             const pb = getVoicePb(m, voice);
@@ -2323,12 +2402,13 @@ canvas.addEventListener('pointerdown', e => {
         }
     }
     if (!voices.length) return;
-    activeTouches.set(e.pointerId, { voices, initialExact: rootNote, lastX: e.clientX, isGrab: false, vibratoSpeed: 0, phase: 0, color: `hsl(${voices[0]?.chan * 25 || 0}, 85%, 55%)`, lastM: m, smoothPb: touchState.smoothPb, smoothSlide: touchState.smoothSlide, smoothPress: touchState.smoothPress });
+    state.activeTouches.set(e.pointerId, { voices, initialExact: rootNote, lastX: e.clientX, isGrab: false, vibratoSpeed: 0, phase: 0, color: `hsl(${voices[0]?.chan * 25 || 0}, 85%, 55%)`, lastM: m, smoothPb: touchState.smoothPb, smoothSlide: touchState.smoothSlide, smoothPress: touchState.smoothPress });
 });
 
 canvas.addEventListener('pointermove', e => {
-    const t = activeTouches.get(e.pointerId);
-    if (!t || !midiOutput) return;
+    const t = state.activeTouches.get(e.pointerId);
+    if (!t || !state.midi.output) return;
+    requestDraw();
     t.lastX = e.clientX;
     t.lastM = t.lastM ? { ...t.lastM, x: e.clientX, y: e.clientY } : { x: e.clientX, y: e.clientY, press: 0, slide: 0, pbValue: 8192, exact: t.initialExact ?? 0 };
     if (t.isGroupDrag) {
@@ -2338,16 +2418,16 @@ canvas.addEventListener('pointermove', e => {
     const m = applySmoothing(t, getMPEData(e, t));
     t.lastM = m;
     if (t.isArpHoldGrab) {
-        const hold = arpHoldTouches[t.holdIdx];
+        const hold = state.arpHoldTouches[t.holdIdx];
         if (hold) {
             if (t.arpNoteObj) {
                 const root = parseInt(els.rootNote.value, 10);
                 const def = getScaleDefinition();
                 const scaleKey = `${def.mode}:${def.name}`;
-                if (!scaleNotes.length || scaleNotes.root !== root || scaleNotes.scale !== scaleKey) {
+                if (!state.scaleNotes.notes.length || state.scaleNotes.root !== root || state.scaleNotes.scale !== scaleKey) {
                     updateScaleNotes();
                 }
-                const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
+                const rootNote = state.scaleNotes.notes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
                 const voice = makeVoiceFromNote(rootNote);
                 t.arpNoteObj.noteFloat = rootNote;
                 t.arpNoteObj.note = voice.note;
@@ -2359,10 +2439,10 @@ canvas.addEventListener('pointermove', e => {
                 const root = parseInt(els.rootNote.value, 10);
                 const def = getScaleDefinition();
                 const scaleKey = `${def.mode}:${def.name}`;
-                if (!scaleNotes.length || scaleNotes.root !== root || scaleNotes.scale !== scaleKey) {
+                if (!state.scaleNotes.notes.length || state.scaleNotes.root !== root || state.scaleNotes.scale !== scaleKey) {
                     updateScaleNotes();
                 }
-                const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
+                const rootNote = state.scaleNotes.notes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
                 if (hold.noteObjs) {
                     refreshArpNotes(hold.noteObjs, m, rootNote);
                 }
@@ -2383,10 +2463,10 @@ canvas.addEventListener('pointermove', e => {
             const root = parseInt(els.rootNote.value, 10);
             const def = getScaleDefinition();
             const scaleKey = `${def.mode}:${def.name}`;
-            if (!scaleNotes.length || scaleNotes.root !== root || scaleNotes.scale !== scaleKey) {
+            if (!state.scaleNotes.notes.length || state.scaleNotes.root !== root || state.scaleNotes.scale !== scaleKey) {
                 updateScaleNotes();
             }
-            const rootNote = scaleNotes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
+            const rootNote = state.scaleNotes.notes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
             refreshArpNotes(t.arpNotes, m, rootNote);
             const pbRange = parseInt(els.pbRange.value, 10) || 12;
             const detune = m.exact - rootNote;
@@ -2405,12 +2485,13 @@ canvas.addEventListener('pointermove', e => {
 });
 
 canvas.addEventListener('pointerup', e => {
-    const t = activeTouches.get(e.pointerId);
+    const t = state.activeTouches.get(e.pointerId);
     if (t) {
+        requestDraw();
         const groupKey = t.groupDragKey;
         const hold = els.holdNotes.checked;
         if (t.isArpHoldGrab) {
-            const item = arpHoldTouches[t.holdIdx];
+            const item = state.arpHoldTouches[t.holdIdx];
             if (item) {
                 if (t.arpNoteObj) {
                     t.arpNoteObj.lastM = t.lastM;
@@ -2420,7 +2501,7 @@ canvas.addEventListener('pointerup', e => {
                 item.phase = t.phase;
                 item.color = item.noteObjs?.[0]?.color || t.color;
             }
-            activeTouches.delete(e.pointerId);
+            state.activeTouches.delete(e.pointerId);
             cleanupGroupDrag(groupKey);
             return;
         }
@@ -2440,44 +2521,44 @@ canvas.addEventListener('pointerup', e => {
                 removeArpNotes(t.arpNotes);
             } else {
                 const holdColor = t.arpNotes?.[0]?.color || t.color;
-                arpHoldTouches.push({ lastM: t.lastM, color: holdColor, phase: t.phase || 0, noteObjs: t.arpNotes });
+                state.arpHoldTouches.push({ lastM: t.lastM, color: holdColor, phase: t.phase || 0, noteObjs: t.arpNotes });
             }
-            activeTouches.delete(e.pointerId);
+            state.activeTouches.delete(e.pointerId);
             cleanupGroupDrag(groupKey);
             return;
         }
         if (t.isHoldGrab) {
             if (hold) {
-                const groupId = t.holdGroup || holdGroupSeq++;
+                const groupId = t.holdGroup || state.holdGroupSeq++;
                 t.voices.forEach(v => {
-                    heldVoices.push({ chan: v.chan, note: v.note, basePb: v.basePb, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId, rootNote: t.initialExact });
+                    state.heldVoices.push({ chan: v.chan, note: v.note, basePb: v.basePb, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId, rootNote: t.initialExact });
                 });
             } else {
                 t.voices.forEach(v => {
                     sendMidi([0x80 + v.chan - 1, v.note, 0]);
-                    mpeChannels.push(v.chan);
+                    state.mpeChannels.push(v.chan);
                 });
             }
-            mpeChannels.sort((a,b)=>a-b);
-            activeTouches.delete(e.pointerId);
+            state.mpeChannels.sort((a,b)=>a-b);
+            state.activeTouches.delete(e.pointerId);
             cleanupGroupDrag(groupKey);
             return;
         }
         t.voices.forEach(v => {
             if(!t.isGrab) {
                 if (hold) {
-                    const groupId = t.holdGroup || holdGroupSeq++;
+                    const groupId = t.holdGroup || state.holdGroupSeq++;
                     sendMidi([0xB0 + v.chan - 1, 74, t.lastM.slide]);
                     sendMidi([0xD0 + v.chan - 1, t.lastM.press]);
-                    heldVoices.push({ chan: v.chan, note: v.note, basePb: v.basePb, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId, rootNote: t.initialExact });
+                    state.heldVoices.push({ chan: v.chan, note: v.note, basePb: v.basePb, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId, rootNote: t.initialExact });
                     t.holdGroup = groupId;
                 } else {
                     sendMidi([0x80 + v.chan - 1, v.note, 0]);
-                    mpeChannels.push(v.chan);
+                    state.mpeChannels.push(v.chan);
                 }
             } else {
-                if (physicalNotes.has(v.note)) {
-                    const list = physicalNotes.get(v.note);
+                if (state.physicalNotes.has(v.note)) {
+                    const list = state.physicalNotes.get(v.note);
                     const pNote = list.find(d => d.chan === v.chan);
                     if (pNote) {
                         pNote.grabbed = false;
@@ -2489,34 +2570,34 @@ canvas.addEventListener('pointerup', e => {
                 }
             }
         });
-        if (!hold) mpeChannels.sort((a,b)=>a-b);
-        activeTouches.delete(e.pointerId);
+        if (!hold) state.mpeChannels.sort((a,b)=>a-b);
+        state.activeTouches.delete(e.pointerId);
         cleanupGroupDrag(groupKey);
     }
 });
 
 function cancelActivePointer(pointerId) {
-    const t = activeTouches.get(pointerId);
+    const t = state.activeTouches.get(pointerId);
     if (!t) return;
     const groupKey = t.groupDragKey;
     if (t.isArp) {
         const keep = els.holdNotes.checked;
         if (!keep) removeArpNotes(t.arpNotes);
-        activeTouches.delete(pointerId);
+        state.activeTouches.delete(pointerId);
         cleanupGroupDrag(groupKey);
         return;
     }
-    if (!midiOutput) {
-        activeTouches.delete(pointerId);
+    if (!state.midi.output) {
+        state.activeTouches.delete(pointerId);
         cleanupGroupDrag(groupKey);
         return;
     }
     t.voices.forEach(v => {
         sendMidi([0x80 + v.chan - 1, v.note, 0]);
-        mpeChannels.push(v.chan);
+        state.mpeChannels.push(v.chan);
     });
-    mpeChannels.sort((a,b)=>a-b);
-    activeTouches.delete(pointerId);
+    state.mpeChannels.sort((a,b)=>a-b);
+    state.activeTouches.delete(pointerId);
     cleanupGroupDrag(groupKey);
 }
 
@@ -2525,49 +2606,7 @@ canvas.addEventListener('pointerleave', e => cancelActivePointer(e.pointerId));
 
 const uiToggle = document.getElementById('uiToggle');
 const perfToggle = document.getElementById('perfToggle');
-uiToggle.onclick = () => {
-    els.ui.classList.toggle('active');
-    refreshLayout();
-};
-perfToggle.onclick = () => {
-    els.performance.classList.toggle('collapsed');
-    refreshLayout();
-};
-els.fsBtn.onclick = () => { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); };
-els.octDownBtn.onclick = () => changeOctave(-1);
-els.octUpBtn.onclick = () => changeOctave(1);
-els.holdBtn.onclick = () => {
-    const hold = els.holdNotes;
-    hold.checked = !hold.checked;
-    updateHoldButtonUI();
-    if (!hold.checked) releaseHeldNotes();
-};
-els.pbRange.onchange = e => setPitchBendRange(parseInt(e.target.value, 10));
-els.holdNotes.onchange = e => {
-    updateHoldButtonUI();
-    if (!e.target.checked) releaseHeldNotes();
-};
-els.panicBtn.onclick = () => {
-    allNotesOff();
-    els.midiStatus.innerText = 'STOP';
-};
-els.fadeBtn.onclick = () => {
-    fadeOutAll();
-};
-els.arpEnabled.onchange = syncArpFromUI;
-els.arpRate.onchange = syncArpFromUI;
-els.arpGate.onchange = syncArpFromUI;
-els.arpSync.onchange = syncArpFromUI;
-els.arpBpm.onchange = syncArpFromUI;
-els.arpLatch.onchange = syncArpFromUI;
-els.arpParamsToggle.onclick = () => {
-    els.arpParamsPanel.classList.toggle('hidden');
-    updateArpParamsToggleLabel();
-};
-els.groupShiftBtn.onclick = () => {
-    groupShiftEnabled = !groupShiftEnabled;
-    updateGroupShiftUI();
-};
+ 
 
 function setupChordKnob() {
     const select = els.chordMode;
@@ -2621,10 +2660,12 @@ function setupChordKnob() {
         }
         didRotate = true;
         applyIndex(nextIdx);
+        updateHeldChords();
     }
 
     wheel.addEventListener('pointerdown', e => {
         e.preventDefault();
+        requestDraw();
         wheel.setPointerCapture(e.pointerId);
         lastAngle = angleFromEvent(e);
         angleAccum = 0;
@@ -2633,6 +2674,7 @@ function setupChordKnob() {
     });
     wheel.addEventListener('pointermove', e => {
         if (lastAngle == null) return;
+        requestDraw();
         const ang = angleFromEvent(e);
         let delta = ang - lastAngle;
         if (delta > 180) delta -= 360;
@@ -2655,6 +2697,7 @@ function setupChordKnob() {
         if (!didRotate) toggleChord();
         wheel.classList.toggle('knob-on', select.value !== 'off');
         wheel.classList.toggle('knob-off', select.value === 'off');
+        requestDraw();
     });
     wheel.addEventListener('pointercancel', () => {
         lastAngle = null;
@@ -2709,6 +2752,7 @@ function setupArpKnob() {
 
     wheel.addEventListener('pointerdown', e => {
         e.preventDefault();
+        requestDraw();
         wheel.setPointerCapture(e.pointerId);
         lastAngle = angleFromEvent(e);
         angleAccum = 0;
@@ -2717,6 +2761,7 @@ function setupArpKnob() {
     });
     wheel.addEventListener('pointermove', e => {
         if (lastAngle == null) return;
+        requestDraw();
         const ang = angleFromEvent(e);
         let delta = ang - lastAngle;
         if (delta > 180) delta -= 360;
@@ -2739,6 +2784,7 @@ function setupArpKnob() {
         if (!didRotate) toggleArp();
         wheel.classList.toggle('knob-on', els.arpEnabled.checked);
         wheel.classList.toggle('knob-off', !els.arpEnabled.checked);
+        requestDraw();
     });
     wheel.addEventListener('pointercancel', () => {
         lastAngle = null;
@@ -2750,11 +2796,11 @@ function setupArpKnob() {
 }
 
 function findHeldVoiceAt(x, y) {
-    for (let i = heldVoices.length - 1; i >= 0; i--) {
-        const m = heldVoices[i].lastM;
+    for (let i = state.heldVoices.length - 1; i >= 0; i--) {
+        const m = state.heldVoices[i].lastM;
         if (!m) continue;
         const radius = 12 + (m.press / 127) * 22;
-        const noteFloat = getVoiceNoteFloat(heldVoices[i]);
+        const noteFloat = getVoiceNoteFloat(state.heldVoices[i]);
         const px = getNearestNoteX(noteFloat) ?? m.x;
         const py = m.y;
         const dx = x - px;
@@ -2767,8 +2813,8 @@ function findHeldVoiceAt(x, y) {
 }
 
 function findArpHoldNoteAt(x, y) {
-    for (let i = arpHoldTouches.length - 1; i >= 0; i--) {
-        const hold = arpHoldTouches[i];
+    for (let i = state.arpHoldTouches.length - 1; i >= 0; i--) {
+        const hold = state.arpHoldTouches[i];
         if (!hold || !hold.noteObjs) continue;
         for (let n = hold.noteObjs.length - 1; n >= 0; n--) {
             const noteObj = hold.noteObjs[n];
@@ -2788,8 +2834,8 @@ function findArpHoldNoteAt(x, y) {
 }
 
 function findArpHoldAt(x, y) {
-    for (let i = arpHoldTouches.length - 1; i >= 0; i--) {
-        const m = arpHoldTouches[i].lastM;
+    for (let i = state.arpHoldTouches.length - 1; i >= 0; i--) {
+        const m = state.arpHoldTouches[i].lastM;
         if (!m) continue;
         const radius = 10 + (m.press / 127) * 18;
         const dx = x - m.x;
@@ -2801,12 +2847,12 @@ function findArpHoldAt(x, y) {
     return null;
 }
 
-let presets = loadPresets();
-let mpePresets = loadMpePresets();
-let customScales = loadCustomScales();
-if (!Object.keys(presets).length) {
+state.presets = loadPresets();
+state.mpePresets = loadMpePresets();
+state.customScales = loadCustomScales();
+if (!Object.keys(state.presets).length) {
     const base = getPresetState();
-    presets = {
+    state.presets = {
         Init: base,
         Ableton: {
             ...base,
@@ -2848,104 +2894,228 @@ if (!Object.keys(presets).length) {
             quantizeRelease: false
         }
     };
-} else if (presets.Init) {
-    presets.Init.visibleOctaves = "1";
+} else if (state.presets.Init) {
+    state.presets.Init.visibleOctaves = "1";
 }
-savePresets(presets);
-refreshPresetSelect(presets, 'Init');
-if (!Object.keys(mpePresets).length) {
+savePresets(state.presets);
+refreshPresetSelect(state.presets, 'Init');
+if (!Object.keys(state.mpePresets).length) {
     const mpeBase = getMpePresetState();
-    mpePresets = {
+    state.mpePresets = {
         Expressive: { ...mpeBase, roundRate: '10', deadCenter: false, deadCenterForce: '30', smoothAmt: '10', curveType: 'linear', yDeadzone: '2', quantizeRelease: false },
         Tight: { ...mpeBase, roundRate: '80', deadCenter: true, deadCenterForce: '100', smoothAmt: '35', curveType: 'soft', yDeadzone: '8', quantizeRelease: true },
         Glide: { ...mpeBase, roundRate: '0', deadCenter: false, deadCenterForce: '0', smoothAmt: '5', curveType: 'linear', yDeadzone: '0', quantizeRelease: false }
     };
 }
-saveMpePresets(mpePresets);
-refreshMpePresetSelect(mpePresets, 'Tight');
+saveMpePresets(state.mpePresets);
+refreshMpePresetSelect(state.mpePresets, 'Tight');
 populateMicrotonalSelect();
-customScales = { ...DEFAULT_CUSTOM_SCALES, ...customScales };
-saveCustomScales(customScales);
-const firstCustom = Object.keys(customScales)[0];
+state.customScales = { ...DEFAULT_CUSTOM_SCALES, ...state.customScales };
+saveCustomScales(state.customScales);
+const firstCustom = Object.keys(state.customScales)[0];
 els.customScaleName.value = firstCustom || '';
 loadCustomScaleByName(firstCustom);
 refreshCustomScaleDatalist();
-els.presetSelect.onchange = e => {
-    const state = presets[e.target.value];
-    applyPresetState(state);
-    updatePresetDescription(e.target.value);
-};
-els.presetSave.onclick = () => {
-    const name = els.presetName.value.trim() || els.presetSelect.value || 'Preset';
-    presets[name] = getPresetState();
-    savePresets(presets);
-    refreshPresetSelect(presets, name);
-    updatePresetDescription(name);
-};
-els.presetDel.onclick = () => {
-    const sel = els.presetSelect.value;
-    if (sel && sel !== 'Init') {
-        delete presets[sel];
-        savePresets(presets);
-        refreshPresetSelect(presets, 'Init');
-        applyPresetState(presets.Init);
-        updatePresetDescription('Init');
-    }
-};
-els.mpePresetSelect.onchange = e => {
-    const state = mpePresets[e.target.value];
-    applyMpePresetState(state);
-    updateMpePresetDescription(e.target.value);
-};
-els.mpePresetSave.onclick = () => {
-    const name = els.mpePresetName.value.trim() || els.mpePresetSelect.value || 'MPE Preset';
-    mpePresets[name] = getMpePresetState();
-    saveMpePresets(mpePresets);
-    refreshMpePresetSelect(mpePresets, name);
-    updateMpePresetDescription(name);
-};
-els.mpePresetDel.onclick = () => {
-    const sel = els.mpePresetSelect.value;
-    if (sel) {
-        delete mpePresets[sel];
-        saveMpePresets(mpePresets);
-        refreshMpePresetSelect(mpePresets, 'Tight');
-    }
-};
-els.customScaleSave.onclick = () => {
-    const name = els.customScaleName.value.trim();
-    if (!name) return;
-    if (els.customModeNotes.checked) {
-        const degrees = parseNotesList(els.customScaleNotes.value);
-        if (degrees.length < 2) return;
-        customScales[name] = { type: 'notes', degrees };
-    } else {
-        const cents = parseCentsList(els.customScaleCents.value);
-        if (cents.length < 2) return;
-        customScales[name] = { type: 'cents', cents };
-    }
-    saveCustomScales(customScales);
-    els.scaleModeCustom.checked = true;
-    els.customScaleName.value = name;
-    refreshCustomScaleDatalist();
-    updateScaleModeUI();
-    updateScaleNotes();
-};
-els.customScaleDel.onclick = () => {
-    const sel = els.customScaleName.value.trim();
-    if (sel) {
-        delete customScales[sel];
-        saveCustomScales(customScales);
-        const next = Object.keys(customScales)[0] || '';
-        els.customScaleName.value = next;
-        if (next) loadCustomScaleByName(next);
-        else els.customScaleCents.value = '';
+function bindUI() {
+    els.presetSelect.onchange = e => {
+        const presetState = state.presets[e.target.value];
+        applyPresetState(presetState);
+        updatePresetDescription(e.target.value);
+    };
+    els.presetSave.onclick = () => {
+        const name = els.presetName.value.trim() || els.presetSelect.value || 'Preset';
+        state.presets[name] = getPresetState();
+        savePresets(state.presets);
+        refreshPresetSelect(state.presets, name);
+        updatePresetDescription(name);
+    };
+    els.presetDel.onclick = () => {
+        const sel = els.presetSelect.value;
+        if (sel && sel !== 'Init') {
+            delete state.presets[sel];
+            savePresets(state.presets);
+            refreshPresetSelect(state.presets, 'Init');
+            applyPresetState(state.presets.Init);
+            updatePresetDescription('Init');
+        }
+    };
+    els.mpePresetSelect.onchange = e => {
+        const mpePresetState = state.mpePresets[e.target.value];
+        applyMpePresetState(mpePresetState);
+        updateMpePresetDescription(e.target.value);
+    };
+    els.mpePresetSave.onclick = () => {
+        const name = els.mpePresetName.value.trim() || els.mpePresetSelect.value || 'MPE Preset';
+        state.mpePresets[name] = getMpePresetState();
+        saveMpePresets(state.mpePresets);
+        refreshMpePresetSelect(state.mpePresets, name);
+        updateMpePresetDescription(name);
+    };
+    els.mpePresetDel.onclick = () => {
+        const sel = els.mpePresetSelect.value;
+        if (sel) {
+            delete state.mpePresets[sel];
+            saveMpePresets(state.mpePresets);
+            refreshMpePresetSelect(state.mpePresets, 'Tight');
+        }
+    };
+    els.customScaleSave.onclick = () => {
+        const name = els.customScaleName.value.trim();
+        if (!name) return;
+        if (els.customModeNotes.checked) {
+            const degrees = parseNotesList(els.customScaleNotes.value);
+            if (degrees.length < 2) return;
+            state.customScales[name] = { type: 'notes', degrees };
+        } else {
+            const cents = parseCentsList(els.customScaleCents.value);
+            if (cents.length < 2) return;
+            state.customScales[name] = { type: 'cents', cents };
+        }
+        saveCustomScales(state.customScales);
+        els.scaleModeCustom.checked = true;
+        els.customScaleName.value = name;
         refreshCustomScaleDatalist();
+        updateScaleModeUI();
         updateScaleNotes();
-    }
-};
+    };
+    els.customScaleDel.onclick = () => {
+        const sel = els.customScaleName.value.trim();
+        if (sel) {
+            delete state.customScales[sel];
+            saveCustomScales(state.customScales);
+            const next = Object.keys(state.customScales)[0] || '';
+            els.customScaleName.value = next;
+            if (next) loadCustomScaleByName(next);
+            else els.customScaleCents.value = '';
+            refreshCustomScaleDatalist();
+            updateScaleNotes();
+        }
+    };
+    uiToggle.onclick = () => {
+        els.ui.classList.toggle('active');
+        refreshLayout();
+    };
+    perfToggle.onclick = () => {
+        els.performance.classList.toggle('collapsed');
+        refreshLayout();
+    };
+    els.fsBtn.onclick = () => {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+    };
+    els.octDownBtn.onclick = () => changeOctave(-1);
+    els.octUpBtn.onclick = () => changeOctave(1);
+    els.holdBtn.onclick = () => {
+        const hold = els.holdNotes;
+        hold.checked = !hold.checked;
+        updateHoldButtonUI();
+        if (!hold.checked) {
+            releaseHeldNotes();
+            if (state.groupShiftEnabled) {
+                state.groupShiftEnabled = false;
+                updateGroupShiftUI();
+            }
+        }
+    };
+    els.pbRange.onchange = e => setPitchBendRange(parseInt(e.target.value, 10));
+    els.holdNotes.onchange = e => {
+        updateHoldButtonUI();
+        if (!e.target.checked) {
+            releaseHeldNotes();
+            if (state.groupShiftEnabled) {
+                state.groupShiftEnabled = false;
+                updateGroupShiftUI();
+            }
+        }
+    };
+    els.panicBtn.onclick = () => {
+        if (state.groupShiftEnabled) {
+            state.groupShiftEnabled = false;
+            updateGroupShiftUI();
+        }
+        allNotesOff();
+        els.midiStatus.innerText = 'STOP';
+    };
+    els.fadeBtn.onclick = () => {
+        if (state.groupShiftEnabled) {
+            state.groupShiftEnabled = false;
+            updateGroupShiftUI();
+        }
+        fadeOutAll();
+    };
+    els.arpEnabled.onchange = syncArpFromUI;
+    els.arpRate.onchange = syncArpFromUI;
+    els.arpGate.onchange = syncArpFromUI;
+    els.arpSync.onchange = syncArpFromUI;
+    els.arpBpm.onchange = syncArpFromUI;
+    els.arpLatch.onchange = syncArpFromUI;
+    els.arpParamsToggle.onclick = () => {
+        els.arpParamsPanel.classList.toggle('hidden');
+        updateArpParamsToggleLabel();
+    };
+    els.groupShiftBtn.onclick = () => {
+        state.groupShiftEnabled = !state.groupShiftEnabled;
+        updateGroupShiftUI();
+    };
+    els.rootNote.onchange = scheduleScaleUpdate;
+    els.scaleType.onchange = () => {
+        els.scaleModeDiatonic.checked = true;
+        updateScaleModeUI();
+        scheduleScaleUpdate();
+    };
+    els.microScaleSelect.onchange = () => {
+        els.scaleModeMicro.checked = true;
+        updateScaleModeUI();
+        scheduleScaleUpdate();
+    };
+    els.customScaleCents.onchange = () => {
+        els.scaleModeCustom.checked = true;
+        updateScaleModeUI();
+        scheduleScaleUpdate();
+    };
+    els.customModeNotes.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
+    els.customModeCents.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
+    els.customScaleNotes.onchange = () => {
+        els.scaleModeCustom.checked = true;
+        updateScaleModeUI();
+        scheduleScaleUpdate();
+    };
+    els.customScaleName.onchange = () => {
+        const name = els.customScaleName.value.trim();
+        if (name && state.customScales[name]) {
+            loadCustomScaleByName(name);
+        }
+        els.scaleModeCustom.checked = true;
+        updateScaleModeUI();
+        scheduleScaleUpdate();
+    };
+    els.customScaleSaved.onchange = () => {
+        const name = els.customScaleSaved.value;
+        if (name) {
+            els.customScaleName.value = name;
+            loadCustomScaleByName(name);
+            els.scaleModeCustom.checked = true;
+            updateScaleModeUI();
+            scheduleScaleUpdate();
+        }
+    };
+    els.scaleModeDiatonic.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
+    els.scaleModeMicro.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
+    els.scaleModeCustom.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
+    els.microtonalizeIn.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
+}
+
+bindUI();
 setupChordKnob();
 setupArpKnob();
+
+function scheduleScaleUpdate() {
+    if (state.scaleUpdateRaf != null) return;
+    state.scaleUpdateRaf = requestAnimationFrame(() => {
+        state.scaleUpdateRaf = null;
+        updateScaleNotes();
+    });
+}
 
 function updateScaleNotes() {
     const def = getScaleDefinition();
@@ -2958,81 +3128,42 @@ function updateScaleNotes() {
         });
     }
     notes.sort((a, b) => a - b);
-    notes.root = def.root;
-    notes.scale = `${def.mode}:${def.name}`;
-    scaleNotes = notes;
+    state.scaleNotes = { notes, root: def.root, scale: `${def.mode}:${def.name}` };
+    requestDraw();
 }
 
-els.rootNote.onchange = updateScaleNotes;
-els.scaleType.onchange = () => {
-    els.scaleModeDiatonic.checked = true;
-    updateScaleModeUI();
-    updateScaleNotes();
-};
-els.microScaleSelect.onchange = () => {
-    els.scaleModeMicro.checked = true;
-    updateScaleModeUI();
-    updateScaleNotes();
-};
-els.customScaleCents.onchange = () => {
-    els.scaleModeCustom.checked = true;
-    updateScaleModeUI();
-    updateScaleNotes();
-};
-els.customModeNotes.onchange = () => { updateScaleModeUI(); updateScaleNotes(); };
-els.customModeCents.onchange = () => { updateScaleModeUI(); updateScaleNotes(); };
-els.customScaleNotes.onchange = () => {
-    els.scaleModeCustom.checked = true;
-    updateScaleModeUI();
-    updateScaleNotes();
-};
-els.customScaleName.onchange = () => {
-    const name = els.customScaleName.value.trim();
-    if (name && customScales[name]) {
-        loadCustomScaleByName(name);
-    }
-    els.scaleModeCustom.checked = true;
-    updateScaleModeUI();
-    updateScaleNotes();
-};
-els.customScaleSaved.onchange = () => {
-    const name = els.customScaleSaved.value;
-    if (name) {
-        els.customScaleName.value = name;
-        loadCustomScaleByName(name);
-        els.scaleModeCustom.checked = true;
-        updateScaleModeUI();
-        updateScaleNotes();
-    }
-};
-els.scaleModeDiatonic.onchange = () => { updateScaleModeUI(); updateScaleNotes(); };
-els.scaleModeMicro.onchange = () => { updateScaleModeUI(); updateScaleNotes(); };
-els.scaleModeCustom.onchange = () => { updateScaleModeUI(); updateScaleNotes(); };
-els.microtonalizeIn.onchange = () => { updateScaleModeUI(); updateScaleNotes(); };
+function shouldAnimate() {
+    return !document.hidden && (
+        state.fadeState.active ||
+        state.activeTouches.size ||
+        state.heldVoices.length ||
+        state.arpHoldTouches.length ||
+        state.arp.active.length ||
+        state.physicalNotes.size
+    );
+}
 
-function draw() {
-    const width = canvasRect.width;
-    const height = canvasRect.height;
-    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, width, height);
+function requestDraw() {
+    if (document.hidden) return;
+    if (state.drawRaf == null) state.drawRaf = requestAnimationFrame(draw);
+}
+
+function getFadeState() {
     let fadeMul = 1;
-    if (fadeState.active) {
-        const elapsed = Date.now() - fadeState.start;
-        const progress = Math.min(1, elapsed / Math.max(1, fadeState.durationMs));
+    if (state.fadeState.active) {
+        const elapsed = Date.now() - state.fadeState.start;
+        const progress = Math.min(1, elapsed / Math.max(1, state.fadeState.durationMs));
         fadeMul = Math.max(0, Math.pow(1 - progress, FADE_EASE_POW));
     }
-    const fadeDrop = 1 - fadeMul;
-    const numOct = parseInt(els.visibleOctaves.value, 10);
-    const grid = getGridDegrees();
-    const noteW = width / (numOct * grid.stepsPerOct);
-    const root = grid.root;
-    const baseMIDI = 48 + (currentOctave * 12) + root;
-    updateGridCache();
-    const time = Date.now();
+    return { fadeMul, fadeDrop: 1 - fadeMul };
+}
+
+function collectHighlightMaps() {
     const chordHighlightNotes = new Map();
     const chordDimNotes = new Set();
     const arpActiveNotes = new Map();
     if (els.chordMode.value !== 'off') {
-        activeTouches.forEach(t => {
+        state.activeTouches.forEach(t => {
             if (t.isHoldGrab) {
                 const target = mapMidiNoteToScale(t.lastM?.exact ?? 0);
                 const source = mapMidiNoteToScale(t.initialExact ?? 0);
@@ -3042,22 +3173,29 @@ function draw() {
             if (t.isArp && t.arpNotes) {
                 t.arpNotes.forEach(n => chordHighlightNotes.set(Math.round(n.note), t.color));
             } else {
-                t.voices.forEach(v => chordHighlightNotes.set(v.note, t.color));
+                t.voices.forEach(v => {
+                    const noteFloat = getVoiceNoteFloat(v);
+                    chordHighlightNotes.set(Math.round(noteFloat), t.color);
+                });
             }
         });
-        heldVoices.forEach(v => chordHighlightNotes.set(v.note, v.color));
-        arp.notes.forEach(n => chordHighlightNotes.set(Math.round(n.note), n.color));
+        state.heldVoices.forEach(v => {
+            const noteFloat = getVoiceNoteFloat(v);
+            chordHighlightNotes.set(Math.round(noteFloat), v.color);
+        });
+        state.arp.notes.forEach(n => chordHighlightNotes.set(Math.round(n.note), n.color));
     }
-    arp.active.forEach(entry => arpActiveNotes.set(entry.note, entry.color));
+    state.arp.active.forEach(entry => arpActiveNotes.set(entry.note, entry.color));
+    return { chordHighlightNotes, chordDimNotes, arpActiveNotes };
+}
 
+function drawGridCells(width, height, grid, numOct, noteW, baseMIDI, fadeMul, fadeDrop, time, maps) {
+    const { chordHighlightNotes, chordDimNotes, arpActiveNotes } = maps;
+    if (state.gridCache?.bgCanvas) ctx.drawImage(state.gridCache.bgCanvas, 0, 0);
     for (let i = 0; i < (numOct * grid.stepsPerOct); i++) {
         const n = getGridNoteAt(i, grid.degrees, baseMIDI);
         const x = i * noteW;
-        const isOctStart = (i % grid.stepsPerOct === 0);
         const nRound = Math.round(n);
-        const isRoot = (nRound % 12 === root);
-        ctx.fillStyle = isRoot ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 255, 255, 0.15)';
-        ctx.fillRect(x, 0, noteW, height);
         if (chordDimNotes.has(nRound)) {
             ctx.globalAlpha = 0.5;
             ctx.fillStyle = '#000';
@@ -3078,28 +3216,8 @@ function draw() {
             ctx.fillRect(x, 0, noteW, height);
             ctx.globalAlpha = 1;
         }
-        ctx.strokeStyle = isOctStart ? '#ff3333' : (isRoot ? '#ff0000' : '#666');
-        ctx.lineWidth = isOctStart ? 3 : (isRoot ? 3 : 1);
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
-        const degree = grid.degrees[i % grid.stepsPerOct];
-        if (!(degree === 12 && i < (numOct * grid.stepsPerOct - 1))) {
-            ctx.font = `bold ${Math.max(13, Math.floor(noteW * 0.5))}px Arial`; ctx.textAlign = 'center';
-            ctx.fillStyle = isRoot ? '#ff4444' : '#ffffff';
-            ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
-            const noteY = Math.floor(height * 0.5);
-            ctx.strokeText(NOTE_NAMES[nRound % 12], x + noteW/2, noteY);
-            ctx.fillText(NOTE_NAMES[nRound % 12], x + noteW/2, noteY);
-    const mode = getScaleMode();
-    if (mode !== 'diatonic' && noteW >= 48) {
-        const cents = Math.round((degree % 12) * 100);
-        ctx.font = "bold 9px Arial"; ctx.textAlign = 'center';
-        ctx.fillStyle = '#ffaa00';
-        ctx.fillText(`${cents}c`, x + noteW/2, noteY + 16);
-    }
-        }
-        // CERCHIO FANTASMA PER NOTE ESTERNE
-        const pList = physicalNotes.get(nRound);
-        const pData = pList ? pList.find(d => !d.grabbed) : null;
+        const pList = state.physicalNotes.get(nRound);
+        const pData = pList ? pList.find(d => !d.grabbed && d.onTs && (time - d.onTs) <= GHOST_NOTE_MS) : null;
         if (pData) {
             const rad = 20 + Math.sin(time/200)*5;
             const yBase = height / 2;
@@ -3111,47 +3229,51 @@ function draw() {
             ctx.globalAlpha = 1;
         }
     }
+}
 
-    if (heldVoices.length) {
-        heldVoices.forEach((v, i) => {
-            const m = v.lastM;
-            const radius = 12 + (m.press / 127) * 22;
-            v.phase = (v.phase || 0) + 0.2;
-            const noteFloat = getVoiceNoteFloat(v);
-            const x = getNearestNoteX(noteFloat) ?? m.x;
+function drawHeldVoices(fadeMul, fadeDrop, height) {
+    if (!state.heldVoices.length) return;
+    state.heldVoices.forEach((v, i) => {
+        const m = v.lastM;
+        const radius = 12 + (m.press / 127) * 22;
+        v.phase = (v.phase || 0) + 0.2;
+        const noteFloat = getVoiceNoteFloat(v);
+        const x = getNearestNoteX(noteFloat) ?? m.x;
+        const y = m.y + ((height - m.y) * fadeDrop);
+        ctx.globalAlpha = fadeMul;
+        ctx.beginPath(); ctx.strokeStyle = v.color; ctx.lineWidth = 3;
+        for (let ox = -50; ox <= 50; ox += 2) {
+            const oy = Math.sin(ox * 0.15 + v.phase) * 3;
+            if (ox === -50) ctx.moveTo(x + ox, y + oy);
+            else ctx.lineTo(x + ox, y + oy);
+        }
+        ctx.stroke();
+        drawNoteBubble(x, y, radius, v.color, i === 0 ? "HOLD" : null);
+        ctx.globalAlpha = 1;
+    });
+}
+
+function drawArpHoldTouches(fadeMul, fadeDrop, height) {
+    if (!state.arpHoldTouches.length) return;
+    state.arpHoldTouches.forEach(t => {
+        const list = t.noteObjs || [];
+        list.forEach((n, idx) => {
+            const m = n.lastM || t.lastM;
+            if (!m) return;
+            const radius = 10 + (m.press / 127) * 18;
+            t.phase = (t.phase || 0) + 0.2;
+            const x = getNearestNoteX(n.noteFloat ?? n.note) ?? m.x;
             const y = m.y + ((height - m.y) * fadeDrop);
+            const glow = n.color || t.color || '#ffaa00';
             ctx.globalAlpha = fadeMul;
-            ctx.beginPath(); ctx.strokeStyle = v.color; ctx.lineWidth = 3;
-            for (let ox = -50; ox <= 50; ox += 2) {
-                const oy = Math.sin(ox * 0.15 + v.phase) * 3;
-                if (ox === -50) ctx.moveTo(x + ox, y + oy);
-                else ctx.lineTo(x + ox, y + oy);
-            }
-            ctx.stroke();
-            drawNoteBubble(x, y, radius, v.color, i === 0 ? "HOLD" : null);
+            drawNoteBubble(x, y, radius, glow, idx === 0 ? "ARP HOLD" : null);
             ctx.globalAlpha = 1;
         });
-    }
+    });
+}
 
-    if (arpHoldTouches.length) {
-        arpHoldTouches.forEach(t => {
-            const list = t.noteObjs || [];
-            list.forEach((n, idx) => {
-                const m = n.lastM || t.lastM;
-                if (!m) return;
-                const radius = 10 + (m.press / 127) * 18;
-                t.phase = (t.phase || 0) + 0.2;
-                const x = getNearestNoteX(n.noteFloat ?? n.note) ?? m.x;
-                const y = m.y + ((height - m.y) * fadeDrop);
-                const glow = n.color || t.color || '#ffaa00';
-                ctx.globalAlpha = fadeMul;
-                drawNoteBubble(x, y, radius, glow, idx === 0 ? "ARP HOLD" : null);
-                ctx.globalAlpha = 1;
-            });
-        });
-    }
-
-    activeTouches.forEach(t => {
+function drawActiveTouches(fadeMul, fadeDrop, height) {
+    state.activeTouches.forEach(t => {
         const radius = 12 + (t.lastM.press / 127) * 22;
         t.phase += 0.2 + (t.vibratoSpeed * 0.06);
         const y = t.lastM.y + ((height - t.lastM.y) * fadeDrop);
@@ -3182,14 +3304,33 @@ function draw() {
         }
         ctx.globalAlpha = 1;
     });
-    requestAnimationFrame(draw);
+}
+
+function draw() {
+    state.drawRaf = null;
+    const width = Math.floor(state.canvasRect.width);
+    const height = Math.floor(state.canvasRect.height);
+    ctx.fillStyle = '#000'; ctx.fillRect(0, 0, width, height);
+    const { fadeMul, fadeDrop } = getFadeState();
+    const numOct = parseInt(els.visibleOctaves.value, 10);
+    const grid = getGridDegrees();
+    const noteW = width / (numOct * grid.stepsPerOct);
+    const baseMIDI = 48 + (state.currentOctave * 12) + grid.root;
+    updateGridCache();
+    const time = Date.now();
+    const maps = collectHighlightMaps();
+    drawGridCells(width, height, grid, numOct, noteW, baseMIDI, fadeMul, fadeDrop, time, maps);
+    drawHeldVoices(fadeMul, fadeDrop, height);
+    drawArpHoldTouches(fadeMul, fadeDrop, height);
+    drawActiveTouches(fadeMul, fadeDrop, height);
+    if (shouldAnimate()) requestDraw();
 }
 
 function resizeCanvas() {
     const dpr = window.devicePixelRatio || 1;
-    canvasRect = canvas.getBoundingClientRect();
-    canvas.width = Math.floor(canvasRect.width * dpr);
-    canvas.height = Math.floor(canvasRect.height * dpr);
+    state.canvasRect = canvas.getBoundingClientRect();
+    canvas.width = Math.floor(state.canvasRect.width * dpr);
+    canvas.height = Math.floor(state.canvasRect.height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
@@ -3200,7 +3341,7 @@ function updateLayoutVars() {
     const isPerfCollapsed = els.performance.classList.contains('collapsed');
     const uiH = isActive ? uiRect.height : 0;
     const perfH = isPerfCollapsed ? 0 : perfRect.height;
-    perfHeight = perfH;
+    state.perfHeight = perfH;
     document.documentElement.style.setProperty('--ui-h', `${uiH}px`);
     document.documentElement.style.setProperty('--perf-h', `${perfH}px`);
 }
@@ -3209,9 +3350,13 @@ function refreshLayout() {
     updateLayoutVars();
     resizeCanvas();
     updateToggleLabels();
+    requestDraw();
 }
 
 window.onresize = refreshLayout;
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) requestDraw();
+});
 els.ui.addEventListener('transitionend', refreshLayout);
 els.performance.addEventListener('transitionend', refreshLayout);
 refreshLayout(); updateScaleModeUI(); updateScaleNotes(); syncArpFromUI(); updateHoldButtonUI(); updateArpParamsToggleLabel(); updateGroupShiftUI(); setupMIDI(); draw();
@@ -3225,3 +3370,11 @@ function updateToggleLabels() {
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
