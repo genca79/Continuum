@@ -24,22 +24,96 @@
         body { margin: 0; background: #000; color: #eee; font-family: 'Segoe UI', Roboto, sans-serif; overflow: hidden; touch-action: none; }
         #ui { 
             position: absolute; top: 0; left: 0; right: 0; 
-            background: linear-gradient(180deg, rgba(30, 30, 30, 0.98), rgba(12, 12, 12, 0.98)); padding: var(--ui-pad); 
-            border-bottom: 2px solid var(--red); display: flex; flex-wrap: wrap; gap: var(--ui-gap); 
+            background: linear-gradient(180deg, rgba(30, 30, 30, 0.98), rgba(12, 12, 12, 0.98)); padding: 6px; 
+            border-bottom: 2px solid var(--red); display: flex; flex-wrap: wrap; gap: 4px; 
             z-index: 100; transform: translateY(-100%); transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         #ui.active { transform: translateY(0); }
         #ui select, #ui input, #ui .menu-btn { min-width: 0; }
+        #ui .ui-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--ui-gap);
+            width: 100%;
+        }
+        #ui .ui-advanced { display: none; }
+        #ui.show-advanced .ui-advanced { display: flex; }
         #ui .ui-group {
             display: flex;
-            gap: 4px;
-            padding: 3px 5px;
+            gap: 3px;
+            padding: 2px 3px;
             border: 1px solid var(--red);
             border-radius: 6px;
             background: var(--bg-panel-soft);
             align-items: center;
             flex-wrap: wrap;
             flex: 1 1 auto;
+        }
+        #ui label { font-size: 7px; margin-bottom: 1px; }
+        #ui select, #ui input, #ui .menu-btn { font-size: 9px; padding: 3px; min-height: 26px; }
+        #ui .ui-group.scale-group {
+            flex-wrap: wrap;
+            align-items: center;
+            overflow: hidden;
+            gap: 2px;
+        }
+        #ui .ui-group.scale-group .box {
+            min-width: 70px;
+            flex: 1 1 70px;
+        }
+        #ui .ui-group.scale-group .box#scaleRootBox {
+            min-width: 44px;
+            flex: 0 0 44px;
+        }
+        #ui .ui-group.scale-group .box#scaleDiatonicBox,
+        #ui .ui-group.scale-group .box#scaleMicroBox,
+        #ui .ui-group.scale-group .box#scaleCustomBox {
+            flex: 1 1 110px;
+        }
+        #ui .ui-group.scale-group .scale-menu label {
+            margin-bottom: 1px;
+        }
+        #ui .ui-group.scale-group .scale-menu select {
+            width: 100%;
+        }
+        #ui .ui-group.scale-group .microtonalize-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 1px;
+            font-size: 7px;
+            text-transform: none;
+            color: #ddd;
+        }
+        #ui .ui-group.scale-group .custom-scale-row {
+            display: grid;
+            grid-template-columns: minmax(60px, 1fr) minmax(60px, 1fr) 24px 24px;
+            gap: 2px;
+            align-items: center;
+        }
+        #ui .ui-group.scale-group .custom-scale-row .menu-btn {
+            min-width: 24px;
+            padding: 1px;
+        }
+        #ui .ui-group.scale-group .custom-mode-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px;
+            align-items: center;
+            margin-top: 1px;
+        }
+        #ui .ui-group.scale-group .custom-mode-item {
+            display: grid;
+            grid-template-columns: auto minmax(70px, 1fr);
+            gap: 2px;
+            align-items: center;
+        }
+        #ui .ui-group.scale-group .custom-scale-input {
+            width: 100%;
+        }
+        #ui .ui-group.scale-group #customScaleSaved,
+        #ui .ui-group.scale-group #customScaleName {
+            width: 72px !important;
         }
         #ui .ui-title {
             font-size: 7px;
@@ -48,6 +122,15 @@
             font-weight: bold;
             margin-right: 4px;
             letter-spacing: 0.08em;
+        }
+        #ui .ui-toggle-group { flex: 0 0 auto; }
+        #guideBtn.menu-btn,
+        #uiAdvancedToggle.menu-btn {
+            padding: 2px 6px;
+            min-width: 30px;
+        }
+        .scale-menu[data-scale-choice] {
+            cursor: pointer;
         }
         .hidden { display: none; }
         .scale-menu.active {
@@ -285,14 +368,24 @@
 <button id="perfToggle" class="menu-btn btn-accent" title="Toggle Performance"><span class="btn-text">PLAY</span></button>
 
 <div id="ui">
+    <div class="ui-row ui-quick">
+    <div class="ui-group ui-toggle-group">
+        <div class="ui-title">View</div>
+        <button id="uiAdvancedToggle" class="menu-btn btn-accent" title="Advanced"><span class="btn-text">ADV</span></button>
+    </div>
     <div class="ui-group">
         <div class="ui-title">MIDI</div>
         <div class="box" style="flex:1.2"><label>MIDI In</label><select id="midiInSelect" data-param="midiInSelect"><option value="">Nessun Input</option></select></div>
         <div class="box" style="flex:1.2"><label>MIDI Out</label><select id="midiOutSelect" data-param="midiOutSelect"></select></div>
         <div class="box" style="flex:0.4"><label>Thru</label><input type="checkbox" id="midiThru" data-param="midiThru"></div>
     </div>
-    <div class="ui-group">
+    <div class="ui-group scale-group">
         <div class="ui-title">Scale</div>
+        <div class="hidden">
+            <input type="radio" name="scaleMode" value="diatonic" id="scaleModeDiatonic" checked>
+            <input type="radio" name="scaleMode" value="microtonal" id="scaleModeMicro">
+            <input type="radio" name="scaleMode" value="custom" id="scaleModeCustom">
+        </div>
         <div class="box" id="scaleRootBox" style="flex:0.5">
             <label>Root</label>
             <select id="rootNote" style="width:45px;" data-param="rootNote">
@@ -300,19 +393,6 @@
                 <option value="4">E</option><option value="5">F</option><option value="6">F#</option><option value="7">G</option>
                 <option value="8">G#</option><option value="9">A</option><option value="10">A#</option><option value="11">B</option>
             </select>
-        </div>
-        <div class="box" id="scaleSetBox" style="flex:1.4"><label>Scale Set</label>
-            <div style="display:flex; gap:8px; align-items:center;">
-                <label style="font-size:10px; text-transform:none; color:#ddd; margin:0;">
-                    <input type="radio" name="scaleMode" value="diatonic" id="scaleModeDiatonic" checked> Diatonic
-                </label>
-                <label style="font-size:10px; text-transform:none; color:#ddd; margin:0;">
-                    <input type="radio" name="scaleMode" value="microtonal" id="scaleModeMicro"> Microtonal
-                </label>
-                <label style="font-size:10px; text-transform:none; color:#ddd; margin:0;">
-                    <input type="radio" name="scaleMode" value="custom" id="scaleModeCustom"> Custom
-                </label>
-            </div>
         </div>
         <div class="box" style="flex:0.7"><label>Octaves</label>
             <select id="visibleOctaves" data-param="visibleOctaves">
@@ -322,7 +402,7 @@
                 <option value="4">4 Oct</option>
             </select>
         </div>
-        <div class="box scale-menu" id="scaleDiatonicBox" style="flex:1.1"><label>Diatonic Scales</label>
+        <div class="box scale-menu" id="scaleDiatonicBox" style="flex:1.1" data-scale-choice="diatonic"><label>Diatonic Scales</label>
             <select id="scaleType" data-param="scaleType">
                 <option value="chromatic">Chromatic</option>
                 <option value="major">Major</option><option value="minor">Minor</option>
@@ -336,31 +416,35 @@
                 <option value="diminished">Diminished</option>
             </select>
         </div>
-        <div class="box scale-menu" id="scaleMicroBox" style="flex:1.1"><label>Microtonal Scales</label>
+        <div class="box scale-menu" id="scaleMicroBox" style="flex:1.1" data-scale-choice="microtonal"><label>Microtonal Scales</label>
             <select id="microScaleSelect"></select>
-            <label style="font-size:10px; text-transform:none; color:#ddd; margin-top:4px;">
+            <label class="microtonalize-row">
                 <input type="checkbox" id="microtonalizeIn"> Microtonalize MIDI In (MPE)
             </label>
         </div>
-        <div class="box scale-menu" id="scaleCustomBox" style="flex:1.3"><label>Custom Scales</label>
-            <div style="display:flex; gap:2px; flex-wrap:wrap;">
+        <div class="box scale-menu" id="scaleCustomBox" style="flex:1.3" data-scale-choice="custom"><label>Custom Scales</label>
+            <div class="custom-scale-row">
                 <select id="customScaleSaved" style="min-width:90px;">
                     <option value="">(saved)</option>
                 </select>
                 <input type="text" id="customScaleName" placeholder="Name" style="width:90px;" list="customScaleNames">
-                <button id="customScaleSave" class="menu-btn btn-ok"><span class="btn-icon">⭳</span><span class="btn-text">Save</span></button>
-                <button id="customScaleDel" class="menu-btn btn-danger"><span class="btn-icon">✖</span><span class="btn-text">Del</span></button>
+                <button id="customScaleSave" class="menu-btn btn-ok" aria-label="Save"><span class="btn-icon">💾</span></button>
+                <button id="customScaleDel" class="menu-btn btn-danger" aria-label="Delete"><span class="btn-icon">🗑</span></button>
             </div>
-            <div style="display:flex; gap:8px; align-items:center; margin-top:2px;">
-                <label style="font-size:10px; text-transform:none; color:#ddd; margin:0;">
-                    <input type="radio" name="customScaleMode" value="notes" id="customModeNotes" checked> Notes
-                </label>
-                <label style="font-size:10px; text-transform:none; color:#ddd; margin:0;">
-                    <input type="radio" name="customScaleMode" value="cents" id="customModeCents"> Cents
-                </label>
+            <div class="custom-mode-row">
+                <div class="custom-mode-item">
+                    <label style="font-size:10px; text-transform:none; color:#ddd; margin:0;">
+                        <input type="radio" name="customScaleMode" value="notes" id="customModeNotes" checked> Notes
+                    </label>
+                    <input type="text" id="customScaleNotes" placeholder="Notes list (C, D#, F...)" class="custom-scale-input">
+                </div>
+                <div class="custom-mode-item">
+                    <label style="font-size:10px; text-transform:none; color:#ddd; margin:0;">
+                        <input type="radio" name="customScaleMode" value="cents" id="customModeCents"> Cents
+                    </label>
+                    <input type="text" id="customScaleCents" placeholder="Cents list (0, 240, 480...)" class="custom-scale-input">
+                </div>
             </div>
-            <input type="text" id="customScaleNotes" placeholder="Notes list (C, D#, F...)" style="width:100%; margin-top:2px;">
-            <input type="text" id="customScaleCents" placeholder="Cents list (0, 240, 480...)" style="width:100%; margin-top:2px;">
             <datalist id="customScaleNames"></datalist>
         </div>
         
@@ -372,6 +456,8 @@
         </select></div>
         <div class="box" style="flex:0.6"><label>Spread</label><input type="range" id="chordSpread" min="0" max="12" value="0" data-param="chordSpread"></div>
     </div>
+    </div>
+    <div class="ui-row ui-advanced">
     <div class="ui-group">
         <div class="ui-title">MPE</div>
         <div class="box" style="flex:0.5"><label>PB Range</label><select id="pbRange" data-param="pbRange">
@@ -381,6 +467,7 @@
         <div class="box" style="flex:0.4"><label>Dead-Center</label><input type="checkbox" id="deadCenter" data-param="deadCenter" checked></div>
         <div class="box" style="flex:0.5"><label>DC Force</label><input type="range" id="deadCenterForce" min="0" max="100" value="100" data-param="deadCenterForce"></div>
         <div class="box" style="flex:0.4"><label>Link YZ</label><input type="checkbox" id="linkPressToY" checked data-param="linkPressToY"></div>
+        <div class="box" style="flex:0.5"><label>Y Vel</label><input type="checkbox" id="linkYToVelocity" checked data-param="linkYToVelocity"></div>
         <div class="box" style="flex:0.5"><label>Smooth</label><input type="range" id="smoothAmt" min="0" max="100" value="20" data-param="smoothAmt"></div>
         <div class="box" style="flex:0.5"><label>Curve</label>
             <select id="curveType" data-param="curveType">
@@ -395,8 +482,8 @@
             <div style="display:flex; gap:2px;">
                 <select id="mpePresetSelect" style="min-width:90px;"></select>
                 <input type="text" id="mpePresetName" placeholder="Name" style="width:70px;">
-                <button id="mpePresetSave" class="menu-btn btn-ok"><span class="btn-icon">⭳</span><span class="btn-text">Save</span></button>
-                <button id="mpePresetDel" class="menu-btn btn-danger"><span class="btn-icon">✖</span><span class="btn-text">Del</span></button>
+                <button id="mpePresetSave" class="menu-btn btn-ok" aria-label="Save"><span class="btn-icon">💾</span></button>
+                <button id="mpePresetDel" class="menu-btn btn-danger" aria-label="Delete"><span class="btn-icon">🗑</span></button>
             </div>
             <div id="mpePresetDesc" style="font-size:8px; color:#888; margin-top:2px;">&nbsp;</div>
         </div>
@@ -407,8 +494,8 @@
             <div style="display:flex; gap:2px;">
                 <select id="presetSelect" style="min-width:90px;" data-param="presetSelect"></select>
                 <input type="text" id="presetName" placeholder="Name" style="width:70px;">
-                <button id="presetSave" class="menu-btn btn-ok"><span class="btn-icon">⭳</span><span class="btn-text">Save</span></button>
-                <button id="presetDel" class="menu-btn btn-danger"><span class="btn-icon">✖</span><span class="btn-text">Del</span></button>
+                <button id="presetSave" class="menu-btn btn-ok" aria-label="Save"><span class="btn-icon">💾</span></button>
+                <button id="presetDel" class="menu-btn btn-danger" aria-label="Delete"><span class="btn-icon">🗑</span></button>
             </div>
             <div id="presetDesc" style="font-size:8px; color:#888; margin-top:2px;">&nbsp;</div>
         </div>
@@ -417,6 +504,7 @@
         <div class="ui-title">System</div>
         <div class="box" style="flex:0.4"><label>Full</label><button id="fsBtn" class="menu-btn btn-accent" title="Full Screen"><span class="btn-icon">⛶</span><span class="btn-text">FS</span></button></div>
     </div>
+</div>
 </div>
 
 <div id="performance">
@@ -526,6 +614,7 @@ const CANVAS_FONT_FAMILY = "'Segoe UI', Roboto, sans-serif";
 const els = {
     ui: document.getElementById('ui'),
     performance: document.getElementById('performance'),
+    uiAdvancedToggle: document.getElementById('uiAdvancedToggle'),
     midiInSelect: document.getElementById('midiInSelect'),
     midiOutSelect: document.getElementById('midiOutSelect'),
     rootNote: document.getElementById('rootNote'),
@@ -550,6 +639,7 @@ const els = {
     deadCenter: document.getElementById('deadCenter'),
     deadCenterForce: document.getElementById('deadCenterForce'),
     linkPressToY: document.getElementById('linkPressToY'),
+    linkYToVelocity: document.getElementById('linkYToVelocity'),
     smoothAmt: document.getElementById('smoothAmt'),
     curveType: document.getElementById('curveType'),
     yDeadzone: document.getElementById('yDeadzone'),
@@ -785,6 +875,7 @@ function getPresetState() {
         midiOutId: els.midiOutSelect.value || "",
         midiInId: els.midiInSelect.value || "",
         linkPressToY: els.linkPressToY.checked,
+        linkYToVelocity: els.linkYToVelocity.checked,
         smoothAmt: els.smoothAmt.value,
         curveType: els.curveType.value,
         yDeadzone: els.yDeadzone.value,
@@ -857,6 +948,7 @@ function applyPresetState(presetState) {
         }
     }
     els.linkPressToY.checked = presetState.linkPressToY;
+    els.linkYToVelocity.checked = presetState.linkYToVelocity ?? els.linkYToVelocity.checked;
     els.smoothAmt.value = presetState.smoothAmt ?? els.smoothAmt.value;
     els.curveType.value = presetState.curveType ?? els.curveType.value;
     els.yDeadzone.value = presetState.yDeadzone ?? els.yDeadzone.value;
@@ -882,7 +974,7 @@ function applyPresetState(presetState) {
 
 function loadPresets() {
     const raw = localStorage.getItem(PRESET_KEY);
-    return raw ? JSON.parse(raw) : {};
+    return safeParseJson(raw, {});
 }
 
 function savePresets(presets) {
@@ -891,7 +983,7 @@ function savePresets(presets) {
 
 function loadCustomScales() {
     const raw = localStorage.getItem(CUSTOM_SCALE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    return safeParseJson(raw, {});
 }
 
 function saveCustomScales(scales) {
@@ -957,6 +1049,7 @@ function getMpePresetState() {
         deadCenter: els.deadCenter.checked,
         deadCenterForce: els.deadCenterForce.value,
         linkPressToY: els.linkPressToY.checked,
+        linkYToVelocity: els.linkYToVelocity.checked,
         smoothAmt: els.smoothAmt.value,
         curveType: els.curveType.value,
         yDeadzone: els.yDeadzone.value,
@@ -971,6 +1064,7 @@ function applyMpePresetState(mpePresetState) {
     els.deadCenter.checked = !!mpePresetState.deadCenter;
     els.deadCenterForce.value = mpePresetState.deadCenterForce ?? els.deadCenterForce.value;
     els.linkPressToY.checked = mpePresetState.linkPressToY ?? els.linkPressToY.checked;
+    els.linkYToVelocity.checked = mpePresetState.linkYToVelocity ?? els.linkYToVelocity.checked;
     els.smoothAmt.value = mpePresetState.smoothAmt ?? els.smoothAmt.value;
     els.curveType.value = mpePresetState.curveType ?? els.curveType.value;
     els.yDeadzone.value = mpePresetState.yDeadzone ?? els.yDeadzone.value;
@@ -980,16 +1074,53 @@ function applyMpePresetState(mpePresetState) {
 
 function loadMpePresets() {
     const raw = localStorage.getItem(MPE_PRESET_KEY);
-    return raw ? JSON.parse(raw) : {};
+    return safeParseJson(raw, {});
 }
 
 function saveMpePresets(presets) {
     localStorage.setItem(MPE_PRESET_KEY, JSON.stringify(presets));
 }
 
+function safeParseJson(raw, fallback) {
+    if (!raw) return fallback;
+    try {
+        const data = JSON.parse(raw);
+        return data && typeof data === 'object' ? data : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function clearChildren(node) {
+    while (node.firstChild) node.removeChild(node.firstChild);
+}
+
+function appendOption(select, value, label) {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    select.appendChild(opt);
+    return opt;
+}
+
+function fillSelectFromNames(select, names, emptyLabel) {
+    clearChildren(select);
+    if (emptyLabel != null) appendOption(select, '', emptyLabel);
+    names.forEach(name => appendOption(select, name, name));
+}
+
+function fillDatalistFromNames(datalist, names) {
+    clearChildren(datalist);
+    names.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        datalist.appendChild(opt);
+    });
+}
+
 function refreshPresetSelect(presets, selected) {
     const names = Object.keys(presets).sort();
-    els.presetSelect.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join('');
+    fillSelectFromNames(els.presetSelect, names);
     if (selected && names.includes(selected)) els.presetSelect.value = selected;
     updatePresetDescription(els.presetSelect.value);
 }
@@ -1000,7 +1131,7 @@ function updatePresetDescription(name) {
 
 function refreshMpePresetSelect(presets, selected) {
     const names = Object.keys(presets).sort();
-    els.mpePresetSelect.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join('');
+    fillSelectFromNames(els.mpePresetSelect, names);
     if (selected && names.includes(selected)) els.mpePresetSelect.value = selected;
     updateMpePresetDescription(els.mpePresetSelect.value);
 }
@@ -1052,13 +1183,13 @@ function loadCustomScaleByName(name) {
 
 function populateMicrotonalSelect() {
     const names = Object.keys(MICROTONAL_SCALES).sort();
-    els.microScaleSelect.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join('');
+    fillSelectFromNames(els.microScaleSelect, names);
 }
 
 function refreshCustomScaleDatalist() {
     const names = Object.keys(state.customScales).sort();
-    els.customScaleNames.innerHTML = names.map(n => `<option value="${n}"></option>`).join('');
-    els.customScaleSaved.innerHTML = `<option value="">(saved)</option>` + names.map(n => `<option value="${n}">${n}</option>`).join('');
+    fillDatalistFromNames(els.customScaleNames, names);
+    fillSelectFromNames(els.customScaleSaved, names, '(saved)');
 }
 
 function getScaleMode() {
@@ -1074,6 +1205,10 @@ function updateScaleModeUI() {
     els.scaleCustomBox.classList.toggle('active', mode === 'custom');
     els.customScaleNotes.classList.toggle('hidden', !els.customModeNotes.checked);
     els.customScaleCents.classList.toggle('hidden', !els.customModeCents.checked);
+    document.querySelectorAll('[data-scale-choice]').forEach(choice => {
+        const isActive = choice.getAttribute('data-scale-choice') === mode;
+        choice.classList.toggle('active', isActive);
+    });
 }
 
 function getScaleDefinition() {
@@ -1134,7 +1269,8 @@ function setupMIDI() {
             const outputs = Array.from(access.outputs.values());
             const inputs = Array.from(access.inputs.values());
             
-            els.midiOutSelect.innerHTML = outputs.map(o => `<option value="${o.id}">${o.name}</option>`).join('');
+            clearChildren(els.midiOutSelect);
+            outputs.forEach(o => appendOption(els.midiOutSelect, o.id, o.name || o.id || 'MIDI OUT'));
             state.midi.output = outputs[0] || null;
             els.midiOutSelect.onchange = () => {
                 state.midi.output = access.outputs.get(els.midiOutSelect.value);
@@ -1143,7 +1279,9 @@ function setupMIDI() {
             els.midiStatus.innerText = state.midi.output ? 'MIDI OUT READY' : 'NESSUN MIDI OUT';
             setPitchBendRange(parseInt(els.pbRange.value, 10));
 
-            els.midiInSelect.innerHTML = `<option value="">Scegli Input...</option>` + inputs.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+            clearChildren(els.midiInSelect);
+            appendOption(els.midiInSelect, '', 'Scegli Input...');
+            inputs.forEach(i => appendOption(els.midiInSelect, i.id, i.name || i.id || 'MIDI IN'));
             if (inputs[0]) {
                 els.midiInSelect.value = inputs[0].id;
                 state.midi.input = inputs[0];
@@ -1336,6 +1474,10 @@ function getStepMs() {
 function stopAllArpNotes() {
     if (!state.midi.output) return;
     state.arp.active.forEach(entry => {
+        if (entry.offTimer) {
+            clearTimeout(entry.offTimer);
+            entry.offTimer = null;
+        }
         state.midi.output.send([0x80 + entry.chan - 1, entry.note, 0]);
         state.mpeChannels.push(entry.chan);
     });
@@ -1348,6 +1490,10 @@ function stopArpActiveNote(note) {
     const remaining = [];
     state.arp.active.forEach(entry => {
         if (entry.note === note) {
+            if (entry.offTimer) {
+                clearTimeout(entry.offTimer);
+                entry.offTimer = null;
+            }
             state.midi.output.send([0x80 + entry.chan - 1, entry.note, 0]);
             state.mpeChannels.push(entry.chan);
         } else {
@@ -1383,10 +1529,11 @@ function arpNoteOn(noteObj, stepMs) {
     sendMidi([0xD0 + chan - 1, m.press]);
     sendMidi([0x90 + chan - 1, noteObj.note, vel]);
     markLocalNoteOn(noteObj.note);
-    const entry = { chan, note: noteObj.note, color: noteObj.color };
+    const entry = { chan, note: noteObj.note, color: noteObj.color, offTimer: null };
     state.arp.active.push(entry);
     const gateMs = Math.max(10, stepMs * state.arp.gate);
-    setTimeout(() => {
+    entry.offTimer = setTimeout(() => {
+        if (!state.arp.active.includes(entry)) return;
         sendMidi([0x80 + entry.chan - 1, entry.note, 0]);
         state.mpeChannels.push(entry.chan);
         state.mpeChannels.sort((a,b)=>a-b);
@@ -1524,9 +1671,11 @@ function getMPEData(e, voice = null, forceSnap = false) {
     const pbRange = parseInt(els.pbRange.value, 10) || 12;
     let pbValue = Math.floor(8192 + (detune * (8192 / pbRange)));
     pbValue = Math.max(0, Math.min(16383, pbValue));
-    const yMax = Math.max(1, state.canvasRect.height - state.perfHeight);
-    const yClamped = Math.max(0, Math.min(e.clientY - state.canvasRect.top, yMax));
-    const yNorm = Math.max(0, Math.min(1, 1 - (yClamped / yMax)));
+    const top = state.canvasRect.top;
+    const bottom = getCanvasBottomY();
+    const yRange = Math.max(1, bottom - top);
+    const yClamped = Math.max(top, Math.min(e.clientY, bottom));
+    const yNorm = Math.max(0, Math.min(1, 1 - ((yClamped - top) / yRange)));
     const dz = parseInt(els.yDeadzone.value, 10) / 100;
     let slideNorm = yNorm;
     if (dz > 0) {
@@ -1534,7 +1683,8 @@ function getMPEData(e, voice = null, forceSnap = false) {
     }
     slideNorm = applyCurve(slideNorm);
     const slide = Math.floor(slideNorm * 127);
-    let pressNorm = els.linkPressToY.checked ? slideNorm : Math.min(((e.width + e.height) / 75), 1.0);
+    const useYForVelocity = els.linkPressToY.checked && els.linkYToVelocity.checked;
+    let pressNorm = useYForVelocity ? slideNorm : Math.min(((e.width + e.height) / 75), 1.0);
     pressNorm = applyCurve(pressNorm);
     const press = Math.floor(pressNorm * 127);
     return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: finalExact };
@@ -1924,14 +2074,15 @@ function isDoubleTapKey(key, x, y) {
 }
 
 function getCanvasBottomY() {
-    const yMax = Math.max(1, state.canvasRect.height - state.perfHeight);
-    return state.canvasRect.top + yMax;
+    return state.canvasRect.top + Math.max(1, state.canvasRect.height);
 }
 
 function getSlideFromY(y) {
-    const yMax = Math.max(1, state.canvasRect.height - state.perfHeight);
-    const yClamped = Math.max(0, Math.min(y - state.canvasRect.top, yMax));
-    let yNorm = Math.max(0, Math.min(1, 1 - (yClamped / yMax)));
+    const top = state.canvasRect.top;
+    const bottom = getCanvasBottomY();
+    const yRange = Math.max(1, bottom - top);
+    const yClamped = Math.max(top, Math.min(y, bottom));
+    let yNorm = Math.max(0, Math.min(1, 1 - ((yClamped - top) / yRange)));
     const dz = parseInt(els.yDeadzone.value, 10) / 100;
     if (dz > 0) {
         yNorm = yNorm < dz ? 0 : (yNorm - dz) / (1 - dz);
@@ -2416,9 +2567,10 @@ canvas.addEventListener('pointerdown', e => {
         if(chan) {
             const voice = makeVoiceFromNote(chordNotes[i]);
             const pb = getVoicePb(m, voice);
+            const vel = Math.max(1, Math.min(127, Math.round(m.press || 90)));
             sendMidi([0xB0 + chan - 1, 74, m.slide]);
             sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-            sendMidi([0x90 + chan - 1, voice.note, 90]);
+            sendMidi([0x90 + chan - 1, voice.note, vel]);
             markLocalNoteOn(voice.note);
             voices.push({ chan, note: voice.note, basePb: voice.basePb });
         } else {
@@ -2542,6 +2694,7 @@ canvas.addEventListener('pointerup', e => {
         if (t.isArp) {
             const keep = hold;
             if (!keep) {
+                stopArpActiveNotes(t.arpNotes);
                 removeArpNotes(t.arpNotes);
             } else {
                 const holdColor = t.arpNotes?.[0]?.color || t.color;
@@ -3023,6 +3176,12 @@ function bindUI() {
         els.ui.classList.toggle('active');
         refreshLayout();
     };
+    if (els.uiAdvancedToggle) {
+        els.uiAdvancedToggle.onclick = () => {
+            els.ui.classList.toggle('show-advanced');
+            refreshLayout();
+        };
+    }
     perfToggle.onclick = () => {
         els.performance.classList.toggle('collapsed');
         refreshLayout();
@@ -3131,6 +3290,16 @@ function bindUI() {
     els.scaleModeMicro.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
     els.scaleModeCustom.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
     els.microtonalizeIn.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
+    document.querySelectorAll('[data-scale-choice]').forEach(choice => {
+        choice.onclick = () => {
+            const mode = choice.getAttribute('data-scale-choice');
+            if (mode === 'microtonal') els.scaleModeMicro.checked = true;
+            else if (mode === 'custom') els.scaleModeCustom.checked = true;
+            else els.scaleModeDiatonic.checked = true;
+            updateScaleModeUI();
+            scheduleScaleUpdate();
+        };
+    });
 }
 
 bindUI();
@@ -3390,8 +3559,10 @@ refreshLayout(); updateScaleModeUI(); updateScaleNotes(); syncArpFromUI(); updat
 function updateToggleLabels() {
     const uiLabel = uiToggle.querySelector('.btn-text');
     const perfLabel = perfToggle.querySelector('.btn-text');
+    const advLabel = els.uiAdvancedToggle?.querySelector('.btn-text');
     if (uiLabel) uiLabel.textContent = els.ui.classList.contains('active') ? 'X' : 'SET';
     if (perfLabel) perfLabel.textContent = els.performance.classList.contains('collapsed') ? 'PLAY' : 'X';
+    if (advLabel) advLabel.textContent = els.ui.classList.contains('show-advanced') ? 'X' : 'ADV';
 }
 </script>
 </body>
