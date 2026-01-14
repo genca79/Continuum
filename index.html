@@ -74,6 +74,12 @@
             right: 8px;
             z-index: 120;
         }
+        #guideBtn {
+            position: fixed;
+            top: 8px;
+            left: 8px;
+            z-index: 120;
+        }
         #perfToggle {
             position: fixed;
             right: 8px;
@@ -232,6 +238,7 @@
             #ui { transform: translateY(-100%); max-height: 45vh; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-top: calc(6px + env(safe-area-inset-top)); }
             #ui.active { transform: translateY(0); }
             #uiToggle { top: calc(8px + env(safe-area-inset-top)); }
+            #guideBtn { top: calc(8px + env(safe-area-inset-top)); }
             #ui { padding: 6px; gap: 5px; }
             #ui .box { min-width: 64px; }
             #ui label { font-size: 7px; }
@@ -273,6 +280,7 @@
 </head>
 <body>
 
+<a id="guideBtn" class="menu-btn btn-accent" href="USER_MANUAL.md" target="_blank" rel="noopener" title="Open Guide"><span class="btn-text">GUIDE</span></a>
 <button id="uiToggle" class="menu-btn btn-accent" title="Toggle UI"><span class="btn-text">SET ARP</span></button>
 <button id="perfToggle" class="menu-btn btn-accent" title="Toggle Performance"><span class="btn-text">PLAY</span></button>
 
