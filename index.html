@@ -111,6 +111,147 @@
         #ui .ui-group.scale-group .custom-scale-input {
             width: 100%;
         }
+        #ui .sample-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2px;
+            width: 100%;
+        }
+        #ui .sample-set-row {
+            display: grid;
+            grid-template-columns: minmax(80px, 1fr) minmax(70px, 1fr) 28px 28px;
+            gap: 2px;
+            align-items: center;
+            margin-bottom: 2px;
+        }
+        #ui .sample-row {
+            display: grid;
+            grid-template-columns: 1fr 50px 20px 50px 28px;
+            gap: 2px;
+            align-items: center;
+        }
+        #ui .sample-name {
+            font-size: 8px;
+            color: #777;
+            margin-left: 2px;
+        }
+        #ui .sample-file {
+            font-size: 8px;
+        }
+        #ui .sample-root {
+            width: 60px;
+        }
+        #ui .sample-gain {
+            width: 60px;
+        }
+        #ui .sample-row .menu-btn {
+            min-width: 26px;
+            padding: 2px;
+        }
+        #ui .audio-status {
+            font-size: 8px;
+            color: #888;
+            padding: 4px 2px;
+        }
+        #ui .wt-row {
+            display: grid;
+            grid-template-columns: 90px 1fr 60px 1fr;
+            gap: 4px;
+            align-items: center;
+            margin-top: 6px;
+        }
+        #ui .wt-row .menu-btn {
+            min-width: 60px;
+        }
+        #ui .fx-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(80px, 1fr));
+            gap: 4px;
+            margin-top: 4px;
+        }
+        #ui .fx-item {
+            display: flex;
+            flex-direction: column;
+        }
+        #ui .fx-preset-row {
+            display: grid;
+            grid-template-columns: 1fr 28px;
+            gap: 2px;
+            align-items: center;
+            margin-top: 4px;
+        }
+        .fx-panel {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 140;
+        }
+        .fx-panel.hidden { display: none; }
+        .fx-panel .fx-card {
+            width: min(92vw, 920px);
+            max-height: 90vh;
+            overflow-y: auto;
+            background: var(--bg-panel);
+            border: 1px solid var(--red);
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 0 24px rgba(0, 0, 0, 0.6);
+        }
+        .fx-panel .fx-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .fx-panel .fx-title {
+            font-size: 10px;
+            letter-spacing: 0.1em;
+            color: var(--amber);
+            text-transform: uppercase;
+        }
+        .fx-panel .fx-toggle-row {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(80px, 1fr));
+            gap: 6px;
+            margin-bottom: 6px;
+        }
+        .fx-panel .fx-grid {
+            grid-template-columns: repeat(4, minmax(90px, 1fr));
+        }
+        .fx-panel input[type="range"] {
+            width: 100%;
+        }
+        .fx-panel .fx-group {
+            display: none;
+        }
+        .fx-panel .fx-group.active {
+            display: grid;
+        }
+        .fx-panel .fx-value {
+            font-size: 9px;
+            color: #bbb;
+            margin-top: 2px;
+        }
+        .fx-panel .fx-toggle-cell {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #333;
+        }
+        #performance .fx-quick {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        #performance .fx-quick select {
+            width: 90px;
+            font-size: 9px;
+        }
         #ui .ui-group.scale-group #customScaleSaved,
         #ui .ui-group.scale-group #customScaleName {
             width: 72px !important;
@@ -206,9 +347,21 @@
             display: flex; gap: 50px; justify-content: center; align-items: center; position: relative;
         }
         #performance .chord-box { flex-direction: row; align-items: center; gap: 3px; text-align: center; }
-        #performance #chordMode { display: none; }
+        #performance #chordMode { display: block; }
         #performance .arp-legacy { display: none; }
         #performance .arp-params.hidden { display: none; }
+        #performance .chord-params.hidden { display: none; }
+        #performance .chord-params {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 56px;
+            background: rgba(20, 10, 10, 0.98);
+            border: 1px solid var(--red);
+            border-radius: 8px;
+            padding: 6px 8px;
+        }
+        #performance .chord-params label { display: inline; font-size: 8px; margin: 0 2px 0 0; }
         .chord-wheel {
             width: 56px; height: 56px;
             border-radius: 50%;
@@ -303,6 +456,10 @@
         #performance #holdBtn .btn-icon { display: inline; font-size: 20px; }
         #performance .menu-btn.toggle-on { background: #2a1800; border-color: var(--amber); color: #ffd28a; }
         #performance .menu-btn.toggle-off { background: #330000; border-color: var(--red); color: #ffdede; }
+        .fx-toggle.toggle-on { background: #330000; border-color: var(--red); color: #ffdede; }
+        .fx-toggle.toggle-off { background: #003015; border-color: #00cc55; color: #b4ffd1; }
+        .audio-toggle.toggle-on { background: #003015; border-color: #00cc55; color: #b4ffd1; }
+        .audio-toggle.toggle-off { background: #330000; border-color: var(--red); color: #ffdede; }
         #performance #panicBtn:active,
         #performance #fadeBtn:active {
             background: #2a1800;
@@ -371,13 +528,17 @@
     <div class="ui-row ui-quick">
     <div class="ui-group ui-toggle-group">
         <div class="ui-title">View</div>
-        <button id="uiAdvancedToggle" class="menu-btn btn-accent" title="Advanced"><span class="btn-text">ADV</span></button>
+        <button id="uiAdvancedToggle" class="menu-btn btn-accent" title="Advanced"><span class="btn-text">Sampler Set</span></button>
     </div>
     <div class="ui-group">
         <div class="ui-title">MIDI</div>
         <div class="box" style="flex:1.2"><label>MIDI In</label><select id="midiInSelect" data-param="midiInSelect"><option value="">Nessun Input</option></select></div>
         <div class="box" style="flex:1.2"><label>MIDI Out</label><select id="midiOutSelect" data-param="midiOutSelect"></select></div>
         <div class="box" style="flex:0.4"><label>Thru</label><input type="checkbox" id="midiThru" data-param="midiThru"></div>
+        <div class="box" style="flex:0.9"><label>Internal</label><button id="audioStart" class="menu-btn btn-ok audio-toggle"><span class="btn-text">INTERNAL SYNTH</span></button></div>
+        <div class="box" style="flex:0.8"><label>Mode</label><select id="wtMode"></select></div>
+        <div class="box" style="flex:1.1"><label>WT Type</label><select id="wtSelect"></select></div>
+        <div class="box" id="wtMixBox" style="flex:0.9"><label>WT Mix</label><input type="range" id="wtMix" min="0" max="1" step="0.01" value="0.35"></div>
     </div>
     <div class="ui-group scale-group">
         <div class="ui-title">Scale</div>
@@ -460,25 +621,36 @@
     <div class="ui-row ui-advanced">
     <div class="ui-group">
         <div class="ui-title">MPE</div>
-        <div class="box" style="flex:0.5"><label>PB Range</label><select id="pbRange" data-param="pbRange">
+        
+        <!-- Row 1: Intonation -->
+        <div class="box" style="flex:0.6"><label>PB Range</label><select id="pbRange" data-param="pbRange">
             <option value="2">+/-2</option><option value="12">+/-12</option><option value="24">+/-24</option><option value="48" selected>+/-48</option>
         </select></div>
-        <div class="box" style="flex:0.5"><label>Snap</label><input type="range" id="roundRate" min="0" max="80" value="80" data-param="roundRate"></div>
-        <div class="box" style="flex:0.4"><label>Dead-Center</label><input type="checkbox" id="deadCenter" data-param="deadCenter" checked></div>
-        <div class="box" style="flex:0.5"><label>DC Force</label><input type="range" id="deadCenterForce" min="0" max="100" value="100" data-param="deadCenterForce"></div>
-        <div class="box" style="flex:0.4"><label>Link YZ</label><input type="checkbox" id="linkPressToY" checked data-param="linkPressToY"></div>
-        <div class="box" style="flex:0.5"><label>Y Vel</label><input type="checkbox" id="linkYToVelocity" checked data-param="linkYToVelocity"></div>
-        <div class="box" style="flex:0.5"><label>Smooth</label><input type="range" id="smoothAmt" min="0" max="100" value="20" data-param="smoothAmt"></div>
-        <div class="box" style="flex:0.5"><label>Curve</label>
+        <div class="box" style="flex:0.6"><label>Snap Rate</label><input type="range" id="roundRate" min="0" max="80" value="80" data-param="roundRate"></div>
+        <div class="box" style="flex:0.5"><label>Dead-Cntr</label><input type="checkbox" id="deadCenter" data-param="deadCenter" checked></div>
+        <div class="box" id="boxDeadCenterForce" style="flex:0.6"><label>DC Force</label><input type="range" id="deadCenterForce" min="0" max="100" value="100" data-param="deadCenterForce"></div>
+        
+        <div style="flex-basis:100%; height:1px; background:rgba(255,255,255,0.05); margin:2px 0;"></div>
+
+        <!-- Row 2: Expression -->
+        <div class="box" style="flex:0.5"><label>Ex. Curve</label>
             <select id="curveType" data-param="curveType">
                 <option value="linear" selected>Linear</option>
                 <option value="soft">Soft</option>
                 <option value="hard">Hard</option>
             </select>
         </div>
-        <div class="box" style="flex:0.5"><label>Y Deadzone</label><input type="range" id="yDeadzone" min="0" max="30" value="5" data-param="yDeadzone"></div>
+        <div class="box" style="flex:0.5"><label>Smooth</label><input type="range" id="smoothAmt" min="0" max="100" value="20" data-param="smoothAmt"></div>
+        
+        <div class="box" style="flex:0.5"><label>Link Y>Press</label><input type="checkbox" id="linkPressToY" checked data-param="linkPressToY"></div>
+        <div class="box" style="flex:0.5"><label>Link Y>Vel</label><input type="checkbox" id="linkYToVelocity" checked data-param="linkYToVelocity"></div>
+        
+        <div class="box" id="boxTouchSens" style="flex:0.6"><label>Area Sens</label><input type="range" id="touchSensitivity" min="10" max="150" value="75" data-param="touchSensitivity"></div>
+        <div class="box" style="flex:0.6"><label>Y Deadzone</label><input type="range" id="yDeadzone" min="0" max="30" value="5" data-param="yDeadzone"></div>
         <div class="box" style="flex:0.5"><label>Q Release</label><input type="checkbox" id="quantizeRelease" data-param="quantizeRelease" checked></div>
-        <div class="box" style="flex:1.2"><label>MPE Preset</label>
+
+        <!-- Row 3: Preset -->
+        <div class="box" style="flex:1.4"><label>MPE Preset</label>
             <div style="display:flex; gap:2px;">
                 <select id="mpePresetSelect" style="min-width:90px;"></select>
                 <input type="text" id="mpePresetName" placeholder="Name" style="width:70px;">
@@ -499,10 +671,73 @@
             </div>
             <div id="presetDesc" style="font-size:8px; color:#888; margin-top:2px;">&nbsp;</div>
         </div>
+        <div class="box" style="flex:0.5"><label>Full</label><button id="fsBtn" class="menu-btn btn-accent" title="Full Screen"><span class="btn-icon">ƒ>ô</span><span class="btn-text">FS</span></button></div>
     </div>
     <div class="ui-group">
-        <div class="ui-title">System</div>
-        <div class="box" style="flex:0.4"><label>Full</label><button id="fsBtn" class="menu-btn btn-accent" title="Full Screen"><span class="btn-icon">⛶</span><span class="btn-text">FS</span></button></div>
+        <div class="ui-title">Audio</div>
+        <div class="box" style="flex:1.6">
+            <label>Sampler Set</label>
+            <div class="sample-set-row">
+                <select id="sampleSetSelect"></select>
+                <input type="text" id="sampleSetName" placeholder="Name">
+                <button id="sampleSetSave" class="menu-btn btn-ok" title="Save"><span class="btn-text">S</span></button>
+                <button id="sampleSetDel" class="menu-btn btn-danger" title="Delete"><span class="btn-text">X</span></button>
+            </div>
+            <label>Sampler Gain</label>
+            <input type="range" id="samplerGain" min="0" max="5" step="0.01" value="1">
+            <label>Max Voices</label>
+            <input type="number" id="samplerMaxVoices" min="1" max="64" step="1" value="24">
+            <label>Samples</label>
+            <div class="sample-grid">
+                <div class="sample-row">
+                    <input type="file" id="sampleFile1" class="sample-file" accept=".wav,audio/wav">
+                    <input type="text" id="sampleRoot1" class="sample-root" value="C2" list="sampleRootHints">
+                    <input type="checkbox" id="sampleLoop1" class="sample-loop" title="Loop">
+                    <input type="number" id="sampleGain1" class="sample-gain" min="0" max="5" step="0.01" value="1">
+                    <button id="sampleClear1" class="menu-btn btn-danger" title="Clear"><span class="btn-text">X</span></button>
+                </div>
+                <div class="sample-name" id="sampleName1">Slot 1: vuoto</div>
+                <div class="sample-row">
+                    <input type="file" id="sampleFile2" class="sample-file" accept=".wav,audio/wav">
+                    <input type="text" id="sampleRoot2" class="sample-root" value="F#2" list="sampleRootHints">
+                    <input type="checkbox" id="sampleLoop2" class="sample-loop" title="Loop">
+                    <input type="number" id="sampleGain2" class="sample-gain" min="0" max="5" step="0.01" value="1">
+                    <button id="sampleClear2" class="menu-btn btn-danger" title="Clear"><span class="btn-text">X</span></button>
+                </div>
+                <div class="sample-name" id="sampleName2">Slot 2: vuoto</div>
+                <div class="sample-row">
+                    <input type="file" id="sampleFile3" class="sample-file" accept=".wav,audio/wav">
+                    <input type="text" id="sampleRoot3" class="sample-root" value="C3" list="sampleRootHints">
+                    <input type="checkbox" id="sampleLoop3" class="sample-loop" title="Loop">
+                    <input type="number" id="sampleGain3" class="sample-gain" min="0" max="5" step="0.01" value="1">
+                    <button id="sampleClear3" class="menu-btn btn-danger" title="Clear"><span class="btn-text">X</span></button>
+                </div>
+                <div class="sample-name" id="sampleName3">Slot 3: vuoto</div>
+                <div class="sample-row">
+                    <input type="file" id="sampleFile4" class="sample-file" accept=".wav,audio/wav">
+                    <input type="text" id="sampleRoot4" class="sample-root" value="F#3" list="sampleRootHints">
+                    <input type="checkbox" id="sampleLoop4" class="sample-loop" title="Loop">
+                    <input type="number" id="sampleGain4" class="sample-gain" min="0" max="5" step="0.01" value="1">
+                    <button id="sampleClear4" class="menu-btn btn-danger" title="Clear"><span class="btn-text">X</span></button>
+                </div>
+                <div class="sample-name" id="sampleName4">Slot 4: vuoto</div>
+                <div class="sample-row">
+                    <input type="file" id="sampleFile5" class="sample-file" accept=".wav,audio/wav">
+                    <input type="text" id="sampleRoot5" class="sample-root" value="C4" list="sampleRootHints">
+                    <input type="checkbox" id="sampleLoop5" class="sample-loop" title="Loop">
+                    <input type="number" id="sampleGain5" class="sample-gain" min="0" max="5" step="0.01" value="1">
+                    <button id="sampleClear5" class="menu-btn btn-danger" title="Clear"><span class="btn-text">X</span></button>
+                </div>
+                <datalist id="sampleRootHints">
+                    <option value="C2"></option>
+                    <option value="F#2"></option>
+                    <option value="C3"></option>
+                    <option value="F#3"></option>
+                    <option value="C4"></option>
+                </datalist>
+                <div class="sample-name" id="sampleName5">Slot 5: vuoto</div>
+            </div>
+        </div>
     </div>
 </div>
 </div>
@@ -569,6 +804,12 @@
             <div class="fade-sec">sec</div>
         </div>
     </div>
+    <div class="box chord-box" style="flex:0.8">
+        <div class="label show-label">Loop</div>
+        <div class="chord-toggle">
+            <div id="loopWheel" class="chord-wheel loop-knob" title="Click: Toggle Loop | Drag: Variation">OFF</div>
+        </div>
+    </div>
     <div class="box chord-box" style="flex:1.1">
         <div class="label show-label">ARP</div>
         <div class="arp-toggle">
@@ -585,6 +826,13 @@
             <label for="arpBpm">BPM</label>
             <input type="number" id="arpBpm" min="40" max="240" value="120" data-param="arpBpm">
             </div>
+        </div>
+    </div>
+    <div class="box chord-box" style="flex:0.8">
+        <div class="label show-label">FX</div>
+        <div class="fx-quick">
+            <button id="fxToggle" class="menu-btn btn-accent btn-square" title="FX Panel"><span class="btn-text">FX</span></button>
+            <select id="fxPresetQuick"></select>
         </div>
     </div>
     <input type="checkbox" id="arpEnabled" data-param="arpEnabled" style="display:none">
@@ -604,6 +852,66 @@
     <div class="footer">
         <div id="midiStatus">HYBRID ENGINE READY</div>
         <div>SPOSTA GIU' PER IL MENU</div>
+    </div>
+</div>
+
+<div id="fxPanel" class="fx-panel hidden">
+    <div class="fx-card">
+        <div class="fx-head">
+            <div class="fx-title">FX Control</div>
+            <button id="fxClose" class="menu-btn btn-danger"><span class="btn-text">X</span></button>
+        </div>
+        <div class="fx-toggle-row">
+            <button id="fxFilterToggle" class="menu-btn fx-toggle toggle-on">FILTER</button>
+            <button id="fxChorusToggle" class="menu-btn fx-toggle toggle-on">CHORUS</button>
+            <button id="fxDelayToggle" class="menu-btn fx-toggle toggle-on">DELAY</button>
+            <button id="fxReverbToggle" class="menu-btn fx-toggle toggle-on">REVERB</button>
+        </div>
+        <label>FX Preset</label>
+        <div class="fx-preset-row">
+            <select id="fxPresetSelect"></select>
+            <button id="fxPresetApply" class="menu-btn btn-accent" title="Apply"><span class="btn-text">OK</span></button>
+        </div>
+        <div class="fx-grid">
+            <div class="fx-group active" data-fx-group="filter">
+                <div class="fx-toggle-cell">
+                    <button id="fxFilterToggleGroup" class="menu-btn fx-toggle toggle-on">ON</button>
+                </div>
+                <div class="fx-item"><label>Attack</label><input type="range" id="fxAttack" min="0" max="5000" value="10"><div class="fx-value" data-fx-value="fxAttack"></div></div>
+                <div class="fx-item"><label>Decay</label><input type="range" id="fxDecay" min="0" max="5000" value="200"><div class="fx-value" data-fx-value="fxDecay"></div></div>
+                <div class="fx-item"><label>Sustain</label><input type="range" id="fxSustain" min="0" max="1" step="0.01" value="0.7"><div class="fx-value" data-fx-value="fxSustain"></div></div>
+                <div class="fx-item"><label>Release</label><input type="range" id="fxRelease" min="0" max="5000" value="300"><div class="fx-value" data-fx-value="fxRelease"></div></div>
+                <div class="fx-item"><label>Cutoff</label><input type="range" id="fxCutoff" min="60" max="20000" value="12000"><div class="fx-value" data-fx-value="fxCutoff"></div></div>
+                <div class="fx-item"><label>Res</label><input type="range" id="fxResonance" min="0.1" max="20" step="0.1" value="0.7"><div class="fx-value" data-fx-value="fxResonance"></div></div>
+                <div class="fx-item"><label>F Env</label><input type="range" id="fxFilterEnv" min="0" max="2" step="0.01" value="0"><div class="fx-value" data-fx-value="fxFilterEnv"></div></div>
+            </div>
+            <div class="fx-group" data-fx-group="chorus">
+                <div class="fx-toggle-cell">
+                    <button id="fxChorusToggleGroup" class="menu-btn fx-toggle toggle-on">ON</button>
+                </div>
+                <div class="fx-item"><label>Ch Rate</label><input type="range" id="fxChorusRate" min="0" max="5" step="0.01" value="0.25"><div class="fx-value" data-fx-value="fxChorusRate"></div></div>
+                <div class="fx-item"><label>Ch Depth</label><input type="range" id="fxChorusDepth" min="0" max="20" step="0.1" value="8"><div class="fx-value" data-fx-value="fxChorusDepth"></div></div>
+            </div>
+            <div class="fx-group" data-fx-group="delay">
+                <div class="fx-toggle-cell">
+                    <button id="fxDelayToggleGroup" class="menu-btn fx-toggle toggle-on">ON</button>
+                </div>
+                <div class="fx-item"><label>D Time</label><input type="range" id="fxDelayTime" min="1" max="2000" value="300"><div class="fx-value" data-fx-value="fxDelayTime"></div></div>
+                <div class="fx-item"><label>D Fbk</label><input type="range" id="fxDelayFeedback" min="0" max="0.9" step="0.01" value="0.35"><div class="fx-value" data-fx-value="fxDelayFeedback"></div></div>
+                <div class="fx-item"><label>D Dry</label><input type="range" id="fxDelayDry" min="0" max="1" step="0.01" value="1"><div class="fx-value" data-fx-value="fxDelayDry"></div></div>
+                <div class="fx-item"><label>D Wet</label><input type="range" id="fxDelayWet" min="0" max="1" step="0.01" value="0.2"><div class="fx-value" data-fx-value="fxDelayWet"></div></div>
+                <div class="fx-item"><label>D Rev</label><input type="range" id="fxDelayReverse" min="0" max="1" step="0.01" value="0"><div class="fx-value" data-fx-value="fxDelayReverse"></div></div>
+            </div>
+            <div class="fx-group" data-fx-group="reverb">
+                <div class="fx-toggle-cell">
+                    <button id="fxReverbToggleGroup" class="menu-btn fx-toggle toggle-on">ON</button>
+                </div>
+                <div class="fx-item"><label>Rev Decay</label><input type="range" id="fxReverbDecay" min="0.2" max="10" step="0.1" value="2.5"><div class="fx-value" data-fx-value="fxReverbDecay"></div></div>
+                <div class="fx-item"><label>Rev Dry</label><input type="range" id="fxReverbDry" min="0" max="1" step="0.01" value="1"><div class="fx-value" data-fx-value="fxReverbDry"></div></div>
+                <div class="fx-item"><label>Rev Wet</label><input type="range" id="fxReverbWet" min="0" max="1" step="0.01" value="0.2"><div class="fx-value" data-fx-value="fxReverbWet"></div></div>
+                <div class="fx-item"><label>FX Mix</label><input type="range" id="fxMix" min="0" max="1" step="0.01" value="0.3"><div class="fx-value" data-fx-value="fxMix"></div></div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -643,6 +951,7 @@ const els = {
     smoothAmt: document.getElementById('smoothAmt'),
     curveType: document.getElementById('curveType'),
     yDeadzone: document.getElementById('yDeadzone'),
+    touchSensitivity: document.getElementById('touchSensitivity'),
     quantizeRelease: document.getElementById('quantizeRelease'),
     customScaleName: document.getElementById('customScaleName'),
     customScaleSaved: document.getElementById('customScaleSaved'),
@@ -672,6 +981,7 @@ const els = {
     octUpBtn: document.getElementById('octUpBtn'),
     octVal: document.getElementById('octVal'),
     holdBtn: document.getElementById('holdBtn'),
+    loopWheel: document.getElementById('loopWheel'),
     holdNotes: document.getElementById('holdNotes'),
     panicBtn: document.getElementById('panicBtn'),
     fadeBtn: document.getElementById('fadeBtn'),
@@ -681,8 +991,88 @@ const els = {
     arpParamsToggle: document.getElementById('arpParamsToggle'),
     arpParamsPanel: document.getElementById('arpParamsPanel'),
     groupShiftBtn: document.getElementById('groupShiftBtn'),
-    midiStatus: document.getElementById('midiStatus')
+    midiStatus: document.getElementById('midiStatus'),
+    audioStart: document.getElementById('audioStart'),
+    audioStatus: document.getElementById('audioStatus'),
+    sampleSetSelect: document.getElementById('sampleSetSelect'),
+    sampleSetName: document.getElementById('sampleSetName'),
+    sampleSetSave: document.getElementById('sampleSetSave'),
+    sampleSetDel: document.getElementById('sampleSetDel'),
+    fxPanel: document.getElementById('fxPanel'),
+    fxToggle: document.getElementById('fxToggle'),
+    fxClose: document.getElementById('fxClose'),
+    fxFilterToggle: document.getElementById('fxFilterToggle'),
+    fxChorusToggle: document.getElementById('fxChorusToggle'),
+    fxDelayToggle: document.getElementById('fxDelayToggle'),
+    fxReverbToggle: document.getElementById('fxReverbToggle'),
+    fxFilterToggleGroup: document.getElementById('fxFilterToggleGroup'),
+    fxChorusToggleGroup: document.getElementById('fxChorusToggleGroup'),
+    fxDelayToggleGroup: document.getElementById('fxDelayToggleGroup'),
+    fxReverbToggleGroup: document.getElementById('fxReverbToggleGroup'),
+    wtMode: document.getElementById('wtMode'),
+    wtSelect: document.getElementById('wtSelect'),
+    wtMix: document.getElementById('wtMix'),
+    wtMixBox: document.getElementById('wtMixBox'),
+    samplerGain: document.getElementById('samplerGain'),
+    samplerMaxVoices: document.getElementById('samplerMaxVoices'),
+    sampleGain1: document.getElementById('sampleGain1'),
+    sampleGain2: document.getElementById('sampleGain2'),
+    sampleGain3: document.getElementById('sampleGain3'),
+    sampleGain4: document.getElementById('sampleGain4'),
+    sampleGain5: document.getElementById('sampleGain5'),
+    fxPresetSelect: document.getElementById('fxPresetSelect'),
+    fxPresetApply: document.getElementById('fxPresetApply'),
+    fxPresetQuick: document.getElementById('fxPresetQuick'),
+    sampleFile1: document.getElementById('sampleFile1'),
+    sampleFile2: document.getElementById('sampleFile2'),
+    sampleFile3: document.getElementById('sampleFile3'),
+    sampleFile4: document.getElementById('sampleFile4'),
+    sampleFile5: document.getElementById('sampleFile5'),
+    sampleName1: document.getElementById('sampleName1'),
+    sampleName2: document.getElementById('sampleName2'),
+    sampleName3: document.getElementById('sampleName3'),
+    sampleName4: document.getElementById('sampleName4'),
+    sampleName5: document.getElementById('sampleName5'),
+    sampleRoot1: document.getElementById('sampleRoot1'),
+    sampleRoot2: document.getElementById('sampleRoot2'),
+    sampleRoot3: document.getElementById('sampleRoot3'),
+    sampleRoot4: document.getElementById('sampleRoot4'),
+    sampleRoot5: document.getElementById('sampleRoot5'),
+    sampleLoop1: document.getElementById('sampleLoop1'),
+    sampleLoop2: document.getElementById('sampleLoop2'),
+    sampleLoop3: document.getElementById('sampleLoop3'),
+    sampleLoop4: document.getElementById('sampleLoop4'),
+    sampleLoop5: document.getElementById('sampleLoop5'),
+    fxAttack: document.getElementById('fxAttack'),
+    fxDecay: document.getElementById('fxDecay'),
+    fxSustain: document.getElementById('fxSustain'),
+    fxRelease: document.getElementById('fxRelease'),
+    fxCutoff: document.getElementById('fxCutoff'),
+    fxResonance: document.getElementById('fxResonance'),
+    fxFilterEnv: document.getElementById('fxFilterEnv'),
+    fxChorusRate: document.getElementById('fxChorusRate'),
+    fxChorusDepth: document.getElementById('fxChorusDepth'),
+    fxDelayTime: document.getElementById('fxDelayTime'),
+    fxDelayFeedback: document.getElementById('fxDelayFeedback'),
+    fxDelayDry: document.getElementById('fxDelayDry'),
+    fxDelayWet: document.getElementById('fxDelayWet'),
+    fxDelayReverse: document.getElementById('fxDelayReverse'),
+    fxReverbDecay: document.getElementById('fxReverbDecay'),
+    fxReverbDry: document.getElementById('fxReverbDry'),
+    fxReverbWet: document.getElementById('fxReverbWet'),
+    fxMix: document.getElementById('fxMix'),
+    sampleClear1: document.getElementById('sampleClear1'),
+    sampleClear2: document.getElementById('sampleClear2'),
+    sampleClear3: document.getElementById('sampleClear3'),
+    sampleClear4: document.getElementById('sampleClear4'),
+    sampleClear5: document.getElementById('sampleClear5')
 };
+const sampleFileEls = [els.sampleFile1, els.sampleFile2, els.sampleFile3, els.sampleFile4, els.sampleFile5];
+const sampleNameEls = [els.sampleName1, els.sampleName2, els.sampleName3, els.sampleName4, els.sampleName5];
+const sampleRootEls = [els.sampleRoot1, els.sampleRoot2, els.sampleRoot3, els.sampleRoot4, els.sampleRoot5];
+const sampleLoopEls = [els.sampleLoop1, els.sampleLoop2, els.sampleLoop3, els.sampleLoop4, els.sampleLoop5];
+const sampleGainEls = [els.sampleGain1, els.sampleGain2, els.sampleGain3, els.sampleGain4, els.sampleGain5];
+const sampleClearEls = [els.sampleClear1, els.sampleClear2, els.sampleClear3, els.sampleClear4, els.sampleClear5];
 const PRESET_KEY = 'genca_presets_v1';
 const MPE_PRESET_KEY = 'genca_mpe_presets_v1';
 const CUSTOM_SCALE_KEY = 'genca_custom_scales_v1';
@@ -699,10 +1089,120 @@ const MICROTONAL_SCALES = {
 const DEFAULT_CUSTOM_SCALES = {
     'Custom 1': { type: 'cents', cents: [0, 240, 480, 720, 960] }
 };
+const SAMPLE_SLOT_COUNT = 5;
+const DEFAULT_SAMPLE_ROOTS = [36, 48, 60, 72, 84];
+const SAMPLE_SETS_KEY = 'genca_sample_sets_v1';
+const SAMPLE_ACTIVE_SET_KEY = 'genca_sample_active_set_v1';
+const SAMPLE_DB_NAME = 'genca_sample_db_v1';
+const SAMPLE_DB_STORE = 'samples';
+const DEFAULT_SAMPLE_GAINS = [1, 1, 1, 1, 1];
+const DEFAULT_SAMPLER_GAIN = 1;
+const DEFAULT_FX = {
+    attack: 0.01,
+    decay: 0.2,
+    sustain: 0.7,
+    release: 0.3,
+    filterOn: true,
+    filterCutoff: 12000,
+    filterQ: 0.7,
+    filterEnv: 0,
+    chorusOn: true,
+    chorusRate: 0.25,
+    chorusDepth: 0.008,
+    delayOn: true,
+    delayTime: 0.3,
+    delayFeedback: 0.35,
+    delayDry: 1,
+    delayWet: 0.2,
+    delayReverseMix: 0,
+    reverbOn: true,
+    reverbDecay: 2.5,
+    reverbDry: 1,
+    reverbWet: 0.2,
+    fxMix: 0.3
+};
+const WAVETABLES = {
+    Saw: 'saw',
+    Square: 'square',
+    Triangle: 'triangle',
+    PWM: 'pwm',
+    Formant: 'formant'
+};
+const FX_PRESETS = {
+    Init: { ...DEFAULT_FX },
+    Pad: {
+        ...DEFAULT_FX,
+        attack: 0.4,
+        decay: 0.8,
+        sustain: 0.85,
+        release: 1.2,
+        filterCutoff: 6000,
+        filterEnv: 0.6,
+        chorusRate: 0.18,
+        chorusDepth: 0.012,
+        delayTime: 0.45,
+        delayFeedback: 0.4,
+        delayWet: 0.25,
+        reverbDecay: 4.5,
+        reverbWet: 0.35,
+        fxMix: 0.45
+    },
+    Pluck: {
+        ...DEFAULT_FX,
+        attack: 0.005,
+        decay: 0.18,
+        sustain: 0.3,
+        release: 0.08,
+        filterCutoff: 8000,
+        filterEnv: 0.4,
+        chorusRate: 0.12,
+        chorusDepth: 0.004,
+        delayTime: 0.18,
+        delayFeedback: 0.22,
+        delayWet: 0.18,
+        reverbDecay: 1.3,
+        reverbWet: 0.12,
+        fxMix: 0.25
+    },
+    Lead: {
+        ...DEFAULT_FX,
+        attack: 0.01,
+        decay: 0.15,
+        sustain: 0.75,
+        release: 0.25,
+        filterCutoff: 10000,
+        filterEnv: 0.2,
+        chorusRate: 0.3,
+        chorusDepth: 0.007,
+        delayTime: 0.26,
+        delayFeedback: 0.28,
+        delayWet: 0.2,
+        reverbDecay: 2,
+        reverbWet: 0.18,
+        fxMix: 0.3
+    },
+    Ambient: {
+        ...DEFAULT_FX,
+        attack: 0.6,
+        decay: 1.2,
+        sustain: 0.9,
+        release: 2.2,
+        filterCutoff: 5000,
+        filterEnv: 0.8,
+        chorusRate: 0.1,
+        chorusDepth: 0.015,
+        delayTime: 0.8,
+        delayFeedback: 0.55,
+        delayWet: 0.35,
+        reverbDecay: 6.5,
+        reverbWet: 0.45,
+        fxMix: 0.6
+    }
+};
 const LOCAL_SUPPRESS_MS = 30;
 const GHOST_NOTE_MS = 220;
 const state = {
-    midi: { output: null, input: null, access: null },
+    midi: { output: null, input: null, access: null, hardwareOutput: null, outputWrapper: null },
     currentOctave: 0,
     perfHeight: 0,
     canvasRect: canvas.getBoundingClientRect(),
@@ -725,7 +1225,48 @@ const state = {
     heldVoices: [],
     arpHoldTouches: [],
     arpColorIndex: 0,
-    holdGroupSeq: 1
+    holdGroupSeq: 1,
+    audio: {
+        enabled: true,
+        activeSet: 'Default',
+        ctx: null,
+        master: null,
+        dryGain: null,
+        wetGain: null,
+        fxBus: null,
+        fxSend: null,
+        chorusDelay: null,
+        chorusLfo: null,
+        chorusLfoGain: null,
+        delay: null,
+        delayFeedback: null,
+        delayWetGain: null,
+        delayDryGain: null,
+        reverseDelay: null,
+        reverseWetGain: null,
+        reverbInput: null,
+        convolver: null,
+        reverbWetGain: null,
+        reverbDryGain: null,
+        wavetables: {},
+        wavetable: {
+            mode: 'layer',
+            type: 'Saw',
+            mix: 0.35
+        },
+        dynamicVelocity: true,
+        samplerGain: 1,
+        maxSamplerVoices: 24,
+        samples: [],
+        voices: new Map(),
+        channelPb: new Map(),
+        channelPress: new Map(),
+        loopGlobal: false,
+        loopVariation: 0.0,
+        fx: { ...DEFAULT_FX },
+        fxActiveGroup: 'filter',
+        fxEnabled: false
+    }
 };
 const FADE_TAIL_MS = 200;
 const FADE_EASE_POW = 2.2;
@@ -746,6 +1287,1214 @@ const MPE_PRESET_DESCRIPTIONS = {
     Tight: 'High precision snap and strong dead-center.',
     Glide: 'Free pitch glide with no snap or dead-center.'
 };
+
+initSampleSlots();
+
+function initSampleSlots() {
+    const activeSet = getActiveSampleSetName();
+    state.audio.activeSet = activeSet;
+    const roots = loadSampleRootsForSet(activeSet);
+    const gains = loadSampleGainsForSet(activeSet);
+    state.audio.samplerGain = loadSamplerGainForSet(activeSet);
+    state.audio.samples = DEFAULT_SAMPLE_ROOTS.map((fallback, idx) => {
+        const root = roots[idx] ?? fallback;
+        const gain = gains[idx] ?? DEFAULT_SAMPLE_GAINS[idx] ?? 1;
+        return { buffer: null, root, name: '', data: null, gain };
+    });
+    state.audio.fx = { ...DEFAULT_FX };
+}
+
+function getSampleSetsState() {
+    const raw = localStorage.getItem(SAMPLE_SETS_KEY);
+    const parsed = safeParseJson(raw, {});
+    const names = Array.isArray(parsed.names) ? parsed.names.filter(n => typeof n === 'string' && n.trim()) : [];
+    const rootsBySet = parsed.rootsBySet && typeof parsed.rootsBySet === 'object' ? parsed.rootsBySet : {};
+    const fxBySet = parsed.fxBySet && typeof parsed.fxBySet === 'object' ? parsed.fxBySet : {};
+    const gainsBySet = parsed.gainsBySet && typeof parsed.gainsBySet === 'object' ? parsed.gainsBySet : {};
+    const loopsBySet = parsed.loopsBySet && typeof parsed.loopsBySet === 'object' ? parsed.loopsBySet : {};
+    const samplerGainBySet = parsed.samplerGainBySet && typeof parsed.samplerGainBySet === 'object' ? parsed.samplerGainBySet : {};
+    return { names, rootsBySet, fxBySet, gainsBySet, loopsBySet, samplerGainBySet };
+}
+
+function saveSampleLoopsForSet(setName) {
+    const sets = getSampleSetsState();
+    const key = setName.trim() || 'Default';
+    ensureSampleSet(key, sets);
+    sets.loopsBySet[key] = state.audio.samples.map(s => !!s.loop);
+    saveSampleSetsState(sets);
+}
+
+function loadSampleLoopsForSet(setName) {
+    const sets = getSampleSetsState();
+    const key = setName.trim() || 'Default';
+    ensureSampleSet(key, sets);
+    const loops = sets.loopsBySet[key] || [];
+    return loops.slice(0, SAMPLE_SLOT_COUNT).map(value => !!value);
+}
+
+function saveSampleSetsState(stateObj) {
+    localStorage.setItem(SAMPLE_SETS_KEY, JSON.stringify(stateObj));
+}
+
+function ensureSampleSet(name, stateObj) {
+    const key = name.trim();
+    if (!stateObj.names.includes(key)) stateObj.names.push(key);
+    if (!Array.isArray(stateObj.rootsBySet[key])) {
+        stateObj.rootsBySet[key] = DEFAULT_SAMPLE_ROOTS.slice();
+    }
+    if (!stateObj.fxBySet[key] || typeof stateObj.fxBySet[key] !== 'object') {
+        stateObj.fxBySet[key] = { ...DEFAULT_FX };
+    }
+    if (!Array.isArray(stateObj.gainsBySet[key])) {
+        stateObj.gainsBySet[key] = DEFAULT_SAMPLE_GAINS.slice();
+    }
+    if (!Number.isFinite(stateObj.samplerGainBySet[key])) {
+        stateObj.samplerGainBySet[key] = DEFAULT_SAMPLER_GAIN;
+    }
+}
+
+function getActiveSampleSetName() {
+    const raw = localStorage.getItem(SAMPLE_ACTIVE_SET_KEY);
+    const name = raw && raw.trim() ? raw.trim() : 'Default';
+    return name;
+}
+
+function setActiveSampleSetName(name) {
+    const key = name.trim() || 'Default';
+    localStorage.setItem(SAMPLE_ACTIVE_SET_KEY, key);
+    state.audio.activeSet = key;
+}
+
+function loadSampleRootsForSet(setName) {
+    const sets = getSampleSetsState();
+    const key = setName.trim() || 'Default';
+    ensureSampleSet(key, sets);
+    saveSampleSetsState(sets);
+    const roots = sets.rootsBySet[key] || [];
+    return roots.slice(0, SAMPLE_SLOT_COUNT).map(value => {
+        const num = parseInt(value, 10);
+        if (Number.isFinite(num)) return Math.max(0, Math.min(127, num));
+        return null;
+    });
+}
+
+function saveSampleRootsForSet(setName) {
+    const sets = getSampleSetsState();
+    const key = setName.trim() || 'Default';
+    ensureSampleSet(key, sets);
+    sets.rootsBySet[key] = state.audio.samples.map(s => s.root);
+    saveSampleSetsState(sets);
+}
+
+function loadSampleGainsForSet(setName) {
+    const sets = getSampleSetsState();
+    const key = setName.trim() || 'Default';
+    ensureSampleSet(key, sets);
+    const gains = sets.gainsBySet[key] || [];
+    return gains.slice(0, SAMPLE_SLOT_COUNT).map(value => {
+        const num = parseFloat(value);
+        if (Number.isFinite(num)) return Math.max(0, Math.min(5, num));
+        return null;
+    });
+}
+
+function saveSampleGainsForSet(setName) {
+    const sets = getSampleSetsState();
+    const key = setName.trim() || 'Default';
+    ensureSampleSet(key, sets);
+    sets.gainsBySet[key] = state.audio.samples.map(s => s.gain ?? 1);
+    saveSampleSetsState(sets);
+}
+
+function loadSamplerGainForSet(setName) {
+    const sets = getSampleSetsState();
+    const key = setName.trim() || 'Default';
+    ensureSampleSet(key, sets);
+    const gain = parseFloat(sets.samplerGainBySet[key]);
+    return Number.isFinite(gain) ? Math.max(0, Math.min(5, gain)) : DEFAULT_SAMPLER_GAIN;
+}
+
+function saveSamplerGainForSet(setName) {
+    const sets = getSampleSetsState();
+    const key = setName.trim() || 'Default';
+    ensureSampleSet(key, sets);
+    sets.samplerGainBySet[key] = state.audio.samplerGain ?? DEFAULT_SAMPLER_GAIN;
+    saveSampleSetsState(sets);
+}
+
+function loadFxForSet(setName) {
+    const sets = getSampleSetsState();
+    const key = setName.trim() || 'Default';
+    ensureSampleSet(key, sets);
+    const saved = sets.fxBySet[key] || {};
+    state.audio.fx = { ...DEFAULT_FX, ...saved };
+    saveSampleSetsState(sets);
+    applyFxToUI();
+    readFxFromUI();
+    updateFxNodes();
+    rebuildReverbImpulse();
+    setFxGroup(state.audio.fxActiveGroup || 'filter');
+}
+
+function saveFxForSet(setName) {
+    const sets = getSampleSetsState();
+    const key = setName.trim() || 'Default';
+    ensureSampleSet(key, sets);
+    sets.fxBySet[key] = { ...state.audio.fx };
+    saveSampleSetsState(sets);
+}
+
+function openSampleDB() {
+    return new Promise((resolve, reject) => {
+        if (!window.indexedDB) {
+            
+            reject(new Error('IndexedDB not supported'));
+            return;
+        }
+        const request = indexedDB.open(SAMPLE_DB_NAME, 2);
+        request.onupgradeneeded = () => {
+            const db = request.result;
+            if (db.objectStoreNames.contains(SAMPLE_DB_STORE)) {
+                db.deleteObjectStore(SAMPLE_DB_STORE);
+            }
+            db.createObjectStore(SAMPLE_DB_STORE, { keyPath: 'key' });
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => {
+            
+            reject(request.error);
+        };
+    });
+}
+
+async function saveSampleToDB(slotIndex, entry, setName = state.audio.activeSet) {
+    try {
+        const db = await openSampleDB();
+        const tx = db.transaction(SAMPLE_DB_STORE, 'readwrite');
+        const key = `${setName}::${slotIndex}`;
+        const dataBlob = entry.data instanceof Blob ? entry.data : new Blob([entry.data], { type: 'audio/wav' });
+        tx.objectStore(SAMPLE_DB_STORE).put({
+            key,
+            set: setName,
+            slot: slotIndex,
+            name: entry.name || '',
+            root: entry.root,
+            data: dataBlob
+        });
+    } catch (err) {
+        
+    }
+}
+
+async function deleteSampleFromDB(slotIndex, setName = state.audio.activeSet) {
+    try {
+        const db = await openSampleDB();
+        const tx = db.transaction(SAMPLE_DB_STORE, 'readwrite');
+        const key = `${setName}::${slotIndex}`;
+        tx.objectStore(SAMPLE_DB_STORE).delete(key);
+    } catch (err) {
+        
+    }
+}
+
+async function loadSavedSamples(setName = state.audio.activeSet) {
+    try {
+        const db = await openSampleDB();
+        const tx = db.transaction(SAMPLE_DB_STORE, 'readonly');
+        const store = tx.objectStore(SAMPLE_DB_STORE);
+        const request = store.getAll();
+        const entries = await new Promise(resolve => {
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = () => resolve([]);
+        });
+        const filtered = entries.filter(entry => entry && entry.set === setName);
+        if (!filtered.length) {
+            
+            return;
+        }
+        
+        initAudioContext();
+        const storedRoots = loadSampleRootsForSet(setName);
+        const storedLoops = loadSampleLoopsForSet(setName);
+        for (const entry of filtered) {
+            if (!entry || typeof entry.slot !== 'number') continue;
+            const idx = entry.slot;
+            if (!state.audio.samples[idx]) continue;
+            if (storedRoots[idx] != null) {
+                const root = Math.max(0, Math.min(127, parseInt(storedRoots[idx], 10)));
+                state.audio.samples[idx].root = root;
+                if (sampleRootEls[idx]) sampleRootEls[idx].value = midiToNoteName(root);
+            } else if (Number.isFinite(entry.root)) {
+                const root = Math.max(0, Math.min(127, parseInt(entry.root, 10)));
+                state.audio.samples[idx].root = root;
+                if (sampleRootEls[idx]) sampleRootEls[idx].value = midiToNoteName(root);
+            }
+            
+            const isLoop = storedLoops[idx] ?? false;
+            state.audio.samples[idx].loop = isLoop;
+            if (sampleLoopEls[idx]) sampleLoopEls[idx].checked = isLoop;
+
+            const gains = loadSampleGainsForSet(setName);
+            const gain = gains[idx] ?? DEFAULT_SAMPLE_GAINS[idx] ?? 1;
+            state.audio.samples[idx].gain = gain;
+            if (sampleGainEls[idx]) sampleGainEls[idx].value = gain.toFixed(2);
+            if (!entry.data) continue;
+            try {
+                const dataBuffer = await normalizeSampleData(entry.data);
+                if (!dataBuffer) {
+                    
+                    continue;
+                }
+                const buffer = await state.audio.ctx.decodeAudioData(dataBuffer.slice(0));
+                state.audio.samples[idx].buffer = buffer;
+                state.audio.samples[idx].name = entry.name || '';
+                state.audio.samples[idx].data = dataBuffer;
+                updateSampleName(idx);
+                
+            } catch (err) {
+                
+            }
+        }
+        saveSampleRootsForSet(setName);
+        updateAudioStatus();
+        updateAllSampleNames();
+        
+    } catch (err) {
+        
+    }
+}
+
+async function normalizeSampleData(data) {
+    if (!data) return null;
+    if (data instanceof ArrayBuffer) return data;
+    if (data instanceof Blob) return await data.arrayBuffer();
+    return null;
+}
+
+function initAudioContext() {
+    if (state.audio.ctx) return;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    state.audio.ctx = new AudioCtx();
+    state.audio.master = state.audio.ctx.createGain();
+    state.audio.dryGain = state.audio.ctx.createGain();
+    state.audio.wetGain = state.audio.ctx.createGain();
+    state.audio.fxBus = state.audio.ctx.createGain();
+    state.audio.fxSend = state.audio.ctx.createGain();
+    state.audio.chorusDelay = state.audio.ctx.createDelay(0.05);
+    state.audio.chorusLfo = state.audio.ctx.createOscillator();
+    state.audio.chorusLfoGain = state.audio.ctx.createGain();
+    state.audio.delay = state.audio.ctx.createDelay(2.0);
+    state.audio.delayFeedback = state.audio.ctx.createGain();
+    state.audio.delayWetGain = state.audio.ctx.createGain();
+    state.audio.delayDryGain = state.audio.ctx.createGain();
+    state.audio.reverseDelay = createReverseDelayNode(state.audio.ctx);
+    state.audio.reverseWetGain = state.audio.ctx.createGain();
+    state.audio.reverbInput = state.audio.ctx.createGain();
+    state.audio.convolver = state.audio.ctx.createConvolver();
+    state.audio.reverbWetGain = state.audio.ctx.createGain();
+    state.audio.reverbDryGain = state.audio.ctx.createGain();
+    state.audio.master.gain.value = 0.8;
+    state.audio.chorusDelay.delayTime.value = 0.015;
+    state.audio.chorusLfo.type = 'sine';
+    state.audio.chorusLfo.connect(state.audio.chorusLfoGain);
+    state.audio.chorusLfoGain.connect(state.audio.chorusDelay.delayTime);
+    state.audio.delayFeedback.gain.value = state.audio.fx.delayFeedback;
+    state.audio.delayWetGain.gain.value = state.audio.fx.delayWet;
+    state.audio.delayDryGain.gain.value = state.audio.fx.delayDry;
+    state.audio.reverbWetGain.gain.value = state.audio.fx.reverbWet;
+    state.audio.reverbDryGain.gain.value = state.audio.fx.reverbDry;
+    state.audio.fxSend.gain.value = state.audio.fx.fxMix;
+    state.audio.dryGain.connect(state.audio.master);
+    state.audio.fxSend.connect(state.audio.fxBus);
+    state.audio.fxBus.connect(state.audio.chorusDelay);
+    state.audio.chorusDelay.connect(state.audio.delay);
+    state.audio.chorusDelay.connect(state.audio.reverseDelay);
+    state.audio.delay.connect(state.audio.delayFeedback);
+    state.audio.delayFeedback.connect(state.audio.delay);
+    state.audio.delay.connect(state.audio.delayWetGain);
+    state.audio.delay.connect(state.audio.delayDryGain);
+    state.audio.reverseDelay.connect(state.audio.reverseWetGain);
+    state.audio.delayWetGain.connect(state.audio.reverbInput);
+    state.audio.delayDryGain.connect(state.audio.reverbInput);
+    state.audio.reverseWetGain.connect(state.audio.reverbInput);
+    state.audio.reverbInput.connect(state.audio.convolver);
+    state.audio.convolver.connect(state.audio.reverbWetGain);
+    state.audio.reverbWetGain.connect(state.audio.wetGain);
+    state.audio.reverbInput.connect(state.audio.reverbDryGain);
+    state.audio.reverbDryGain.connect(state.audio.wetGain);
+    state.audio.wetGain.connect(state.audio.master);
+    state.audio.master.connect(state.audio.ctx.destination);
+    rebuildReverbImpulse();
+    updateFxNodes();
+    state.audio.wavetables = buildWavetables(state.audio.ctx);
+    state.audio.chorusLfo.start();
+}
+
+function resumeAudioContext() {
+    initAudioContext();
+    if (!state.audio.ctx) return Promise.resolve();
+    if (state.audio.ctx.state === 'running') return Promise.resolve();
+    return state.audio.ctx.resume();
+}
+
+function updateAudioStatus() {
+    if (els.audioStart) {
+        const on = state.audio.enabled;
+        els.audioStart.className = `menu-btn btn-square audio-toggle ${on ? 'toggle-on' : 'toggle-off'}`;
+        els.audioStart.querySelector('.btn-text').textContent = on ? 'INTERNAL ON' : 'INTERNAL OFF';
+    }
+}
+
+function refreshFxPresetSelects() {
+    const names = Object.keys(FX_PRESETS);
+    [els.fxPresetSelect, els.fxPresetQuick].forEach(select => {
+        if (!select) return;
+        clearChildren(select);
+        names.forEach(name => appendOption(select, name, name));
+        select.value = 'Init';
+    });
+}
+
+function applyFxPreset(name) {
+    const preset = FX_PRESETS[name] || FX_PRESETS.Init;
+    state.audio.fx = { ...DEFAULT_FX, ...preset };
+    applyFxToUI();
+    readFxFromUI();
+    updateFxNodes();
+    rebuildReverbImpulse();
+    updateFxToggleButtons();
+    updateFxValueDisplays();
+    if (els.fxPresetSelect) els.fxPresetSelect.value = name;
+    if (els.fxPresetQuick) els.fxPresetQuick.value = name;
+    
+}
+
+function updateFxToggleButtons() {
+    const fx = state.audio.fx;
+    if (els.fxFilterToggle) els.fxFilterToggle.className = `menu-btn fx-toggle ${fx.filterOn ? 'toggle-on' : 'toggle-off'}`;
+    if (els.fxChorusToggle) els.fxChorusToggle.className = `menu-btn fx-toggle ${fx.chorusOn ? 'toggle-on' : 'toggle-off'}`;
+    if (els.fxDelayToggle) els.fxDelayToggle.className = `menu-btn fx-toggle ${fx.delayOn ? 'toggle-on' : 'toggle-off'}`;
+    if (els.fxReverbToggle) els.fxReverbToggle.className = `menu-btn fx-toggle ${fx.reverbOn ? 'toggle-on' : 'toggle-off'}`;
+    if (els.fxToggle) {
+        els.fxToggle.className = `menu-btn btn-square fx-toggle ${state.audio.fxEnabled ? 'toggle-on' : 'toggle-off'}`;
+    }
+    if (els.fxFilterToggleGroup) {
+        els.fxFilterToggleGroup.className = `menu-btn fx-toggle ${fx.filterOn ? 'toggle-on' : 'toggle-off'}`;
+        els.fxFilterToggleGroup.textContent = fx.filterOn ? 'ON' : 'OFF';
+    }
+    if (els.fxChorusToggleGroup) {
+        els.fxChorusToggleGroup.className = `menu-btn fx-toggle ${fx.chorusOn ? 'toggle-on' : 'toggle-off'}`;
+        els.fxChorusToggleGroup.textContent = fx.chorusOn ? 'ON' : 'OFF';
+    }
+    if (els.fxDelayToggleGroup) {
+        els.fxDelayToggleGroup.className = `menu-btn fx-toggle ${fx.delayOn ? 'toggle-on' : 'toggle-off'}`;
+        els.fxDelayToggleGroup.textContent = fx.delayOn ? 'ON' : 'OFF';
+    }
+    if (els.fxReverbToggleGroup) {
+        els.fxReverbToggleGroup.className = `menu-btn fx-toggle ${fx.reverbOn ? 'toggle-on' : 'toggle-off'}`;
+        els.fxReverbToggleGroup.textContent = fx.reverbOn ? 'ON' : 'OFF';
+    }
+    if (els.fxFilterToggle) els.fxFilterToggle.classList.toggle('active', state.audio.fxActiveGroup === 'filter');
+    if (els.fxChorusToggle) els.fxChorusToggle.classList.toggle('active', state.audio.fxActiveGroup === 'chorus');
+    if (els.fxDelayToggle) els.fxDelayToggle.classList.toggle('active', state.audio.fxActiveGroup === 'delay');
+    if (els.fxReverbToggle) els.fxReverbToggle.classList.toggle('active', state.audio.fxActiveGroup === 'reverb');
+}
+
+function setFxGroup(group) {
+    state.audio.fxActiveGroup = group;
+    document.querySelectorAll('.fx-panel .fx-group').forEach(el => {
+        el.classList.toggle('active', el.getAttribute('data-fx-group') === group);
+    });
+    updateFxToggleButtons();
+    updateFxValueDisplays();
+}
+
+function setFxEnabled(enabled) {
+    state.audio.fxEnabled = enabled;
+    updateFxNodes();
+    updateFxToggleButtons();
+    if (els.fxPanel) {
+        if (enabled) els.fxPanel.classList.remove('hidden');
+        else els.fxPanel.classList.add('hidden');
+    }
+}
+
+function formatFxValue(id, value) {
+    if (id === 'fxAttack' || id === 'fxDecay' || id === 'fxRelease' || id === 'fxDelayTime') {
+        return `${Math.round(value)} ms`;
+    }
+    if (id === 'fxReverbDecay') {
+        return `${parseFloat(value).toFixed(1)} s`;
+    }
+    if (id === 'fxCutoff') {
+        return `${Math.round(value)} Hz`;
+    }
+    if (id === 'fxChorusRate') {
+        return `${parseFloat(value).toFixed(2)} Hz`;
+    }
+    if (id === 'fxChorusDepth') {
+        return `${parseFloat(value).toFixed(1)} ms`;
+    }
+    if (id === 'fxResonance') {
+        return `Q ${parseFloat(value).toFixed(1)}`;
+    }
+    if (id === 'fxFilterEnv') {
+        return `x${parseFloat(value).toFixed(2)}`;
+    }
+    if (id === 'fxDelayFeedback') {
+        return `${Math.round(parseFloat(value) * 100)}%`;
+    }
+    if (id === 'fxDelayReverse') {
+        return `${Math.round(parseFloat(value) * 100)}%`;
+    }
+    if (id === 'fxDelayDry' || id === 'fxDelayWet' || id === 'fxReverbDry' || id === 'fxReverbWet' || id === 'fxMix' || id === 'fxSustain') {
+        return `${Math.round(parseFloat(value) * 100)}%`;
+    }
+    return value;
+}
+
+function updateFxValueDisplays() {
+    document.querySelectorAll('[data-fx-value]').forEach(el => {
+        const id = el.getAttribute('data-fx-value');
+        const input = document.getElementById(id);
+        if (!input) return;
+        el.textContent = formatFxValue(id, input.value);
+    });
+}
+
+function updateSampleName(slotIndex) {
+    const label = sampleNameEls[slotIndex];
+    if (!label) return;
+    const sample = state.audio.samples[slotIndex];
+    const name = sample && sample.name ? sample.name : 'vuoto';
+    label.textContent = `Slot ${slotIndex + 1}: ${name}`;
+}
+
+function updateAllSampleNames() {
+    for (let i = 0; i < SAMPLE_SLOT_COUNT; i++) {
+        updateSampleName(i);
+    }
+}
+
+function midiToFreq(note) {
+    return 440 * Math.pow(2, (note - 69) / 12);
+}
+
+function midiToNoteName(midi) {
+    const note = Math.max(0, Math.min(127, Math.round(midi)));
+    const name = NOTE_NAMES[note % 12];
+    const octave = Math.floor(note / 12) - 1;
+    return `${name}${octave}`;
+}
+
+function parseNoteName(value) {
+    if (!value) return null;
+    const raw = value.trim().toUpperCase();
+    const midi = parseInt(raw, 10);
+    if (Number.isFinite(midi)) {
+        return Math.max(0, Math.min(127, midi));
+    }
+    const match = raw.match(/^([A-G])([#B]?)(-?\d+)([#B]?)$/);
+    if (!match) return null;
+    const letter = match[1];
+    const acc1 = match[2] || '';
+    const octave = parseInt(match[3], 10);
+    const acc2 = match[4] || '';
+    const accidental = acc1 || acc2;
+    let base = NOTE_NAMES.indexOf(letter);
+    if (base < 0) return null;
+    if (accidental === '#') base += 1;
+    if (accidental === 'B') base -= 1;
+    base = (base + 12) % 12;
+    const midiNote = (octave + 1) * 12 + base;
+    if (midiNote < 0 || midiNote > 127) return null;
+    return midiNote;
+}
+
+function updateWavetableUI() {
+    if (els.wtMode) els.wtMode.value = state.audio.wavetable.mode;
+    if (els.wtSelect) els.wtSelect.value = state.audio.wavetable.type;
+    if (els.wtMix) els.wtMix.value = state.audio.wavetable.mix.toFixed(2);
+    if (els.wtMixBox) {
+        els.wtMixBox.style.display = state.audio.wavetable.mode === 'layer' ? '' : 'none';
+    }
+}
+
+function updateWavetableMix() {
+    const mix = state.audio.wavetable.mix;
+    if (!state.audio.ctx) return;
+    state.audio.voices.forEach(v => {
+        if (v.wtGain) v.wtGain.gain.setTargetAtTime(mix, state.audio.ctx.currentTime, 0.02);
+    });
+}
+
+function updateSamplerGainNodes() {
+    if (!state.audio.ctx) return;
+    state.audio.voices.forEach(v => {
+        if (!v.sampleGain || v.sampleGainValue == null) return;
+        const next = Math.max(0, Math.min(5, state.audio.samplerGain * v.sampleGainValue));
+        v.sampleGain.gain.setTargetAtTime(next, state.audio.ctx.currentTime, 0.02);
+    });
+}
+
+function getSamplerVoiceKeys() {
+    return Array.from(state.audio.voices.entries())
+        .filter(([, v]) => v && v.sampleGain)
+        .map(([key]) => key);
+}
+
+function enforcePolyphonyLimit(isSamplerNeeded) {
+    const MAX_TOTAL_VOICES = 64; // Aumentato a 64 per maggiore polifonia su PC moderni
+    const maxSampler = Math.max(1, state.audio.maxSamplerVoices || 24);
+    
+    // 1. Controllo limite Sampler specifico
+    if (isSamplerNeeded) {
+        let samplerCount = 0;
+        let oldestSamplerKey = null;
+        let oldestSamplerTime = Infinity;
+        
+        state.audio.voices.forEach((v, key) => {
+            if (v && v.sampleGain) {
+                samplerCount++;
+                const t = v.startTime || Infinity;
+                if (t < oldestSamplerTime) {
+                    oldestSamplerTime = t;
+                    oldestSamplerKey = key;
+                }
+            }
+        });
+
+        if (samplerCount >= maxSampler && oldestSamplerKey) {
+            stopVoiceInternal(oldestSamplerKey);
+            return; // Abbiamo fatto spazio
+        }
+    }
+
+    // 2. Controllo limite Globale (WT + Sampler)
+    if (state.audio.voices.size >= MAX_TOTAL_VOICES) {
+        let oldestKey = null;
+        let oldestTime = Infinity;
+        state.audio.voices.forEach((v, key) => {
+            const t = v.startTime || Infinity;
+            if (t < oldestTime) {
+                oldestTime = t;
+                oldestKey = key;
+            }
+        });
+        if (oldestKey) stopVoiceInternal(oldestKey);
+    }
+}
+
+function getWavetableModeFlags() {
+    const mode = state.audio.wavetable.mode;
+    return {
+        sampler: mode === 'sampler' || mode === 'layer',
+        wt: mode === 'wt' || mode === 'layer'
+    };
+}
+
+function readFxFromUI() {
+    if (!els.fxAttack) return;
+    const fx = state.audio.fx;
+    fx.attack = Math.max(0, (parseFloat(els.fxAttack.value) || 0) / 1000);
+    fx.decay = Math.max(0, (parseFloat(els.fxDecay.value) || 0) / 1000);
+    fx.sustain = Math.max(0, Math.min(1, parseFloat(els.fxSustain.value) || 0));
+    fx.release = Math.max(0, (parseFloat(els.fxRelease.value) || 0) / 1000);
+    fx.filterCutoff = Math.max(60, Math.min(20000, parseFloat(els.fxCutoff.value) || 12000));
+    fx.filterQ = Math.max(0.1, Math.min(20, parseFloat(els.fxResonance.value) || 0.7));
+    fx.filterEnv = Math.max(0, Math.min(2, parseFloat(els.fxFilterEnv.value) || 0));
+    fx.chorusRate = Math.max(0, Math.min(5, parseFloat(els.fxChorusRate.value) || 0.25));
+    fx.chorusDepth = Math.max(0, Math.min(0.02, (parseFloat(els.fxChorusDepth.value) || 0) / 1000));
+    fx.delayTime = Math.max(0, Math.min(2, (parseFloat(els.fxDelayTime.value) || 0) / 1000));
+    fx.delayFeedback = Math.max(0, Math.min(0.9, parseFloat(els.fxDelayFeedback.value) || 0));
+    fx.delayDry = Math.max(0, Math.min(1, parseFloat(els.fxDelayDry.value) || 0));
+    fx.delayWet = Math.max(0, Math.min(1, parseFloat(els.fxDelayWet.value) || 0));
+    fx.delayReverseMix = Math.max(0, Math.min(1, parseFloat(els.fxDelayReverse.value) || 0));
+    fx.reverbDecay = Math.max(0.1, Math.min(10, parseFloat(els.fxReverbDecay.value) || 2.5));
+    fx.reverbDry = Math.max(0, Math.min(1, parseFloat(els.fxReverbDry.value) || 0));
+    fx.reverbWet = Math.max(0, Math.min(1, parseFloat(els.fxReverbWet.value) || 0.2));
+    fx.fxMix = Math.max(0, Math.min(1, parseFloat(els.fxMix.value) || 0.3));
+    updateFxToggleButtons();
+}
+
+function applyFxToUI() {
+    if (!els.fxAttack) return;
+    const fx = state.audio.fx;
+    els.fxAttack.value = Math.round(fx.attack * 1000);
+    els.fxDecay.value = Math.round(fx.decay * 1000);
+    els.fxSustain.value = fx.sustain.toFixed(2);
+    els.fxRelease.value = Math.round(fx.release * 1000);
+    els.fxCutoff.value = Math.round(fx.filterCutoff);
+    els.fxResonance.value = fx.filterQ.toFixed(1);
+    els.fxFilterEnv.value = fx.filterEnv.toFixed(2);
+    els.fxChorusRate.value = fx.chorusRate.toFixed(2);
+    els.fxChorusDepth.value = Math.round(fx.chorusDepth * 1000);
+    els.fxDelayTime.value = Math.round(fx.delayTime * 1000);
+    els.fxDelayFeedback.value = fx.delayFeedback.toFixed(2);
+    els.fxDelayDry.value = fx.delayDry.toFixed(2);
+    els.fxDelayWet.value = fx.delayWet.toFixed(2);
+    els.fxDelayReverse.value = fx.delayReverseMix.toFixed(2);
+    els.fxReverbDecay.value = fx.reverbDecay.toFixed(1);
+    els.fxReverbDry.value = fx.reverbDry.toFixed(2);
+    els.fxReverbWet.value = fx.reverbWet.toFixed(2);
+    els.fxMix.value = fx.fxMix.toFixed(2);
+    updateFxToggleButtons();
+}
+
+function updateFxNodes() {
+    if (!state.audio.ctx) return;
+    const fx = state.audio.fx;
+    if (state.audio.fxSend) state.audio.fxSend.gain.value = state.audio.fxEnabled ? fx.fxMix : 0;
+    if (state.audio.delay) state.audio.delay.delayTime.setValueAtTime(fx.delayTime, state.audio.ctx.currentTime);
+    if (state.audio.delayFeedback) state.audio.delayFeedback.gain.value = fx.delayFeedback;
+    if (state.audio.reverseDelay) {
+        state.audio.reverseDelay._feedback = fx.delayFeedback;
+        if (state.audio.reverseDelay._setDelaySamples) {
+            state.audio.reverseDelay._setDelaySamples(state.audio.ctx.sampleRate * fx.delayTime);
+        }
+    }
+    const revMix = Math.max(0, Math.min(1, fx.delayReverseMix));
+    const wetMix = fx.delayWet;
+    const fwdMix = wetMix * (1 - revMix);
+    const revWet = wetMix * revMix;
+    if (state.audio.delayWetGain) state.audio.delayWetGain.gain.value = (state.audio.fxEnabled && fx.delayOn) ? fwdMix : 0;
+    if (state.audio.delayDryGain) state.audio.delayDryGain.gain.value = (state.audio.fxEnabled && fx.delayOn) ? fx.delayDry : 1;
+    if (state.audio.reverseWetGain) state.audio.reverseWetGain.gain.value = (state.audio.fxEnabled && fx.delayOn) ? revWet : 0;
+    if (state.audio.reverbWetGain) state.audio.reverbWetGain.gain.value = (state.audio.fxEnabled && fx.reverbOn) ? fx.reverbWet : 0;
+    if (state.audio.reverbDryGain) state.audio.reverbDryGain.gain.value = (state.audio.fxEnabled && fx.reverbOn) ? fx.reverbDry : 1;
+    if (state.audio.chorusLfo) state.audio.chorusLfo.frequency.value = fx.chorusRate;
+    if (state.audio.chorusLfoGain) state.audio.chorusLfoGain.gain.value = (state.audio.fxEnabled && fx.chorusOn) ? fx.chorusDepth : 0;
+    updateActiveFilters();
+}
+
+function updateActiveFilters() {
+    const fx = state.audio.fx;
+    const filterActive = state.audio.fxEnabled && fx.filterOn;
+    const cutoff = filterActive ? Math.max(60, Math.min(20000, fx.filterCutoff)) : 20000;
+    const q = filterActive ? Math.max(0.1, Math.min(20, fx.filterQ)) : 0.1;
+    if (!state.audio.ctx) return;
+    state.audio.voices.forEach(v => {
+        if (!v.filter) return;
+        v.filter.frequency.setTargetAtTime(cutoff, state.audio.ctx.currentTime, 0.02);
+        v.filter.Q.setTargetAtTime(q, state.audio.ctx.currentTime, 0.02);
+    });
+}
+
+function rebuildReverbImpulse() {
+    if (!state.audio.ctx || !state.audio.convolver) return;
+    const decay = Math.max(0.1, state.audio.fx.reverbDecay);
+    const sampleRate = state.audio.ctx.sampleRate;
+    const length = Math.floor(sampleRate * decay);
+    const impulse = state.audio.ctx.createBuffer(2, length, sampleRate);
+    for (let c = 0; c < 2; c++) {
+        const channelData = impulse.getChannelData(c);
+        for (let i = 0; i < length; i++) {
+            const t = i / length;
+            channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 2);
+        }
+    }
+    state.audio.convolver.buffer = impulse;
+}
+
+function createReverseDelayNode(ctx) {
+    const node = ctx.createScriptProcessor(2048, 2, 2);
+    const state = {
+        delaySamples: Math.max(1, Math.floor(ctx.sampleRate * 0.3)),
+        writeBuf: 0,
+        readBuf: 1,
+        writeIndex: 0,
+        readIndex: 0,
+        playing: false,
+        buffers: []
+    };
+
+    function initBuffers(samples) {
+        state.delaySamples = Math.max(1, Math.floor(samples));
+        state.buffers = [
+            [new Float32Array(state.delaySamples), new Float32Array(state.delaySamples)],
+            [new Float32Array(state.delaySamples), new Float32Array(state.delaySamples)]
+        ];
+        state.writeBuf = 0;
+        state.readBuf = 1;
+        state.writeIndex = 0;
+        state.readIndex = state.delaySamples - 1;
+        state.playing = false;
+    }
+
+    initBuffers(state.delaySamples);
+    node._feedback = 0;
+    node._setDelaySamples = samples => initBuffers(samples);
+
+    node.onaudioprocess = e => {
+        const input = e.inputBuffer;
+        const output = e.outputBuffer;
+        const inL = input.getChannelData(0);
+        const inR = input.numberOfChannels > 1 ? input.getChannelData(1) : inL;
+        const outL = output.getChannelData(0);
+        const outR = output.numberOfChannels > 1 ? output.getChannelData(1) : outL;
+        for (let i = 0; i < outL.length; i++) {
+            let outSampleL = 0;
+            let outSampleR = 0;
+            if (state.playing) {
+                outSampleL = state.buffers[state.readBuf][0][state.readIndex];
+                outSampleR = state.buffers[state.readBuf][1][state.readIndex];
+                state.readIndex -= 1;
+                if (state.readIndex < 0) {
+                    state.playing = false;
+                }
+            }
+            const fb = node._feedback || 0;
+            state.buffers[state.writeBuf][0][state.writeIndex] = inL[i] + outSampleL * fb;
+            state.buffers[state.writeBuf][1][state.writeIndex] = inR[i] + outSampleR * fb;
+            outL[i] = outSampleL;
+            outR[i] = outSampleR;
+            state.writeIndex += 1;
+            if (state.writeIndex >= state.delaySamples) {
+                state.writeIndex = 0;
+                state.readIndex = state.delaySamples - 1;
+                state.readBuf = state.writeBuf;
+                state.writeBuf = state.writeBuf === 0 ? 1 : 0;
+                state.playing = true;
+            }
+        }
+    };
+    return node;
+}
+
+function buildWavetables(ctx) {
+    const wts = {};
+    const harmonics = 128; // Increased from 32 for better bass definition
+    const makeWave = (real, imag) => ctx.createPeriodicWave(real, imag, { disableNormalization: false });
+
+    const sawReal = new Float32Array(harmonics + 1);
+    const sawImag = new Float32Array(harmonics + 1);
+    for (let n = 1; n <= harmonics; n++) {
+        sawImag[n] = 1 / n;
+    }
+    wts.Saw = makeWave(sawReal, sawImag);
+
+    const squareReal = new Float32Array(harmonics + 1);
+    const squareImag = new Float32Array(harmonics + 1);
+    for (let n = 1; n <= harmonics; n += 2) {
+        squareImag[n] = 1 / n;
+    }
+    wts.Square = makeWave(squareReal, squareImag);
+
+    const triReal = new Float32Array(harmonics + 1);
+    const triImag = new Float32Array(harmonics + 1);
+    for (let n = 1; n <= harmonics; n += 2) {
+        const sign = ((n - 1) / 2) % 2 === 0 ? 1 : -1;
+        triImag[n] = sign * (1 / (n * n));
+    }
+    wts.Triangle = makeWave(triReal, triImag);
+
+    const pwmReal = new Float32Array(harmonics + 1);
+    const pwmImag = new Float32Array(harmonics + 1);
+    const pw = 0.25;
+    for (let n = 1; n <= harmonics; n++) {
+        pwmImag[n] = (2 / (n * Math.PI)) * Math.sin(n * Math.PI * pw);
+    }
+    wts.PWM = makeWave(pwmReal, pwmImag);
+
+    const formReal = new Float32Array(harmonics + 1);
+    const formImag = new Float32Array(harmonics + 1);
+    formImag[1] = 0.6;
+    formImag[2] = 0.25;
+    formImag[3] = 1.0;
+    formImag[4] = 0.15;
+    formImag[5] = 0.8;
+    formImag[6] = 0.12;
+    formImag[7] = 0.6;
+    formImag[8] = 0.08;
+    wts.Formant = makeWave(formReal, formImag);
+
+    return wts;
+}
+
+function ensureOutputWrapper() {
+    if (state.midi.outputWrapper) return;
+    state.midi.outputWrapper = {
+        send: data => {
+            if (state.midi.hardwareOutput) state.midi.hardwareOutput.send(data);
+            if (state.audio.enabled) handleInternalMidi(data);
+        }
+    };
+}
+
+function updateMidiStatusBase() {
+    if (!els.midiStatus) return;
+    if (state.audio.enabled) {
+        els.midiStatus.innerText = state.midi.hardwareOutput ? 'AUDIO+MIDI READY' : 'AUDIO READY';
+        return;
+    }
+    if (state.midi.hardwareOutput) {
+        els.midiStatus.innerText = 'MIDI OUT READY';
+    } else if (state.midi.access) {
+        els.midiStatus.innerText = 'NESSUN MIDI OUT';
+    } else {
+        els.midiStatus.innerText = 'MIDI NON DISPONIBILE';
+    }
+}
+
+function updateActiveOutput() {
+    ensureOutputWrapper();
+    state.midi.output = state.audio.enabled ? state.midi.outputWrapper : state.midi.hardwareOutput;
+    updateMidiStatusBase();
+}
+
+function setAudioEnabled(isEnabled) {
+    state.audio.enabled = isEnabled;
+    if (isEnabled) initAudioContext();
+    else stopAllVoicesInternal();
+    updateActiveOutput();
+    updateAudioStatus();
+    
+}
+
+function getChannelPbSemis(chan) {
+    const pbRange = parseInt(els.pbRange.value, 10) || 12;
+    const pbValue = state.audio.channelPb.get(chan) ?? 8192;
+    return ((pbValue - 8192) / 8192) * pbRange;
+}
+
+function findBestSample(note) {
+    let best = null;
+    let bestDist = Infinity;
+    state.audio.samples.forEach(sample => {
+        if (!sample.buffer) return;
+        const dist = Math.abs(note - sample.root);
+        if (dist < bestDist) {
+            best = sample;
+            bestDist = dist;
+        }
+    });
+    return best;
+}
+
+function stopVoiceInternal(key) {
+    const voice = state.audio.voices.get(key);
+    if (!voice || !state.audio.ctx) return;
+    const now = state.audio.ctx.currentTime;
+    try {
+        voice.gain.gain.cancelScheduledValues(now);
+        voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+        voice.gain.gain.linearRampToValueAtTime(0, now + 0.03);
+        if (voice.source) voice.source.stop(now + 0.05);
+        if (voice.osc) voice.osc.stop(now + 0.05);
+    } catch (err) {
+        // Ignore audio stop errors for already-stopped nodes.
+    }
+    state.audio.voices.delete(key);
+}
+
+function releaseVoiceInternal(key) {
+    const voice = state.audio.voices.get(key);
+    if (!voice || !state.audio.ctx) return;
+    const now = state.audio.ctx.currentTime;
+    const release = Math.max(0, state.audio.fx.release);
+    try {
+        voice.gain.gain.cancelScheduledValues(now);
+        voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+        voice.gain.gain.linearRampToValueAtTime(0, now + release);
+        if (voice.source) voice.source.stop(now + release + 0.05);
+        if (voice.osc) voice.osc.stop(now + release + 0.05);
+    } catch (err) {
+        // Ignore audio stop errors for already-stopped nodes.
+    }
+    state.audio.voices.delete(key);
+}
+
+function stopAllVoicesInternal() {
+    Array.from(state.audio.voices.keys()).forEach(stopVoiceInternal);
+    state.audio.voices.clear();
+}
+
+function noteOnInternal(note, velocity, chan) {
+    if (!state.audio.enabled) return;
+    initAudioContext();
+    if (!state.audio.ctx || !state.audio.master) return;
+    const modeFlags = getWavetableModeFlags();
+    const sample = modeFlags.sampler ? findBestSample(note) : null;
+    const wtEnabled = modeFlags.wt && state.audio.wavetables[state.audio.wavetable.type];
+    if (!sample && !wtEnabled) return;
+    
+    // Fix: Enforce Polyphony Limit for both Sampler and WT
+    enforcePolyphonyLimit(!!sample);
+
+    const source = sample ? state.audio.ctx.createBufferSource() : null;
+    const gain = state.audio.ctx.createGain();
+    const filter = state.audio.ctx.createBiquadFilter();
+    const sampleGain = sample ? state.audio.ctx.createGain() : null;
+    const wtGain = wtEnabled ? state.audio.ctx.createGain() : null;
+    const osc = wtEnabled ? state.audio.ctx.createOscillator() : null;
+    const initVel = Math.max(0.02, velocity / 127);
+    const press = state.audio.channelPress.get(chan) ?? 90;
+    const pressNorm = Math.max(0, Math.min(1, press / 127));
+    const useDynamicVel = state.audio.dynamicVelocity;
+    const velNorm = useDynamicVel ? Math.max(initVel, pressNorm) : initVel;
+    const pressGain = useDynamicVel ? 1 : (0.2 + pressNorm * 0.8);
+    const pbSemis = getChannelPbSemis(chan);
+    if (sample && source) {
+        source.buffer = sample.buffer;
+        source.loop = !!sample.loop || !!state.audio.loopGlobal;
+        source.playbackRate.value = Math.pow(2, (note - sample.root + pbSemis) / 12);
+    }
+    const fx = state.audio.fx;
+    const now = state.audio.ctx.currentTime;
+    const peak = velNorm * pressGain;
+    const sustain = Math.max(0, Math.min(1, fx.sustain));
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(peak, now + fx.attack);
+    gain.gain.linearRampToValueAtTime(peak * sustain, now + fx.attack + fx.decay);
+    filter.type = 'lowpass';
+    filter.Q.value = fx.filterQ;
+    const filterActive = state.audio.fxEnabled && fx.filterOn;
+    const cutoff = filterActive ? Math.max(60, Math.min(20000, fx.filterCutoff)) : 20000;
+    const envAmt = filterActive ? Math.max(0, fx.filterEnv) : 0;
+    const envTarget = Math.min(20000, cutoff * (1 + envAmt));
+    filter.frequency.cancelScheduledValues(now);
+    filter.frequency.setValueAtTime(cutoff, now);
+    filter.frequency.linearRampToValueAtTime(envTarget, now + fx.attack);
+    filter.frequency.linearRampToValueAtTime(cutoff, now + fx.attack + fx.decay);
+    if (sample && sampleGain) {
+        const gainValue = Math.max(0, Math.min(5, state.audio.samplerGain * (sample.gain ?? 1)));
+        sampleGain.gain.value = gainValue;
+        source.connect(sampleGain);
+        sampleGain.connect(filter);
+    }
+    if (osc && wtGain) {
+        osc.setPeriodicWave(state.audio.wavetables[state.audio.wavetable.type]);
+        osc.frequency.value = midiToFreq(note + pbSemis);
+        wtGain.gain.value = state.audio.wavetable.mix;
+        osc.connect(wtGain);
+        wtGain.connect(filter);
+    }
+    filter.connect(gain);
+    gain.connect(state.audio.dryGain);
+    gain.connect(state.audio.fxSend);
+    const key = `${chan}:${note}`;
+    stopVoiceInternal(key);
+    if (sample) {
+        let offset = 0;
+        if (state.audio.loopVariation > 0 && sample.buffer && sample.buffer.duration) {
+            offset = Math.random() * (sample.buffer.duration * state.audio.loopVariation);
+        }
+        source.start(0, offset);
+    }
+    if (osc) osc.start();
+    const voice = { source: sample ? source : null, gain, filter, sampleGain, sampleGainValue: sample ? (sample.gain ?? 1) : null, wtGain, osc, note, chan, sampleRoot: sample ? sample.root : null, baseGain: initVel, initVelocity: initVel, startTime: state.audio.ctx.currentTime };
+    state.audio.voices.set(key, voice);
+    if (source) {
+        source.onended = () => {
+            try {
+                if (osc) osc.stop();
+            } catch (err) {
+                // Ignore stop errors for already-stopped oscillators.
+            }
+            // CRITICAL FIX: Only delete if THIS voice is still the active one for this key.
+            // Avoids deleting a newer voice (Voice B) when an older overlapping voice (Voice A) ends.
+            if (state.audio.voices.get(key) === voice) {
+                state.audio.voices.delete(key);
+            }
+        };
+    }
+}
+
+function noteOffInternal(note, chan) {
+    releaseVoiceInternal(`${chan}:${note}`);
+}
+
+function updateChannelPitch(chan) {
+    if (!state.audio.ctx) return;
+    const pbSemis = getChannelPbSemis(chan);
+    state.audio.voices.forEach(v => {
+        if (v.chan !== chan) return;
+        if (v.source && v.sampleRoot != null) {
+            const rate = Math.pow(2, (v.note - v.sampleRoot + pbSemis) / 12);
+            v.source.playbackRate.setValueAtTime(rate, state.audio.ctx.currentTime);
+        }
+        if (v.osc) {
+            v.osc.frequency.setTargetAtTime(midiToFreq(v.note + pbSemis), state.audio.ctx.currentTime, 0.01);
+        }
+    });
+}
+
+function updateChannelPress(chan) {
+    if (!state.audio.ctx) return;
+    const press = state.audio.channelPress.get(chan) ?? 90;
+    const pressNorm = Math.max(0, Math.min(1, press / 127));
+    const useDynamicVel = state.audio.dynamicVelocity;
+    const pressGain = useDynamicVel ? 1 : (0.2 + pressNorm * 0.8);
+    state.audio.voices.forEach(v => {
+        if (v.chan !== chan) return;
+        const sustain = Math.max(0, Math.min(1, state.audio.fx.sustain));
+        // FIX: In dynamic mode, volume must follow pressure exactly (allowing silence), 
+        // passing through initVelocity would prevent fading to 0.
+        const baseVel = useDynamicVel ? pressNorm : (v.baseGain ?? 0.02);
+        // FIX: Allow silence (0) instead of clamping to 0.01
+        const nextGain = Math.max(0, baseVel * pressGain * sustain);
+        v.gain.gain.setTargetAtTime(nextGain, state.audio.ctx.currentTime, 0.02);
+    });
+}
+
+function handleInternalMidi(data) {
+    if (!state.audio.enabled) return;
+    const status = data[0] & 0xF0;
+    const chan = (data[0] & 0x0F) + 1;
+    if (status === 0x90) {
+        const note = data[1];
+        const vel = data[2];
+        if (vel === 0) noteOffInternal(note, chan);
+        else noteOnInternal(note, vel, chan);
+        return;
+    }
+    if (status === 0x80) {
+        noteOffInternal(data[1], chan);
+        return;
+    }
+    if (status === 0xE0) {
+        const pbValue = data[1] | (data[2] << 7);
+        state.audio.channelPb.set(chan, pbValue);
+        updateChannelPitch(chan);
+        return;
+    }
+    if (status === 0xD0) {
+        const press = data[1];
+        state.audio.channelPress.set(chan, press);
+        updateChannelPress(chan);
+        return;
+    }
+    if (status === 0xB0 && (data[1] === 120 || data[1] === 123)) {
+        stopAllVoicesInternal();
+    }
+}
+
+function refreshSampleSetSelect(activeName) {
+    if (!els.sampleSetSelect) return;
+    const sets = getSampleSetsState();
+    ensureSampleSet('Default', sets);
+    saveSampleSetsState(sets);
+    clearChildren(els.sampleSetSelect);
+    sets.names.forEach(name => appendOption(els.sampleSetSelect, name, name));
+    const selected = activeName && sets.names.includes(activeName) ? activeName : sets.names[0];
+    els.sampleSetSelect.value = selected;
+}
+
+async function loadSampleSet(name) {
+    const setName = name.trim() || 'Default';
+    setActiveSampleSetName(setName);
+    refreshSampleSetSelect(setName);
+    if (els.sampleSetName) els.sampleSetName.value = setName;
+    stopAllVoicesInternal();
+    const roots = loadSampleRootsForSet(setName);
+    loadFxForSet(setName);
+    state.audio.samples.forEach((sample, idx) => {
+        sample.buffer = null;
+        sample.name = '';
+        sample.data = null;
+        const root = roots[idx] ?? DEFAULT_SAMPLE_ROOTS[idx] ?? 60;
+        sample.root = root;
+        if (sampleRootEls[idx]) sampleRootEls[idx].value = midiToNoteName(root);
+        const gains = loadSampleGainsForSet(setName);
+        const gain = gains[idx] ?? DEFAULT_SAMPLE_GAINS[idx] ?? 1;
+        sample.gain = gain;
+        if (sampleGainEls[idx]) sampleGainEls[idx].value = gain.toFixed(2);
+        updateSampleName(idx);
+    });
+    state.audio.samplerGain = loadSamplerGainForSet(setName);
+    if (els.samplerGain) els.samplerGain.value = state.audio.samplerGain.toFixed(2);
+    if (sampleFileEls) sampleFileEls.forEach(input => { if (input) input.value = ''; });
+    await loadSavedSamples(setName);
+    updateAudioStatus();
+}
+
+async function saveSampleSet(name) {
+    const setName = name.trim() || 'Default';
+    const sets = getSampleSetsState();
+    ensureSampleSet(setName, sets);
+    saveSampleSetsState(sets);
+    setActiveSampleSetName(setName);
+    refreshSampleSetSelect(setName);
+    saveSampleRootsForSet(setName);
+    saveSampleGainsForSet(setName);
+    saveSamplerGainForSet(setName);
+    saveFxForSet(setName);
+    for (let i = 0; i < state.audio.samples.length; i++) {
+        const sample = state.audio.samples[i];
+        if (sample && sample.data) {
+            await saveSampleToDB(i, {
+                name: sample.name,
+                root: sample.root,
+                data: sample.data
+            }, setName);
+        } else {
+            await deleteSampleFromDB(i, setName);
+        }
+    }
+    updateAudioStatus();
+    
+}
+
+async function deleteSampleSet(name) {
+    const setName = name.trim() || 'Default';
+    if (setName === 'Default') return;
+    const sets = getSampleSetsState();
+    sets.names = sets.names.filter(n => n !== setName);
+    delete sets.rootsBySet[setName];
+    delete sets.fxBySet[setName];
+    delete sets.gainsBySet[setName];
+    delete sets.samplerGainBySet[setName];
+    saveSampleSetsState(sets);
+    try {
+        const db = await openSampleDB();
+        const tx = db.transaction(SAMPLE_DB_STORE, 'readwrite');
+        const store = tx.objectStore(SAMPLE_DB_STORE);
+        const request = store.getAll();
+        const entries = await new Promise(resolve => {
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = () => resolve([]);
+        });
+        entries.forEach(entry => {
+            if (entry && entry.set === setName) store.delete(entry.key);
+        });
+    } catch (err) {
+        
+    }
+    const next = sets.names[0] || 'Default';
+    await loadSampleSet(next);
+    
+}
+
+async function loadSampleFromFile(slotIndex, file) {
+    initAudioContext();
+    if (!state.audio.ctx) return;
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = await state.audio.ctx.decodeAudioData(arrayBuffer.slice(0));
+    state.audio.samples[slotIndex].buffer = buffer;
+    state.audio.samples[slotIndex].name = file.name;
+    state.audio.samples[slotIndex].data = arrayBuffer;
+    saveSampleToDB(slotIndex, {
+        name: file.name,
+        root: state.audio.samples[slotIndex].root,
+        data: arrayBuffer
+    });
+    updateAudioStatus();
+    updateSampleName(slotIndex);
+    
+}
+
+function clearSampleSlot(slotIndex) {
+    state.audio.samples[slotIndex].buffer = null;
+    state.audio.samples[slotIndex].name = '';
+    state.audio.samples[slotIndex].data = null;
+    stopAllVoicesInternal();
+    deleteSampleFromDB(slotIndex);
+    updateAudioStatus();
+    updateSampleName(slotIndex);
+    
+}
 state.arp = {
     enabled: false,
     rate: '1/16',
@@ -879,6 +2628,7 @@ function getPresetState() {
         smoothAmt: els.smoothAmt.value,
         curveType: els.curveType.value,
         yDeadzone: els.yDeadzone.value,
+        touchSensitivity: els.touchSensitivity ? els.touchSensitivity.value : 75,
         quantizeRelease: els.quantizeRelease.checked,
         holdNotes: els.holdNotes.checked,
         pbRange: els.pbRange.value,
@@ -938,7 +2688,8 @@ function applyPresetState(presetState) {
     if (state.midi.access) {
         if (presetState.midiOutId && state.midi.access.outputs.has(presetState.midiOutId)) {
             els.midiOutSelect.value = presetState.midiOutId;
-            state.midi.output = state.midi.access.outputs.get(presetState.midiOutId);
+            state.midi.hardwareOutput = state.midi.access.outputs.get(presetState.midiOutId);
+            updateActiveOutput();
         }
         if (presetState.midiInId && state.midi.access.inputs.has(presetState.midiInId)) {
             els.midiInSelect.value = presetState.midiInId;
@@ -952,6 +2703,7 @@ function applyPresetState(presetState) {
     els.smoothAmt.value = presetState.smoothAmt ?? els.smoothAmt.value;
     els.curveType.value = presetState.curveType ?? els.curveType.value;
     els.yDeadzone.value = presetState.yDeadzone ?? els.yDeadzone.value;
+    if (els.touchSensitivity) els.touchSensitivity.value = presetState.touchSensitivity ?? 75;
     els.quantizeRelease.checked = presetState.quantizeRelease ?? els.quantizeRelease.checked;
     els.holdNotes.checked = presetState.holdNotes;
     updateHoldButtonUI();
@@ -1053,6 +2805,7 @@ function getMpePresetState() {
         smoothAmt: els.smoothAmt.value,
         curveType: els.curveType.value,
         yDeadzone: els.yDeadzone.value,
+        touchSensitivity: els.touchSensitivity ? els.touchSensitivity.value : 75,
         quantizeRelease: els.quantizeRelease.checked
     };
 }
@@ -1068,6 +2821,7 @@ function applyMpePresetState(mpePresetState) {
     els.smoothAmt.value = mpePresetState.smoothAmt ?? els.smoothAmt.value;
     els.curveType.value = mpePresetState.curveType ?? els.curveType.value;
     els.yDeadzone.value = mpePresetState.yDeadzone ?? els.yDeadzone.value;
+    if (els.touchSensitivity) els.touchSensitivity.value = mpePresetState.touchSensitivity ?? 75;
     els.quantizeRelease.checked = mpePresetState.quantizeRelease ?? els.quantizeRelease.checked;
     setPitchBendRange(parseInt(els.pbRange.value, 10));
 }
@@ -1152,6 +2906,19 @@ function updateHoldButtonUI() {
     els.holdBtn.classList.toggle('active', isOn);
     els.holdBtn.classList.toggle('toggle-on', isOn);
     els.holdBtn.classList.toggle('toggle-off', !isOn);
+}
+
+function updateLoopKnobUI() {
+    const isOn = !!state.audio.loopGlobal;
+    const variation = state.audio.loopVariation || 0;
+    const wheel = els.loopWheel;
+    if (wheel) {
+        wheel.classList.toggle('loop-active', isOn);
+        wheel.classList.toggle('knob-on', variation > 0);
+        wheel.innerText = isOn ? (variation > 0 ? `Var ${Math.round(variation * 100)}%` : 'LOOP') : 'OFF';
+        wheel.style.borderColor = isOn ? 'var(--green)' : 'var(--red)';
+        wheel.style.color = isOn ? '#fff' : '#888';
+    }
 }
 
 function updateArpParamsToggleLabel() {
@@ -1271,12 +3038,14 @@ function setupMIDI() {
             
             clearChildren(els.midiOutSelect);
             outputs.forEach(o => appendOption(els.midiOutSelect, o.id, o.name || o.id || 'MIDI OUT'));
-            state.midi.output = outputs[0] || null;
+            state.midi.hardwareOutput = outputs[0] || null;
+            updateActiveOutput();
             els.midiOutSelect.onchange = () => {
-                state.midi.output = access.outputs.get(els.midiOutSelect.value);
+                state.midi.hardwareOutput = access.outputs.get(els.midiOutSelect.value);
+                updateActiveOutput();
                 setPitchBendRange(parseInt(els.pbRange.value, 10));
             };
-            els.midiStatus.innerText = state.midi.output ? 'MIDI OUT READY' : 'NESSUN MIDI OUT';
+            updateMidiStatusBase();
             setPitchBendRange(parseInt(els.pbRange.value, 10));
 
             clearChildren(els.midiInSelect);
@@ -1295,9 +3064,12 @@ function setupMIDI() {
                 els.midiStatus.innerText = state.midi.input ? 'MIDI IN READY' : 'NESSUN MIDI IN';
             };
         }).catch(() => {
-            els.midiStatus.innerText = 'MIDI NON DISPONIBILE';
+            updateMidiStatusBase();
         });
+    } else {
+        updateMidiStatusBase();
     }
+    
 }
 
 // GESTIONE NOTE DA CONTROLLER ESTERNO
@@ -1684,7 +3456,8 @@ function getMPEData(e, voice = null, forceSnap = false) {
     slideNorm = applyCurve(slideNorm);
     const slide = Math.floor(slideNorm * 127);
     const useYForVelocity = els.linkPressToY.checked && els.linkYToVelocity.checked;
-    let pressNorm = useYForVelocity ? slideNorm : Math.min(((e.width + e.height) / 75), 1.0);
+    const sens = parseInt(els.touchSensitivity ? els.touchSensitivity.value : 75, 10) || 75;
+    let pressNorm = useYForVelocity ? slideNorm : Math.min(((e.width + e.height) / sens), 1.0);
     pressNorm = applyCurve(pressNorm);
     const press = Math.floor(pressNorm * 127);
     return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: finalExact };
@@ -2392,6 +4165,7 @@ function updateHeldChords() {
 canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
     requestDraw();
+    if (state.audio.enabled) resumeAudioContext().then(updateAudioStatus);
     const uiRect = els.ui.getBoundingClientRect();
     const inUi = els.ui.contains(e.target);
     if (!state.midi.output || (els.ui.classList.contains('active') && e.clientY < (uiRect.height + 5)) || inUi) {
@@ -2416,7 +4190,7 @@ canvas.addEventListener('pointerdown', e => {
         const groupId = hv.group || 0;
         const grabbed = [hv];
         state.heldVoices = state.heldVoices.filter(v => !grabbed.includes(v));
-        const tmpVoice = { initialExact: hv.note, lastX: e.clientX, vibratoSpeed: 0 };
+        const tmpVoice = { initialExact: hv.rootNote ?? hv.note, lastX: e.clientX, vibratoSpeed: 0 };
         const m = getMPEData(e, tmpVoice);
         grabbed.forEach(gv => {
             const pb = getVoicePb(m, gv);
@@ -2567,9 +4341,14 @@ canvas.addEventListener('pointerdown', e => {
         if(chan) {
             const voice = makeVoiceFromNote(chordNotes[i]);
             const pb = getVoicePb(m, voice);
-            const vel = Math.max(1, Math.min(127, Math.round(m.press || 90)));
+            // FIX: Usa ?? 90 invece di || 90 per permettere velocity/pressure pari a 0
+            const rawPress = m.press ?? 90;
+            const vel = Math.max(1, Math.min(127, Math.round(rawPress)));
+            
             sendMidi([0xB0 + chan - 1, 74, m.slide]);
             sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+            // FIX: Invia Channel Pressure PRIMA del NoteOn per inizializzare correttamente il volume del synth interno
+            sendMidi([0xD0 + chan - 1, rawPress]);
             sendMidi([0x90 + chan - 1, voice.note, vel]);
             markLocalNoteOn(voice.note);
             voices.push({ chan, note: voice.note, basePb: voice.basePb });
@@ -2755,6 +4534,9 @@ canvas.addEventListener('pointerup', e => {
         state.activeTouches.delete(e.pointerId);
         cleanupGroupDrag(groupKey);
     }
+    if (state.audio.enabled && state.audio.wavetable.mode !== 'sampler' && state.activeTouches.size === 0 && !els.holdNotes.checked) {
+        stopAllVoicesInternal();
+    }
 });
 
 function cancelActivePointer(pointerId) {
@@ -2780,6 +4562,9 @@ function cancelActivePointer(pointerId) {
     state.mpeChannels.sort((a,b)=>a-b);
     state.activeTouches.delete(pointerId);
     cleanupGroupDrag(groupKey);
+    if (state.audio.enabled && state.audio.wavetable.mode !== 'sampler' && state.activeTouches.size === 0 && !els.holdNotes.checked) {
+        stopAllVoicesInternal();
+    }
 }
 
 canvas.addEventListener('pointercancel', e => cancelActivePointer(e.pointerId));
@@ -2974,6 +4759,96 @@ function setupArpKnob() {
         wheel.classList.toggle('knob-off', !els.arpEnabled.checked);
     });
     updateArpControlsUI();
+}
+
+function setupLoopKnob() {
+    const wheel = els.loopWheel;
+    if (!wheel) return;
+    let lastAngle = null;
+    let angleAccum = 0;
+    let didRotate = false;
+    const stepAngle = 15; // More sensitive for percentage
+    const stepVal = 0.05; // 5% per step
+
+    function toggleLoop() {
+        state.audio.loopGlobal = !state.audio.loopGlobal;
+        if (state.audio.loopGlobal && state.audio.loopVariation === undefined) {
+            state.audio.loopVariation = 0;
+        }
+        updateLoopKnobUI();
+        state.audio.voices.forEach(v => {
+            if (v.source) {
+                let baseLoop = false;
+                if (v.sampleRoot != null) {
+                    const s = state.audio.samples.find(s => s.root === v.sampleRoot);
+                    if (s) baseLoop = !!s.loop;
+                }
+                v.source.loop = baseLoop || state.audio.loopGlobal;
+            }
+        });
+    }
+
+    function stepBy(delta) {
+        if (!state.audio.loopGlobal) return;
+        let val = state.audio.loopVariation || 0;
+        val = Math.max(0, Math.min(1, val + (delta * stepVal)));
+        state.audio.loopVariation = val;
+        didRotate = true;
+        updateLoopKnobUI();
+    }
+
+    function angleFromEvent(e) {
+        const rect = wheel.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        return Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+    }
+
+    wheel.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        requestDraw();
+        wheel.setPointerCapture(e.pointerId);
+        lastAngle = angleFromEvent(e);
+        angleAccum = 0;
+        didRotate = false;
+        wheel.classList.add('active');
+    });
+
+    wheel.addEventListener('pointermove', e => {
+        if (lastAngle == null) return;
+        requestDraw();
+        const ang = angleFromEvent(e);
+        let delta = ang - lastAngle;
+        if (delta > 180) delta -= 360;
+        if (delta < -180) delta += 360;
+        angleAccum += delta;
+        lastAngle = ang;
+        // Logic: if loop is OFF, ignore drag or use it to turn ON? 
+        // Better: require logic that scrolling makes sense only if enabled or implicitly enables.
+        // Let's say drag DOES nothing if off, forcing click first? 
+        // Or drag enables it implicitly? The user said "Click: Toggle".
+        if (state.audio.loopGlobal) {
+            while (angleAccum >= stepAngle) {
+                stepBy(1);
+                angleAccum -= stepAngle;
+            }
+            while (angleAccum <= -stepAngle) {
+                stepBy(-1);
+                angleAccum += stepAngle;
+            }
+        }
+    });
+
+    wheel.addEventListener('pointerup', e => {
+        wheel.releasePointerCapture(e.pointerId);
+        lastAngle = null;
+        angleAccum = 0;
+        if (!didRotate) toggleLoop();
+        wheel.classList.remove('active');
+        requestDraw();
+    });
+
+    updateLoopKnobUI();
 }
 
 function findHeldVoiceAt(x, y) {
@@ -3300,11 +5175,265 @@ function bindUI() {
             scheduleScaleUpdate();
         };
     });
+    if (els.audioStart) {
+        els.audioStart.onclick = () => {
+            if (state.audio.enabled) {
+                setAudioEnabled(false);
+                
+                return;
+            }
+            setAudioEnabled(true);
+            resumeAudioContext().then(() => {
+                updateAudioStatus();
+                
+            });
+        };
+    }
+    if (els.sampleSetSelect) {
+        refreshSampleSetSelect(state.audio.activeSet);
+        els.sampleSetSelect.onchange = () => loadSampleSet(els.sampleSetSelect.value);
+    }
+    if (els.sampleSetName) {
+        els.sampleSetName.value = state.audio.activeSet;
+    }
+    if (els.sampleSetSave) {
+        els.sampleSetSave.onclick = () => {
+            const name = (els.sampleSetName && els.sampleSetName.value) || els.sampleSetSelect.value || 'Default';
+            saveSampleSet(name);
+        };
+    }
+    if (els.sampleSetDel) {
+        els.sampleSetDel.onclick = () => {
+            const name = (els.sampleSetName && els.sampleSetName.value) || els.sampleSetSelect.value || 'Default';
+            deleteSampleSet(name);
+        };
+    }
+    if (els.fxToggle && els.fxPanel) {
+        els.fxToggle.onclick = () => {
+            if (!state.audio.fxEnabled) {
+                setFxEnabled(true);
+                setFxGroup(state.audio.fxActiveGroup || 'filter');
+                return;
+            }
+            setFxEnabled(false);
+        };
+    }
+    if (els.fxClose && els.fxPanel) {
+        els.fxClose.onclick = () => els.fxPanel.classList.add('hidden');
+        els.fxPanel.onclick = e => {
+            if (e.target === els.fxPanel) els.fxPanel.classList.add('hidden');
+        };
+    }
+    if (els.fxPresetSelect || els.fxPresetQuick) {
+        refreshFxPresetSelects();
+    }
+    if (els.fxPresetApply) {
+        els.fxPresetApply.onclick = () => {
+            const name = els.fxPresetSelect ? els.fxPresetSelect.value : 'Init';
+            applyFxPreset(name);
+        };
+    }
+    if (els.fxPresetQuick) {
+        els.fxPresetQuick.onchange = () => applyFxPreset(els.fxPresetQuick.value);
+    }
+    if (els.wtMode) {
+        clearChildren(els.wtMode);
+        appendOption(els.wtMode, 'sampler', 'Sampler only');
+        appendOption(els.wtMode, 'wt', 'WT only');
+        appendOption(els.wtMode, 'layer', 'Layer');
+        els.wtMode.value = state.audio.wavetable.mode;
+        els.wtMode.onchange = () => {
+            state.audio.wavetable.mode = els.wtMode.value;
+            updateWavetableUI();
+        };
+    }
+    if (els.wtSelect) {
+        clearChildren(els.wtSelect);
+        Object.keys(WAVETABLES).forEach(name => appendOption(els.wtSelect, name, name));
+        els.wtSelect.value = state.audio.wavetable.type;
+        els.wtSelect.onchange = () => {
+            state.audio.wavetable.type = els.wtSelect.value;
+            updateWavetableUI();
+        };
+    }
+    if (els.wtMix) {
+        els.wtMix.oninput = () => {
+            state.audio.wavetable.mix = Math.max(0, Math.min(1, parseFloat(els.wtMix.value) || 0));
+            updateWavetableMix();
+        };
+    }
+    if (els.fxFilterToggle) {
+        els.fxFilterToggle.onclick = () => {
+            state.audio.fx.filterOn = !state.audio.fx.filterOn;
+            setFxGroup('filter');
+            updateFxNodes();
+        };
+    }
+    if (els.fxFilterToggleGroup) {
+        els.fxFilterToggleGroup.onclick = () => {
+            state.audio.fx.filterOn = !state.audio.fx.filterOn;
+            setFxGroup('filter');
+            updateFxNodes();
+        };
+    }
+    if (els.fxChorusToggle) {
+        els.fxChorusToggle.onclick = () => {
+            state.audio.fx.chorusOn = !state.audio.fx.chorusOn;
+            setFxGroup('chorus');
+            updateFxNodes();
+        };
+    }
+    if (els.fxChorusToggleGroup) {
+        els.fxChorusToggleGroup.onclick = () => {
+            state.audio.fx.chorusOn = !state.audio.fx.chorusOn;
+            setFxGroup('chorus');
+            updateFxNodes();
+        };
+    }
+    if (els.fxDelayToggle) {
+        els.fxDelayToggle.onclick = () => {
+            state.audio.fx.delayOn = !state.audio.fx.delayOn;
+            setFxGroup('delay');
+            updateFxNodes();
+        };
+    }
+    if (els.fxDelayToggleGroup) {
+        els.fxDelayToggleGroup.onclick = () => {
+            state.audio.fx.delayOn = !state.audio.fx.delayOn;
+            setFxGroup('delay');
+            updateFxNodes();
+        };
+    }
+    if (els.fxReverbToggle) {
+        els.fxReverbToggle.onclick = () => {
+            state.audio.fx.reverbOn = !state.audio.fx.reverbOn;
+            setFxGroup('reverb');
+            updateFxNodes();
+        };
+    }
+    if (els.fxReverbToggleGroup) {
+        els.fxReverbToggleGroup.onclick = () => {
+            state.audio.fx.reverbOn = !state.audio.fx.reverbOn;
+            setFxGroup('reverb');
+            updateFxNodes();
+        };
+    }
+    const fxInputs = [
+        els.fxAttack, els.fxDecay, els.fxSustain, els.fxRelease,
+        els.fxCutoff, els.fxResonance, els.fxFilterEnv,
+        els.fxChorusRate, els.fxChorusDepth,
+        els.fxDelayTime, els.fxDelayFeedback, els.fxDelayDry, els.fxDelayWet, els.fxDelayReverse,
+        els.fxReverbDecay, els.fxReverbDry, els.fxReverbWet, els.fxMix
+    ];
+    fxInputs.forEach(input => {
+        if (!input) return;
+        input.oninput = () => {
+            readFxFromUI();
+            updateFxNodes();
+            rebuildReverbImpulse();
+            updateFxValueDisplays();
+        };
+        input.onchange = input.oninput;
+    });
+    sampleRootEls.forEach((input, idx) => {
+        if (!input) return;
+        const storedRoot = state.audio.samples[idx]?.root ?? DEFAULT_SAMPLE_ROOTS[idx] ?? 60;
+        const value = Math.max(0, Math.min(127, parseInt(storedRoot, 10) || DEFAULT_SAMPLE_ROOTS[idx] || 60));
+        input.value = midiToNoteName(value);
+        if (state.audio.samples[idx]) state.audio.samples[idx].root = value;
+        input.onchange = () => {
+            const parsed = parseNoteName(input.value);
+            const fallback = state.audio.samples[idx]?.root ?? value;
+            const next = parsed != null ? parsed : fallback;
+            input.value = midiToNoteName(next);
+            if (state.audio.samples[idx]) state.audio.samples[idx].root = next;
+            saveSampleRootsForSet(state.audio.activeSet);
+        };
+    });
+    sampleLoopEls.forEach((input, idx) => {
+        if (!input) return;
+        input.onchange = () => {
+             if (state.audio.samples[idx]) {
+                 state.audio.samples[idx].loop = input.checked;
+                 saveSampleLoopsForSet(state.audio.activeSet);
+             }
+        };
+    });
+    sampleGainEls.forEach((input, idx) => {
+        if (!input) return;
+        const storedGain = state.audio.samples[idx]?.gain ?? DEFAULT_SAMPLE_GAINS[idx] ?? 1;
+        const value = Math.max(0, Math.min(5, parseFloat(storedGain) || 1));
+        input.value = value.toFixed(2);
+        if (state.audio.samples[idx]) state.audio.samples[idx].gain = value;
+        input.onchange = () => {
+            const next = Math.max(0, Math.min(5, parseFloat(input.value) || 0));
+            input.value = next.toFixed(2);
+            if (state.audio.samples[idx]) state.audio.samples[idx].gain = next;
+            saveSampleGainsForSet(state.audio.activeSet);
+            updateSamplerGainNodes();
+        };
+    });
+    if (els.samplerGain) {
+        els.samplerGain.value = state.audio.samplerGain.toFixed(2);
+        els.samplerGain.oninput = () => {
+            state.audio.samplerGain = Math.max(0, Math.min(5, parseFloat(els.samplerGain.value) || 0));
+            saveSamplerGainForSet(state.audio.activeSet);
+            updateSamplerGainNodes();
+        };
+    }
+    if (els.samplerMaxVoices) {
+        els.samplerMaxVoices.value = Math.max(1, Math.min(64, state.audio.maxSamplerVoices || 24));
+        els.samplerMaxVoices.onchange = () => {
+            const next = Math.max(1, Math.min(64, parseInt(els.samplerMaxVoices.value, 10) || 24));
+            els.samplerMaxVoices.value = next;
+            state.audio.maxSamplerVoices = next;
+        };
+    }
+    sampleFileEls.forEach((input, idx) => {
+        if (!input) return;
+        input.onchange = async e => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            await loadSampleFromFile(idx, file);
+            if (!state.audio.enabled) setAudioEnabled(true);
+        };
+    });
+    sampleClearEls.forEach((btn, idx) => {
+        if (!btn) return;
+        btn.onclick = () => {
+            if (sampleFileEls[idx]) sampleFileEls[idx].value = '';
+            clearSampleSlot(idx);
+        };
+    });
+    updateAudioStatus();
+    updateAllSampleNames();
+    loadFxForSet(state.audio.activeSet);
+    loadSavedSamples(state.audio.activeSet);
+    updateFxValueDisplays();
+    setFxEnabled(state.audio.fxEnabled);
+    updateWavetableUI();
+
+    function updateMPEVisibility() {
+        if (!els.deadCenter) return;
+        const dc = els.deadCenter.checked;
+        const dcBox = document.getElementById('boxDeadCenterForce');
+        if (dcBox) dcBox.style.display = dc ? 'flex' : 'none';
+
+        if (!els.linkPressToY || !els.linkYToVelocity) return;
+        const areaUnused = els.linkPressToY.checked && els.linkYToVelocity.checked;
+        const sBox = document.getElementById('boxTouchSens');
+        if (sBox) sBox.style.display = areaUnused ? 'none' : 'flex';
+    }
+    if (els.deadCenter) els.deadCenter.addEventListener('change', updateMPEVisibility);
+    if (els.linkPressToY) els.linkPressToY.addEventListener('change', updateMPEVisibility);
+    if (els.linkYToVelocity) els.linkYToVelocity.addEventListener('change', updateMPEVisibility);
+    updateMPEVisibility();
 }
 
 bindUI();
 setupChordKnob();
 setupArpKnob();
+setupLoopKnob();
 
 function scheduleScaleUpdate() {
     if (state.scaleUpdateRaf != null) return;
@@ -3562,7 +5691,7 @@ function updateToggleLabels() {
     const advLabel = els.uiAdvancedToggle?.querySelector('.btn-text');
     if (uiLabel) uiLabel.textContent = els.ui.classList.contains('active') ? 'X' : 'SET';
     if (perfLabel) perfLabel.textContent = els.performance.classList.contains('collapsed') ? 'PLAY' : 'X';
-    if (advLabel) advLabel.textContent = els.ui.classList.contains('show-advanced') ? 'X' : 'ADV';
+    if (advLabel) advLabel.textContent = els.ui.classList.contains('show-advanced') ? 'X' : 'Sampler Set';
 }
 </script>
 </body>
