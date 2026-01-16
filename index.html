@@ -827,10 +827,7 @@
         </div>
     </div>
     <div class="box chord-box" style="flex:0.8">
-        <div class="label show-label">Loop</div>
-        <div class="chord-toggle">
-            <div id="loopWheel" class="chord-wheel loop-knob" title="Click: Toggle Loop | Drag: Variation">OFF</div>
-        </div>
+        <!-- Bow Faders replace this button -->
     </div>
     <div class="box chord-box" style="flex:1.1">
         <div class="label show-label">ARP</div>
@@ -1109,6 +1106,33 @@ const sampleRootEls = [els.sampleRoot1, els.sampleRoot2, els.sampleRoot3, els.sa
 const sampleLoopEls = [els.sampleLoop1, els.sampleLoop2, els.sampleLoop3, els.sampleLoop4, els.sampleLoop5, els.sampleLoop6, els.sampleLoop7];
 const sampleGainEls = [els.sampleGain1, els.sampleGain2, els.sampleGain3, els.sampleGain4, els.sampleGain5, els.sampleGain6, els.sampleGain7];
 const sampleClearEls = [els.sampleClear1, els.sampleClear2, els.sampleClear3, els.sampleClear4, els.sampleClear5, els.sampleClear6, els.sampleClear7];
+
+// Bow button removed
+
+function triggerBow(voiceObj, attackTime = 0.05) {
+    if (!voiceObj || !state.audio.ctx) return;
+    voiceObj.bowFlash = 1.0;
+    const key = `${voiceObj.chan}:${voiceObj.note}`;
+    
+    // Stop existing voice with quick fade
+    const activeVoice = state.audio.voices.get(key);
+    const now = state.audio.ctx.currentTime;
+    if (activeVoice && activeVoice.source) {
+        try {
+            activeVoice.gain.gain.cancelScheduledValues(now);
+            activeVoice.gain.gain.setValueAtTime(activeVoice.gain.gain.value, now);
+            activeVoice.gain.gain.linearRampToValueAtTime(0, now + 0.02); // Faster stop
+            if (activeVoice.source) activeVoice.source.stop(now + 0.03);
+            if (activeVoice.osc) activeVoice.osc.stop(now + 0.03);
+        } catch(e) {}
+        state.audio.voices.delete(key);
+    }
+    
+    const m = voiceObj.lastM || { press: 90 };
+    const press = m.press || 90;
+    // Restart with override
+    noteOnInternal(voiceObj.note, press, voiceObj.chan, attackTime);
+}
 const PRESET_KEY = 'genca_presets_v1';
 const MPE_PRESET_KEY = 'genca_mpe_presets_v1';
 const CUSTOM_SCALE_KEY = 'genca_custom_scales_v1';
@@ -1135,11 +1159,11 @@ const FACTORY_LIBRARY = {
         { root: 0, file: null }, { root: 0, file: null }, { root: 0, file: null }, { root: 0, file: null }
     ],
     'Bassoon': [
-        { root: 34, file: 'samples/BassoonSustain_A#1.wav', loop: true },
-        { root: 46, file: 'samples/BassoonSustain_A#2.wav', loop: true },
+        { root: 34, file: 'samples/BassoonSustain_Ad1.wav', loop: true },
+        { root: 46, file: 'samples/BassoonSustain_Ad2.wav', loop: true },
         { root: 55, file: 'samples/BassoonSustain_G3.wav', loop: true },
-        { root: 68, file: 'samples/BassoonSustain_G#4.wav', loop: true },
-        { root: 75, file: 'samples/BassoonSustain_D#5.wav', loop: true },
+        { root: 68, file: 'samples/BassoonSustain_Gd4.wav', loop: true },
+        { root: 75, file: 'samples/BassoonSustain_Dd5.wav', loop: true },
         { root: 0, file: null }, { root: 0, file: null }
     ],
     'Cello': [
@@ -1338,8 +1362,7 @@ const state = {
         voices: new Map(),
         channelPb: new Map(),
         channelPress: new Map(),
-        loopGlobal: false,
-        loopVariation: 0.0,
+        bowMode: false,
         fx: { ...DEFAULT_FX },
         fxActiveGroup: 'filter',
         fxEnabled: false
@@ -2343,7 +2366,7 @@ function stopAllVoicesInternal() {
     state.audio.voices.clear();
 }
 
-function noteOnInternal(note, velocity, chan) {
+function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
     if (!state.audio.enabled) return;
     initAudioContext();
     if (!state.audio.ctx || !state.audio.master) return;
@@ -2370,17 +2393,22 @@ function noteOnInternal(note, velocity, chan) {
     const pbSemis = getChannelPbSemis(chan);
     if (sample && source) {
         source.buffer = sample.buffer;
-        source.loop = !!sample.loop || !!state.audio.loopGlobal;
+        source.loop = !!sample.loop;
         source.playbackRate.value = Math.pow(2, (note - sample.root + pbSemis) / 12);
     }
     const fx = state.audio.fx;
     const now = state.audio.ctx.currentTime;
     const peak = velNorm * pressGain;
     const sustain = Math.max(0, Math.min(1, fx.sustain));
+    
+    // Attack calculation with override
+    const attackTime = (tempAttackOverride !== null) ? tempAttackOverride : fx.attack;
+
     gain.gain.cancelScheduledValues(now);
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(peak, now + fx.attack);
-    gain.gain.linearRampToValueAtTime(peak * sustain, now + fx.attack + fx.decay);
+    gain.gain.linearRampToValueAtTime(peak, now + attackTime);
+    gain.gain.linearRampToValueAtTime(peak * sustain, now + attackTime + fx.decay);
+
     filter.type = 'lowpass';
     filter.Q.value = fx.filterQ;
     const filterActive = state.audio.fxEnabled && fx.filterOn;
@@ -2389,8 +2417,8 @@ function noteOnInternal(note, velocity, chan) {
     const envTarget = Math.min(20000, cutoff * (1 + envAmt));
     filter.frequency.cancelScheduledValues(now);
     filter.frequency.setValueAtTime(cutoff, now);
-    filter.frequency.linearRampToValueAtTime(envTarget, now + fx.attack);
-    filter.frequency.linearRampToValueAtTime(cutoff, now + fx.attack + fx.decay);
+    filter.frequency.linearRampToValueAtTime(envTarget, now + attackTime);
+    filter.frequency.linearRampToValueAtTime(cutoff, now + attackTime + fx.decay);
     if (sample && sampleGain) {
         const gainValue = Math.max(0, Math.min(5, state.audio.samplerGain * (sample.gain ?? 1)));
         sampleGain.gain.value = gainValue;
@@ -2417,7 +2445,22 @@ function noteOnInternal(note, velocity, chan) {
         source.start(0, offset);
     }
     if (osc) osc.start();
-    const voice = { source: sample ? source : null, gain, filter, sampleGain, sampleGainValue: sample ? (sample.gain ?? 1) : null, wtGain, osc, note, chan, sampleRoot: sample ? sample.root : null, baseGain: initVel, initVelocity: initVel, startTime: state.audio.ctx.currentTime };
+    const voice = { 
+        source: sample ? source : null, 
+        gain, 
+        filter, 
+        sampleGain, 
+        sampleGainValue: sample ? (sample.gain ?? 1) : null, 
+        wtGain, 
+        osc, 
+        note, 
+        chan, 
+        sampleRoot: sample ? sample.root : null, 
+        baseGain: initVel, 
+        initVelocity: initVel, 
+        startTime: state.audio.ctx.currentTime,
+        bufferDuration: (sample && sample.buffer) ? sample.buffer.duration : null 
+    };
     state.audio.voices.set(key, voice);
     if (source) {
         source.onended = () => {
@@ -4311,9 +4354,49 @@ canvas.addEventListener('pointerdown', e => {
     }
     if (tryStartTwoFingerGroupDrag(e)) return;
 
+    // BOW FADER INTERACTION
+    // Check if touch is in bottom 60px of canvas (Only if audio enabled/bow visible)
+    const canvasY = e.clientY - state.canvasRect.top;
+    const canvasH = state.canvasRect.height;
+    if (state.audio.enabled && canvasY > canvasH - 60) {
+        // Collect active notes to check against
+        const targets = [];
+        state.heldVoices.forEach(v => targets.push(v));
+        state.activeTouches.forEach(t => { 
+            if (t.voices) t.voices.forEach(v => targets.push(v)); 
+        });
+
+        const numOct = parseInt(els.visibleOctaves.value, 10);
+        const grid = getGridDegrees();
+        const noteW = state.canvasRect.width / (numOct * grid.stepsPerOct);
+        const touchX = e.clientX - state.canvasRect.left;
+
+        for (const v of targets) {
+            const noteFloat = getVoiceNoteFloat(v);
+            const nx = getNearestNoteX(noteFloat);
+            if (nx != null) {
+                // Check bounds: nx is center. width is noteW.
+                const minX = nx - noteW/2;
+                const maxX = nx + noteW/2;
+                if (touchX >= minX && touchX <= maxX) {
+                    // HIT FADER
+                    const relative = (touchX - minX) / noteW; // 0..1
+                    // INVERTED LOGIC: Left = Slow/Soft (4s), Right = Fast/Intense (0.01s)
+                    const attack = Math.max(0.01, (1.0 - relative) * 4.0); 
+                    triggerBow(v, attack);
+                    return; // Eat event
+                }
+            }
+        }
+    }
+
     const holdHit = findHeldVoiceAt(e.clientX, e.clientY);
     if (holdHit) {
         const hv = state.heldVoices[holdHit.idx];
+        if (state.audio.bowMode) {
+            triggerBow(hv);
+            return;
+        }
         if (hv?.dropActive) return;
         const tapKey = `${hv.chan}:${hv.note}`;
         if (isDoubleTapKey(tapKey, e.clientX, e.clientY)) {
@@ -4593,7 +4676,8 @@ canvas.addEventListener('pointerup', e => {
             cleanupGroupDrag(groupKey);
             return;
         }
-        if (!t.isGrab && !t.isArp && els.quantizeRelease.checked) {
+        // FIX: Avoid double-quantization if Hold is active (snapHoldVoicesToScale handles it)
+        if (!t.isGrab && !t.isArp && els.quantizeRelease.checked && !hold) {
             const snapM = getMPEData(e, t, true);
             t.lastM = snapM;
             t.voices.forEach(v => {
@@ -5566,7 +5650,7 @@ function bindUI() {
 bindUI();
 setupChordKnob();
 setupArpKnob();
-setupLoopKnob();
+// setupBowButton();
 
 function scheduleScaleUpdate() {
     if (state.scaleUpdateRaf != null) return;
@@ -5688,24 +5772,70 @@ function drawGridCells(width, height, grid, numOct, noteW, baseMIDI, fadeMul, fa
     }
 }
 
+function getClampedVisualY(y, radius, height) {
+    if (!state.audio.enabled) return y; // No clamping if Bow Fader is hidden
+    const faderH = 60; 
+    // Prevent note from overlapping the fader area
+    // height - faderH is the top of the fader
+    // y + radius is the bottom of the note
+    // We want y + radius < height - faderH - 2
+    const safeBottom = height - faderH - 4; 
+    const maxY = safeBottom - radius;
+    return Math.min(y, maxY);
+}
+
 function drawHeldVoices(fadeMul, fadeDrop, height) {
     if (!state.heldVoices.length) return;
+    const now = state.audio.ctx ? state.audio.ctx.currentTime : 0;
     state.heldVoices.forEach((v, i) => {
         const m = v.lastM;
-        const radius = 12 + (m.press / 127) * 22;
+        let flash = 0;
+        if (v.bowFlash > 0) {
+            flash = v.bowFlash;
+            v.bowFlash -= 0.05;
+        }
+
+        const radius = (12 + (m.press / 127) * 22) + (flash * 10);
         v.phase = (v.phase || 0) + 0.2;
         const noteFloat = getVoiceNoteFloat(v);
         const x = getNearestNoteX(noteFloat) ?? m.x;
-        const y = m.y + ((height - m.y) * fadeDrop);
-        ctx.globalAlpha = fadeMul;
-        ctx.beginPath(); ctx.strokeStyle = v.color; ctx.lineWidth = 3;
+        let y = m.y + ((height - m.y) * fadeDrop);
+        y = getClampedVisualY(y, radius, height);
+
+        
+        // --- CALCOLO SFUMATURA DEL SAMPLE ---
+        let sampleOpacity = 1.0;
+        const key = `${v.chan}:${v.note}`;
+        const audioVoice = state.audio.voices.get(key);
+
+        if (state.audio.enabled && v.note != null) { 
+            if (audioVoice && audioVoice.bufferDuration) {
+                const elapsed = now - audioVoice.startTime;
+                if (elapsed >= audioVoice.bufferDuration) {
+                    sampleOpacity = 0.2; 
+                } else {
+                    const progress = elapsed / audioVoice.bufferDuration;
+                    sampleOpacity = 0.2 + (0.8 * Math.max(0, 1 - Math.pow(progress, 3)));
+                }
+            } else if (!audioVoice) {
+                sampleOpacity = 0.2; 
+            }
+        }
+        if (flash > 0) sampleOpacity = 1.0;
+        const finalAlpha = fadeMul * sampleOpacity;
+        
+        ctx.globalAlpha = finalAlpha;
+        
+        ctx.beginPath(); ctx.strokeStyle = flash > 0 ? '#ffffff' : v.color; ctx.lineWidth = 3 + (flash * 4);
         for (let ox = -50; ox <= 50; ox += 2) {
             const oy = Math.sin(ox * 0.15 + v.phase) * 3;
             if (ox === -50) ctx.moveTo(x + ox, y + oy);
             else ctx.lineTo(x + ox, y + oy);
         }
         ctx.stroke();
-        drawNoteBubble(x, y, radius, v.color, i === 0 ? "HOLD" : null);
+
+        const bubbleColor = flash > 0 ? '#ffffff' : v.color;
+        drawNoteBubble(x, y, radius, bubbleColor, i === 0 ? "HOLD" : null);
         ctx.globalAlpha = 1;
     });
 }
@@ -5720,7 +5850,8 @@ function drawArpHoldTouches(fadeMul, fadeDrop, height) {
             const radius = 10 + (m.press / 127) * 18;
             t.phase = (t.phase || 0) + 0.2;
             const x = getNearestNoteX(n.noteFloat ?? n.note) ?? m.x;
-            const y = m.y + ((height - m.y) * fadeDrop);
+            let y = m.y + ((height - m.y) * fadeDrop);
+            y = getClampedVisualY(y, radius, height);
             const glow = n.color || t.color || '#ffaa00';
             ctx.globalAlpha = fadeMul;
             drawNoteBubble(x, y, radius, glow, idx === 0 ? "ARP HOLD" : null);
@@ -5733,7 +5864,8 @@ function drawActiveTouches(fadeMul, fadeDrop, height) {
     state.activeTouches.forEach(t => {
         const radius = 12 + (t.lastM.press / 127) * 22;
         t.phase += 0.2 + (t.vibratoSpeed * 0.06);
-        const y = t.lastM.y + ((height - t.lastM.y) * fadeDrop);
+        let y = t.lastM.y + ((height - t.lastM.y) * fadeDrop);
+        y = getClampedVisualY(y, radius, height);
         ctx.globalAlpha = fadeMul;
         ctx.beginPath(); ctx.strokeStyle = t.color; ctx.lineWidth = 3;
         for (let ox = -50; ox <= 50; ox += 2) {
@@ -5763,6 +5895,75 @@ function drawActiveTouches(fadeMul, fadeDrop, height) {
     });
 }
 
+function drawBowFaders(height, noteW) {
+    // Hidden if internal audio is disabled (User Request: "togli bow se si usa midi out (audio internal OFF)")
+    if (!state.audio.enabled) return;
+    if (!state.audio.ctx) return;
+    const faderH = 60;
+    const yTop = height - faderH;
+    
+    // Helper to draw specific fader (Triangle Pad)
+    const drawFader = (x, color, label) => {
+        if (x == null) return;
+        const padW = noteW - 4;
+        const left = x - noteW/2 + 2;
+        const bottom = yTop + faderH - 2;
+        const top = yTop + 2;
+        const right = left + padW;
+
+        // Rectangular Border (Touch Area)
+        ctx.strokeStyle = '#666';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(left, top, padW, faderH - 4);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillRect(left, top, padW, faderH - 4);
+
+        // Draw Triangle: Bottom-Left -> Bottom-Right -> Top-Right
+        const grad = ctx.createLinearGradient(left, top, right, top);
+        grad.addColorStop(0, '#444');  // Darker/Faded at start (Left)
+        grad.addColorStop(1, color);   // Bright/Intense at end (Right)
+        ctx.fillStyle = grad;
+
+        ctx.beginPath();
+        ctx.moveTo(left, bottom);
+        ctx.lineTo(right, bottom);
+        ctx.lineTo(right, top);
+        ctx.closePath();
+        ctx.fill();
+
+        // Outline for triangle
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Optional: Label
+        if (noteW > 30) {
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 10px Arial';
+            ctx.textAlign = 'right';
+            ctx.fillText("BOW", right - 5, bottom - 5);
+        }
+    };
+
+    // 1. Held Voices
+    state.heldVoices.forEach(v => {
+        const noteFloat = getVoiceNoteFloat(v);
+        const x = getNearestNoteX(noteFloat);
+        drawFader(x, v.color || '#ffaa00', "BOW");
+    });
+
+    // 2. Active Touches
+    state.activeTouches.forEach(t => {
+        if (t.isGrab || t.isGroupDrag || t.isArpHoldGrab) return; 
+        if (!t.voices || !t.voices.length) return;
+        t.voices.forEach(v => {
+            const noteFloat = getVoiceNoteFloat(v);
+            const x = getNearestNoteX(noteFloat);
+            drawFader(x, t.color || '#00ff44', "BOW");
+        });
+    });
+}
+
 function draw() {
     state.drawRaf = null;
     const width = Math.floor(state.canvasRect.width);
@@ -5780,6 +5981,7 @@ function draw() {
     drawHeldVoices(fadeMul, fadeDrop, height);
     drawArpHoldTouches(fadeMul, fadeDrop, height);
     drawActiveTouches(fadeMul, fadeDrop, height);
+    drawBowFaders(height, noteW);
     if (shouldAnimate()) requestDraw();
 }
 
@@ -5829,11 +6031,3 @@ function updateToggleLabels() {
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
