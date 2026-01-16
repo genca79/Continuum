@@ -698,7 +698,6 @@
                 <div class="sample-row">
                     <input type="file" id="sampleFile1" class="sample-file" accept=".wav,audio/wav">
                     <input type="text" id="sampleRoot1" class="sample-root" value="C2" list="sampleRootHints">
-                    <input type="checkbox" id="sampleLoop1" class="sample-loop" title="Loop">
                     <input type="number" id="sampleGain1" class="sample-gain" min="0" max="5" step="0.01" value="1">
                     <button id="sampleClear1" class="menu-btn btn-danger" title="Clear"><span class="btn-text">X</span></button>
                 </div>
@@ -706,7 +705,6 @@
                 <div class="sample-row">
                     <input type="file" id="sampleFile2" class="sample-file" accept=".wav,audio/wav">
                     <input type="text" id="sampleRoot2" class="sample-root" value="F#2" list="sampleRootHints">
-                    <input type="checkbox" id="sampleLoop2" class="sample-loop" title="Loop">
                     <input type="number" id="sampleGain2" class="sample-gain" min="0" max="5" step="0.01" value="1">
                     <button id="sampleClear2" class="menu-btn btn-danger" title="Clear"><span class="btn-text">X</span></button>
                 </div>
@@ -714,7 +712,6 @@
                 <div class="sample-row">
                     <input type="file" id="sampleFile3" class="sample-file" accept=".wav,audio/wav">
                     <input type="text" id="sampleRoot3" class="sample-root" value="C3" list="sampleRootHints">
-                    <input type="checkbox" id="sampleLoop3" class="sample-loop" title="Loop">
                     <input type="number" id="sampleGain3" class="sample-gain" min="0" max="5" step="0.01" value="1">
                     <button id="sampleClear3" class="menu-btn btn-danger" title="Clear"><span class="btn-text">X</span></button>
                 </div>
@@ -722,7 +719,6 @@
                 <div class="sample-row">
                     <input type="file" id="sampleFile4" class="sample-file" accept=".wav,audio/wav">
                     <input type="text" id="sampleRoot4" class="sample-root" value="F#3" list="sampleRootHints">
-                    <input type="checkbox" id="sampleLoop4" class="sample-loop" title="Loop">
                     <input type="number" id="sampleGain4" class="sample-gain" min="0" max="5" step="0.01" value="1">
                     <button id="sampleClear4" class="menu-btn btn-danger" title="Clear"><span class="btn-text">X</span></button>
                 </div>
@@ -730,7 +726,6 @@
                 <div class="sample-row">
                     <input type="file" id="sampleFile5" class="sample-file" accept=".wav,audio/wav">
                     <input type="text" id="sampleRoot5" class="sample-root" value="C4" list="sampleRootHints">
-                    <input type="checkbox" id="sampleLoop5" class="sample-loop" title="Loop">
                     <input type="number" id="sampleGain5" class="sample-gain" min="0" max="5" step="0.01" value="1">
                     <button id="sampleClear5" class="menu-btn btn-danger" title="Clear"><span class="btn-text">X</span></button>
                 </div>
@@ -745,7 +740,6 @@
                 <div class="sample-row">
                     <input type="file" id="sampleFile6" class="sample-file" accept=".wav,audio/wav">
                     <input type="text" id="sampleRoot6" class="sample-root" value="F#4" list="sampleRootHints">
-                    <input type="checkbox" id="sampleLoop6" class="sample-loop" title="Loop">
                     <input type="number" id="sampleGain6" class="sample-gain" min="0" max="5" step="0.01" value="1">
                     <button id="sampleClear6" class="menu-btn btn-danger" title="Clear"><span class="btn-text">X</span></button>
                 </div>
@@ -753,7 +747,6 @@
                 <div class="sample-row">
                     <input type="file" id="sampleFile7" class="sample-file" accept=".wav,audio/wav">
                     <input type="text" id="sampleRoot7" class="sample-root" value="C5" list="sampleRootHints">
-                    <input type="checkbox" id="sampleLoop7" class="sample-loop" title="Loop">
                     <input type="number" id="sampleGain7" class="sample-gain" min="0" max="5" step="0.01" value="1">
                     <button id="sampleClear7" class="menu-btn btn-danger" title="Clear"><span class="btn-text">X</span></button>
                 </div>
@@ -1057,11 +1050,6 @@ const els = {
     sampleRoot3: document.getElementById('sampleRoot3'),
     sampleRoot4: document.getElementById('sampleRoot4'),
     sampleRoot5: document.getElementById('sampleRoot5'),
-    sampleLoop1: document.getElementById('sampleLoop1'),
-    sampleLoop2: document.getElementById('sampleLoop2'),
-    sampleLoop3: document.getElementById('sampleLoop3'),
-    sampleLoop4: document.getElementById('sampleLoop4'),
-    sampleLoop5: document.getElementById('sampleLoop5'),
     fxAttack: document.getElementById('fxAttack'),
     fxDecay: document.getElementById('fxDecay'),
     fxSustain: document.getElementById('fxSustain'),
@@ -1089,13 +1077,11 @@ const els = {
     sampleFile6: document.getElementById('sampleFile6'),
     sampleName6: document.getElementById('sampleName6'),
     sampleRoot6: document.getElementById('sampleRoot6'),
-    sampleLoop6: document.getElementById('sampleLoop6'),
     sampleClear6: document.getElementById('sampleClear6'),
     sampleGain7: document.getElementById('sampleGain7'),
     sampleFile7: document.getElementById('sampleFile7'),
     sampleName7: document.getElementById('sampleName7'),
     sampleRoot7: document.getElementById('sampleRoot7'),
-    sampleLoop7: document.getElementById('sampleLoop7'),
     sampleClear7: document.getElementById('sampleClear7'),
     factorySelect: document.getElementById('factorySelect'),
     factoryLoadBtn: document.getElementById('factoryLoadBtn')
@@ -1103,7 +1089,6 @@ const els = {
 const sampleFileEls = [els.sampleFile1, els.sampleFile2, els.sampleFile3, els.sampleFile4, els.sampleFile5, els.sampleFile6, els.sampleFile7];
 const sampleNameEls = [els.sampleName1, els.sampleName2, els.sampleName3, els.sampleName4, els.sampleName5, els.sampleName6, els.sampleName7];
 const sampleRootEls = [els.sampleRoot1, els.sampleRoot2, els.sampleRoot3, els.sampleRoot4, els.sampleRoot5, els.sampleRoot6, els.sampleRoot7];
-const sampleLoopEls = [els.sampleLoop1, els.sampleLoop2, els.sampleLoop3, els.sampleLoop4, els.sampleLoop5, els.sampleLoop6, els.sampleLoop7];
 const sampleGainEls = [els.sampleGain1, els.sampleGain2, els.sampleGain3, els.sampleGain4, els.sampleGain5, els.sampleGain6, els.sampleGain7];
 const sampleClearEls = [els.sampleClear1, els.sampleClear2, els.sampleClear3, els.sampleClear4, els.sampleClear5, els.sampleClear6, els.sampleClear7];
 
@@ -1438,7 +1423,6 @@ function initFactoryUI() {
                 state.audio.samples[i].root = slotCfg.root;
                 state.audio.samples[i].loop = slotCfg.loop;
                 if (sampleRootEls[i]) sampleRootEls[i].value = midiToNoteName(slotCfg.root);
-                if (sampleLoopEls[i]) sampleLoopEls[i].checked = slotCfg.loop;
                 updateSampleName(i);
                 await saveSampleToDB(i, {
                     name: state.audio.samples[i].name,
@@ -1473,11 +1457,7 @@ function getSampleSetsState() {
 }
 
 function saveSampleLoopsForSet(setName) {
-    const sets = getSampleSetsState();
-    const key = setName.trim() || 'Default';
-    ensureSampleSet(key, sets);
-    sets.loopsBySet[key] = state.audio.samples.map(s => !!s.loop);
-    saveSampleSetsState(sets);
+    // Deprecated: Loop function removed by user request
 }
 
 function loadSampleLoopsForSet(setName) {
@@ -1688,8 +1668,7 @@ async function loadSavedSamples(setName = state.audio.activeSet) {
             
             const isLoop = storedLoops[idx] ?? false;
             state.audio.samples[idx].loop = isLoop;
-            if (sampleLoopEls[idx]) sampleLoopEls[idx].checked = isLoop;
-
+            
             const gains = loadSampleGainsForSet(setName);
             const gain = gains[idx] ?? DEFAULT_SAMPLE_GAINS[idx] ?? 1;
             state.audio.samples[idx].gain = gain;
@@ -5565,15 +5544,6 @@ function bindUI() {
             input.value = midiToNoteName(next);
             if (state.audio.samples[idx]) state.audio.samples[idx].root = next;
             saveSampleRootsForSet(state.audio.activeSet);
-        };
-    });
-    sampleLoopEls.forEach((input, idx) => {
-        if (!input) return;
-        input.onchange = () => {
-             if (state.audio.samples[idx]) {
-                 state.audio.samples[idx].loop = input.checked;
-                 saveSampleLoopsForSet(state.audio.activeSet);
-             }
         };
     });
     sampleGainEls.forEach((input, idx) => {
