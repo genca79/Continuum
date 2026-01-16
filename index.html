@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -691,8 +692,16 @@
             </div>
             <label>Sampler Gain</label>
             <input type="range" id="samplerGain" min="0" max="5" step="0.01" value="1">
-            <label>Max Voices</label>
-            <input type="number" id="samplerMaxVoices" min="1" max="64" step="1" value="24">
+            <div style="display:flex; gap:6px; align-items:flex-end;">
+                <div style="flex:1;">
+                    <label>Max Voices</label>
+                    <input type="number" id="samplerMaxVoices" min="1" max="64" step="1" value="24" style="width:100%;">
+                </div>
+                <div style="flex:1;">
+                    <label>Loop Mode</label>
+                    <button id="sampleLoopBtn" class="menu-btn toggle-off" style="width:100%; justify-content:center;">LOOP OFF</button>
+                </div>
+            </div>
             <label>Samples</label>
             <div class="sample-grid">
                 <div class="sample-row">
@@ -1027,6 +1036,7 @@ const els = {
     wtMixBox: document.getElementById('wtMixBox'),
     samplerGain: document.getElementById('samplerGain'),
     samplerMaxVoices: document.getElementById('samplerMaxVoices'),
+    sampleLoopBtn: document.getElementById('sampleLoopBtn'),
     sampleGain1: document.getElementById('sampleGain1'),
     sampleGain2: document.getElementById('sampleGain2'),
     sampleGain3: document.getElementById('sampleGain3'),
@@ -1138,25 +1148,25 @@ const SAMPLE_SLOT_COUNT = 7;
 const DEFAULT_SAMPLE_ROOTS = [36, 48, 60, 72, 84, 96, 108];
 const FACTORY_LIBRARY = {
     'Bass': [
-        { root: 45, file: 'samples/Bass__a2.wav', loop: true },
-        { root: 48, file: 'samples/Bass__c3.wav', loop: true },
-        { root: 43, file: 'samples/Bass__g2.wav', loop: true },
+        { root: 45, file: 'samples/Bass__a2.wav', loop: false },
+        { root: 48, file: 'samples/Bass__c3.wav', loop: false },
+        { root: 43, file: 'samples/Bass__g2.wav', loop: false },
         { root: 0, file: null }, { root: 0, file: null }, { root: 0, file: null }, { root: 0, file: null }
     ],
     'Bassoon': [
-        { root: 34, file: 'samples/BassoonSustain_Ad1.wav', loop: true },
-        { root: 46, file: 'samples/BassoonSustain_Ad2.wav', loop: true },
-        { root: 55, file: 'samples/BassoonSustain_G3.wav', loop: true },
-        { root: 68, file: 'samples/BassoonSustain_Gd4.wav', loop: true },
-        { root: 75, file: 'samples/BassoonSustain_Dd5.wav', loop: true },
+        { root: 34, file: 'samples/BassoonSustain_As1.wav', loop: false },
+        { root: 46, file: 'samples/BassoonSustain_As2.wav', loop: false },
+        { root: 55, file: 'samples/BassoonSustain_G3.wav', loop: false },
+        { root: 68, file: 'samples/BassoonSustain_Gs4.wav', loop: false },
+        { root: 75, file: 'samples/BassoonSustain_Ds5.wav', loop: false },
         { root: 0, file: null }, { root: 0, file: null }
     ],
     'Cello': [
-        { root: 36, file: 'samples/CelloVibrato_C2.wav', loop: true },
-        { root: 43, file: 'samples/CelloVibrato_G2.wav', loop: true },
-        { root: 57, file: 'samples/CelloVibrato_A3.wav', loop: true },
-        { root: 60, file: 'samples/CelloVibrato_C4.wav', loop: true },
-        { root: 67, file: 'samples/CelloVibrato_G4.wav', loop: true },
+        { root: 36, file: 'samples/CelloVibrato_C2.wav', loop: false },
+        { root: 43, file: 'samples/CelloVibrato_G2.wav', loop: false },
+        { root: 57, file: 'samples/CelloVibrato_A3.wav', loop: false },
+        { root: 60, file: 'samples/CelloVibrato_C4.wav', loop: false },
+        { root: 67, file: 'samples/CelloVibrato_G4.wav', loop: false },
         { root: 0, file: null }, { root: 0, file: null }
     ],
     'Trumpet': [
@@ -1168,13 +1178,13 @@ const FACTORY_LIBRARY = {
         { root: 0, file: null }, { root: 0, file: null }
     ],
     'Violin': [
-        { root: 57, file: 'samples/ViolinVibrato_A3.wav', loop: true },
-        { root: 60, file: 'samples/ViolinVibrato_C4.wav', loop: true },
-        { root: 64, file: 'samples/ViolinVibrato_E4.wav', loop: true },
-        { root: 67, file: 'samples/ViolinVibrato_G4.wav', loop: true },
-        { root: 69, file: 'samples/ViolinVibrato_A4.wav', loop: true },
-        { root: 76, file: 'samples/ViolinVibrato_E5.wav', loop: true },
-        { root: 84, file: 'samples/ViolinVibrato_C6.wav', loop: true }
+        { root: 57, file: 'samples/ViolinVibrato_A3.wav', loop: false },
+        { root: 60, file: 'samples/ViolinVibrato_C4.wav', loop: false },
+        { root: 64, file: 'samples/ViolinVibrato_E4.wav', loop: false },
+        { root: 67, file: 'samples/ViolinVibrato_G4.wav', loop: false },
+        { root: 69, file: 'samples/ViolinVibrato_A4.wav', loop: false },
+        { root: 76, file: 'samples/ViolinVibrato_E5.wav', loop: false },
+        { root: 84, file: 'samples/ViolinVibrato_C6.wav', loop: false }
     ]
 };
 const SAMPLE_SETS_KEY = 'genca_sample_sets_v1';
@@ -1315,6 +1325,7 @@ const state = {
     audio: {
         enabled: true,
         activeSet: 'Default',
+        loopGlobal: false,
         ctx: null,
         master: null,
         dryGain: null,
@@ -1454,10 +1465,6 @@ function getSampleSetsState() {
     const loopsBySet = parsed.loopsBySet && typeof parsed.loopsBySet === 'object' ? parsed.loopsBySet : {};
     const samplerGainBySet = parsed.samplerGainBySet && typeof parsed.samplerGainBySet === 'object' ? parsed.samplerGainBySet : {};
     return { names, rootsBySet, fxBySet, gainsBySet, loopsBySet, samplerGainBySet };
-}
-
-function saveSampleLoopsForSet(setName) {
-    // Deprecated: Loop function removed by user request
 }
 
 function loadSampleLoopsForSet(setName) {
@@ -2372,7 +2379,8 @@ function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
     const pbSemis = getChannelPbSemis(chan);
     if (sample && source) {
         source.buffer = sample.buffer;
-        source.loop = !!sample.loop;
+        // Global Loop Override: If Global Loop is ON, everything loops. If OFF, nothing loops.
+        source.loop = !!state.audio.loopGlobal;
         source.playbackRate.value = Math.pow(2, (note - sample.root + pbSemis) / 12);
     }
     const fx = state.audio.fx;
@@ -5566,6 +5574,13 @@ function bindUI() {
             state.audio.samplerGain = Math.max(0, Math.min(5, parseFloat(els.samplerGain.value) || 0));
             saveSamplerGainForSet(state.audio.activeSet);
             updateSamplerGainNodes();
+        };
+    }
+    if (els.sampleLoopBtn) {
+        els.sampleLoopBtn.onclick = () => {
+             state.audio.loopGlobal = !state.audio.loopGlobal;
+             els.sampleLoopBtn.className = `menu-btn ${state.audio.loopGlobal ? 'toggle-on' : 'toggle-off'}`;
+             els.sampleLoopBtn.textContent = state.audio.loopGlobal ? 'LOOP ON' : 'LOOP OFF';
         };
     }
     if (els.samplerMaxVoices) {
