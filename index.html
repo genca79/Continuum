@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -676,6 +674,14 @@
     <div class="ui-group">
         <div class="ui-title">Audio</div>
         <div class="box" style="flex:1.6">
+            <!-- FACTORY LIBRARY CONTROLS -->
+            <label style="color:#aad; border-bottom:1px solid #444; margin-bottom:4px; padding-bottom:2px;">Factory Library</label>
+            <div class="sample-set-row" style="margin-bottom:8px;">
+                <select id="factorySelect">
+                    <option value="">-- Seleziona Strumento --</option>
+                </select>
+                <button id="factoryLoadBtn" class="menu-btn btn-accent" title="Load Factory"><span class="btn-text">LOAD</span></button>
+            </div>
             <label>Sampler Set</label>
             <div class="sample-set-row">
                 <select id="sampleSetSelect"></select>
@@ -736,6 +742,22 @@
                     <option value="C4"></option>
                 </datalist>
                 <div class="sample-name" id="sampleName5">Slot 5: vuoto</div>
+                <div class="sample-row">
+                    <input type="file" id="sampleFile6" class="sample-file" accept=".wav,audio/wav">
+                    <input type="text" id="sampleRoot6" class="sample-root" value="F#4" list="sampleRootHints">
+                    <input type="checkbox" id="sampleLoop6" class="sample-loop" title="Loop">
+                    <input type="number" id="sampleGain6" class="sample-gain" min="0" max="5" step="0.01" value="1">
+                    <button id="sampleClear6" class="menu-btn btn-danger" title="Clear"><span class="btn-text">X</span></button>
+                </div>
+                <div class="sample-name" id="sampleName6">Slot 6: vuoto</div>
+                <div class="sample-row">
+                    <input type="file" id="sampleFile7" class="sample-file" accept=".wav,audio/wav">
+                    <input type="text" id="sampleRoot7" class="sample-root" value="C5" list="sampleRootHints">
+                    <input type="checkbox" id="sampleLoop7" class="sample-loop" title="Loop">
+                    <input type="number" id="sampleGain7" class="sample-gain" min="0" max="5" step="0.01" value="1">
+                    <button id="sampleClear7" class="menu-btn btn-danger" title="Clear"><span class="btn-text">X</span></button>
+                </div>
+                <div class="sample-name" id="sampleName7">Slot 7: vuoto</div>
             </div>
         </div>
     </div>
@@ -1065,14 +1087,28 @@ const els = {
     sampleClear2: document.getElementById('sampleClear2'),
     sampleClear3: document.getElementById('sampleClear3'),
     sampleClear4: document.getElementById('sampleClear4'),
-    sampleClear5: document.getElementById('sampleClear5')
+    sampleClear5: document.getElementById('sampleClear5'),
+    sampleGain6: document.getElementById('sampleGain6'),
+    sampleFile6: document.getElementById('sampleFile6'),
+    sampleName6: document.getElementById('sampleName6'),
+    sampleRoot6: document.getElementById('sampleRoot6'),
+    sampleLoop6: document.getElementById('sampleLoop6'),
+    sampleClear6: document.getElementById('sampleClear6'),
+    sampleGain7: document.getElementById('sampleGain7'),
+    sampleFile7: document.getElementById('sampleFile7'),
+    sampleName7: document.getElementById('sampleName7'),
+    sampleRoot7: document.getElementById('sampleRoot7'),
+    sampleLoop7: document.getElementById('sampleLoop7'),
+    sampleClear7: document.getElementById('sampleClear7'),
+    factorySelect: document.getElementById('factorySelect'),
+    factoryLoadBtn: document.getElementById('factoryLoadBtn')
 };
-const sampleFileEls = [els.sampleFile1, els.sampleFile2, els.sampleFile3, els.sampleFile4, els.sampleFile5];
-const sampleNameEls = [els.sampleName1, els.sampleName2, els.sampleName3, els.sampleName4, els.sampleName5];
-const sampleRootEls = [els.sampleRoot1, els.sampleRoot2, els.sampleRoot3, els.sampleRoot4, els.sampleRoot5];
-const sampleLoopEls = [els.sampleLoop1, els.sampleLoop2, els.sampleLoop3, els.sampleLoop4, els.sampleLoop5];
-const sampleGainEls = [els.sampleGain1, els.sampleGain2, els.sampleGain3, els.sampleGain4, els.sampleGain5];
-const sampleClearEls = [els.sampleClear1, els.sampleClear2, els.sampleClear3, els.sampleClear4, els.sampleClear5];
+const sampleFileEls = [els.sampleFile1, els.sampleFile2, els.sampleFile3, els.sampleFile4, els.sampleFile5, els.sampleFile6, els.sampleFile7];
+const sampleNameEls = [els.sampleName1, els.sampleName2, els.sampleName3, els.sampleName4, els.sampleName5, els.sampleName6, els.sampleName7];
+const sampleRootEls = [els.sampleRoot1, els.sampleRoot2, els.sampleRoot3, els.sampleRoot4, els.sampleRoot5, els.sampleRoot6, els.sampleRoot7];
+const sampleLoopEls = [els.sampleLoop1, els.sampleLoop2, els.sampleLoop3, els.sampleLoop4, els.sampleLoop5, els.sampleLoop6, els.sampleLoop7];
+const sampleGainEls = [els.sampleGain1, els.sampleGain2, els.sampleGain3, els.sampleGain4, els.sampleGain5, els.sampleGain6, els.sampleGain7];
+const sampleClearEls = [els.sampleClear1, els.sampleClear2, els.sampleClear3, els.sampleClear4, els.sampleClear5, els.sampleClear6, els.sampleClear7];
 const PRESET_KEY = 'genca_presets_v1';
 const MPE_PRESET_KEY = 'genca_mpe_presets_v1';
 const CUSTOM_SCALE_KEY = 'genca_custom_scales_v1';
@@ -1089,13 +1125,54 @@ const MICROTONAL_SCALES = {
 const DEFAULT_CUSTOM_SCALES = {
     'Custom 1': { type: 'cents', cents: [0, 240, 480, 720, 960] }
 };
-const SAMPLE_SLOT_COUNT = 5;
-const DEFAULT_SAMPLE_ROOTS = [36, 48, 60, 72, 84];
+const SAMPLE_SLOT_COUNT = 7;
+const DEFAULT_SAMPLE_ROOTS = [36, 48, 60, 72, 84, 96, 108];
+const FACTORY_LIBRARY = {
+    'Bass': [
+        { root: 45, file: 'samples/Bass__a2.wav', loop: true },
+        { root: 48, file: 'samples/Bass__c3.wav', loop: true },
+        { root: 43, file: 'samples/Bass__g2.wav', loop: true },
+        { root: 0, file: null }, { root: 0, file: null }, { root: 0, file: null }, { root: 0, file: null }
+    ],
+    'Bassoon': [
+        { root: 34, file: 'samples/BassoonSustain_A#1.wav', loop: true },
+        { root: 46, file: 'samples/BassoonSustain_A#2.wav', loop: true },
+        { root: 55, file: 'samples/BassoonSustain_G3.wav', loop: true },
+        { root: 68, file: 'samples/BassoonSustain_G#4.wav', loop: true },
+        { root: 75, file: 'samples/BassoonSustain_D#5.wav', loop: true },
+        { root: 0, file: null }, { root: 0, file: null }
+    ],
+    'Cello': [
+        { root: 36, file: 'samples/CelloVibrato_C2.wav', loop: true },
+        { root: 43, file: 'samples/CelloVibrato_G2.wav', loop: true },
+        { root: 57, file: 'samples/CelloVibrato_A3.wav', loop: true },
+        { root: 60, file: 'samples/CelloVibrato_C4.wav', loop: true },
+        { root: 67, file: 'samples/CelloVibrato_G4.wav', loop: true },
+        { root: 0, file: null }, { root: 0, file: null }
+    ],
+    'Trumpet': [
+        { root: 57, file: 'samples/TrumpetStaccato_A3.wav', loop: false },
+        { root: 62, file: 'samples/TrumpetStaccato_D4.wav', loop: false },
+        { root: 67, file: 'samples/TrumpetStaccato_G4.wav', loop: false },
+        { root: 77, file: 'samples/TrumpetStaccato_F5.wav', loop: false },
+        { root: 84, file: 'samples/TrumpetStaccato_C6.wav', loop: false },
+        { root: 0, file: null }, { root: 0, file: null }
+    ],
+    'Violin': [
+        { root: 57, file: 'samples/ViolinVibrato_A3.wav', loop: true },
+        { root: 60, file: 'samples/ViolinVibrato_C4.wav', loop: true },
+        { root: 64, file: 'samples/ViolinVibrato_E4.wav', loop: true },
+        { root: 67, file: 'samples/ViolinVibrato_G4.wav', loop: true },
+        { root: 69, file: 'samples/ViolinVibrato_A4.wav', loop: true },
+        { root: 76, file: 'samples/ViolinVibrato_E5.wav', loop: true },
+        { root: 84, file: 'samples/ViolinVibrato_C6.wav', loop: true }
+    ]
+};
 const SAMPLE_SETS_KEY = 'genca_sample_sets_v1';
 const SAMPLE_ACTIVE_SET_KEY = 'genca_sample_active_set_v1';
 const SAMPLE_DB_NAME = 'genca_sample_db_v1';
 const SAMPLE_DB_STORE = 'samples';
-const DEFAULT_SAMPLE_GAINS = [1, 1, 1, 1, 1];
+const DEFAULT_SAMPLE_GAINS = [1, 1, 1, 1, 1, 1, 1];
 const DEFAULT_SAMPLER_GAIN = 1;
 const DEFAULT_FX = {
     attack: 0.01,
@@ -1289,6 +1366,7 @@ const MPE_PRESET_DESCRIPTIONS = {
 };
 
 initSampleSlots();
+initFactoryUI();
 
 function initSampleSlots() {
     const activeSet = getActiveSampleSetName();
@@ -1302,6 +1380,61 @@ function initSampleSlots() {
         return { buffer: null, root, name: '', data: null, gain };
     });
     state.audio.fx = { ...DEFAULT_FX };
+}
+
+function initFactoryUI() {
+    if (!els.factorySelect || !els.factoryLoadBtn) return;
+    Object.keys(FACTORY_LIBRARY).forEach(name => {
+        appendOption(els.factorySelect, name, name);
+    });
+    els.factoryLoadBtn.onclick = async () => {
+        const setName = els.factorySelect.value;
+        if (!setName || !FACTORY_LIBRARY[setName]) return;
+        if (!state.audio.ctx) initAudioContext();
+        if (state.audio.ctx.state === 'suspended') await state.audio.ctx.resume();
+        els.midiStatus.innerText = "LOADING FACTORY SET...";
+        if(els.sampleSetName) els.sampleSetName.value = setName;
+        setActiveSampleSetName(setName);
+        const presets = FACTORY_LIBRARY[setName];
+        stopAllVoicesInternal();
+        for (let i = 0; i < SAMPLE_SLOT_COUNT; i++) {
+            const slotCfg = presets[i];
+            if (sampleFileEls[i]) sampleFileEls[i].value = ""; 
+            if (!slotCfg || !slotCfg.file) {
+                clearSampleSlot(i);
+                continue;
+            }
+            try {
+                const response = await fetch(slotCfg.file);
+                if (!response.ok) throw new Error(`File non trovato: ${slotCfg.file}`);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await state.audio.ctx.decodeAudioData(arrayBuffer.slice(0));
+                state.audio.samples[i].buffer = audioBuffer;
+                state.audio.samples[i].name = slotCfg.file.split('/').pop();
+                state.audio.samples[i].data = arrayBuffer;
+                state.audio.samples[i].root = slotCfg.root;
+                state.audio.samples[i].loop = slotCfg.loop;
+                if (sampleRootEls[i]) sampleRootEls[i].value = midiToNoteName(slotCfg.root);
+                if (sampleLoopEls[i]) sampleLoopEls[i].checked = slotCfg.loop;
+                updateSampleName(i);
+                await saveSampleToDB(i, {
+                    name: state.audio.samples[i].name,
+                    root: slotCfg.root,
+                    data: arrayBuffer
+                }, setName);
+            } catch (err) {
+                console.error("Errore caricamento sample factory:", err);
+                if (sampleNameEls[i]) sampleNameEls[i].textContent = `Err: ${slotCfg.file}`;
+            }
+        }
+        saveSampleRootsForSet(setName);
+        saveSampleLoopsForSet(setName);
+        const currentSets = getSampleSetsState();
+        ensureSampleSet(setName, currentSets);
+        saveSampleSetsState(currentSets);
+        refreshSampleSetSelect(setName);
+        els.midiStatus.innerText = "FACTORY LOADED OK";
+    };
 }
 
 function getSampleSetsState() {
