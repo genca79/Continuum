@@ -288,11 +288,11 @@ const FACTORY_LIBRARY = {
         { root: 0, file: null }, { root: 0, file: null }, { root: 0, file: null }, { root: 0, file: null }
     ],
     'Bassoon': [
-        { root: 34, file: 'samples/BassoonSustain_As1.wav', loop: false },
-        { root: 46, file: 'samples/BassoonSustain_As2.wav', loop: false },
+        { root: 34, file: 'samples/BassoonSustain_Ad1.wav', loop: false },
+        { root: 46, file: 'samples/BassoonSustain_Ad2.wav', loop: false },
         { root: 55, file: 'samples/BassoonSustain_G3.wav', loop: false },
-        { root: 68, file: 'samples/BassoonSustain_Gs4.wav', loop: false },
-        { root: 75, file: 'samples/BassoonSustain_Ds5.wav', loop: false },
+        { root: 68, file: 'samples/BassoonSustain_Gd4.wav', loop: false },
+        { root: 75, file: 'samples/BassoonSustain_Dd5.wav', loop: false },
         { root: 0, file: null }, { root: 0, file: null }
     ],
     'Cello': [
