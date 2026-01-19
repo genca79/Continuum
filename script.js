@@ -1003,15 +1003,53 @@ async function initRecorderWorklet() {
 }
 
 function startRecording() {
+    // Initialize audio context if needed (even if enabled flag is true)
     if (!state.audio.ctx || !state.audio.master) {
-        alert('Please enable Internal Synth first');
+        initAudioContext();
+    }
+    
+    // Still check after init attempt
+    if (!state.audio.ctx || !state.audio.master) {
+        alert('Could not initialize audio. Please try again.');
         return;
     }
     
+    // Disable REC button during countdown
+    if (els.recStartBtn) els.recStartBtn.disabled = true;
+    
+    // Start countdown
+    startRecordingCountdown();
+}
+
+function startRecordingCountdown() {
+    let count = 3;
+    
+    // Show countdown in timer
+    if (els.recTimer) {
+        els.recTimer.textContent = count.toString();
+        els.recTimer.classList.add('countdown');
+    }
+    
+    const countdownInterval = setInterval(() => {
+        count--;
+        if (count > 0) {
+            if (els.recTimer) els.recTimer.textContent = count.toString();
+        } else {
+            clearInterval(countdownInterval);
+            if (els.recTimer) els.recTimer.classList.remove('countdown');
+            // Start actual recording
+            startRecordingNow();
+        }
+    }, 1000);
+}
+
+function startRecordingNow() {
     resumeAudioContext().then(async () => {
         const ready = await initRecorderWorklet();
         if (!ready) {
             alert('Could not initialize recorder');
+            if (els.recStartBtn) els.recStartBtn.disabled = false;
+            if (els.recTimer) els.recTimer.textContent = '00:00';
             return;
         }
         
