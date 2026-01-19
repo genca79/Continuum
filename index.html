@@ -16,6 +16,13 @@
 <button id="setToggle" class="menu-btn" title="Settings" aria-label="Settings"></button>
 <button id="fsBtn" class="menu-btn" title="Full Screen" aria-label="Full Screen"><span class="btn-icon">⛶</span></button>
 
+<!-- Audio Recorder Controls -->
+<div id="recControls" class="rec-controls-bar">
+    <button id="recStartBtn" class="menu-btn btn-rec" title="Start Recording"><span class="btn-icon">●</span><span class="btn-text">REC</span></button>
+    <button id="recStopBtn" class="menu-btn btn-stop" title="Stop & Save" disabled><span class="btn-icon">■</span><span class="btn-text">STOP</span></button>
+    <span id="recTimer" class="rec-timer">00:00</span>
+</div>
+
 <div id="ui">
     <!-- === ROW 1: MAIN TABS (always visible when ui is open) === -->
     <div class="ui-tabs-row" id="mainTabsRow">
@@ -35,14 +42,6 @@
             <div class="box"><label>Mode</label><select id="wtMode"></select></div>
             <div class="box"><label>WT Type</label><select id="wtSelect"></select></div>
             <div class="box" id="wtMixBox"><label>WT Mix</label><input type="range" id="wtMix" min="0" max="1" step="0.01" value="0.35"></div>
-            <div class="box recorder-box">
-                <label>Recorder</label>
-                <div class="recorder-controls">
-                    <button id="recStartBtn" class="menu-btn btn-rec" title="Start Recording"><span class="btn-icon">●</span><span class="btn-text">REC</span></button>
-                    <button id="recStopBtn" class="menu-btn btn-stop" title="Stop & Save" disabled><span class="btn-icon">■</span><span class="btn-text">STOP</span></button>
-                    <span id="recTimer" class="rec-timer">00:00</span>
-                </div>
-            </div>
         </div>
     </div>
 

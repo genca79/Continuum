@@ -158,7 +158,8 @@ const els = {
     // Audio Recorder elements
     recStartBtn: document.getElementById('recStartBtn'),
     recStopBtn: document.getElementById('recStopBtn'),
-    recTimer: document.getElementById('recTimer')
+    recTimer: document.getElementById('recTimer'),
+    recControls: document.getElementById('recControls')
 };
 const sampleFileEls = [els.sampleFile1, els.sampleFile2, els.sampleFile3, els.sampleFile4, els.sampleFile5, els.sampleFile6, els.sampleFile7];
 const sampleNameEls = [els.sampleName1, els.sampleName2, els.sampleName3, els.sampleName4, els.sampleName5, els.sampleName6, els.sampleName7];
@@ -1141,6 +1142,95 @@ function writeString(view, offset, string) {
     for (let i = 0; i < string.length; i++) {
         view.setUint8(offset + i, string.charCodeAt(i));
     }
+}
+
+function setupDraggableRecControls() {
+    const bar = els.recControls;
+    if (!bar) return;
+    
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+    
+    // Load saved position from localStorage
+    const savedPos = localStorage.getItem('genca_rec_position');
+    if (savedPos) {
+        try {
+            const pos = JSON.parse(savedPos);
+            bar.style.left = pos.left + 'px';
+            bar.style.top = pos.top + 'px';
+            bar.style.transform = 'none';
+        } catch (e) {}
+    }
+    
+    function onPointerDown(e) {
+        // Only drag if clicking on the bar itself, not on buttons
+        if (e.target.closest('.menu-btn') || e.target.closest('.rec-timer')) return;
+        
+        isDragging = true;
+        bar.classList.add('dragging');
+        bar.setPointerCapture(e.pointerId);
+        
+        const rect = bar.getBoundingClientRect();
+        startX = e.clientX;
+        startY = e.clientY;
+        initialLeft = rect.left;
+        initialTop = rect.top;
+        
+        // Remove transform-based centering, use absolute positioning
+        bar.style.transform = 'none';
+        bar.style.left = initialLeft + 'px';
+        bar.style.top = initialTop + 'px';
+        
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    function onPointerMove(e) {
+        if (!isDragging) return;
+        
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        
+        let newLeft = initialLeft + dx;
+        let newTop = initialTop + dy;
+        
+        // Clamp to viewport
+        const barRect = bar.getBoundingClientRect();
+        const maxLeft = window.innerWidth - barRect.width;
+        const maxTop = window.innerHeight - barRect.height;
+        
+        newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+        newTop = Math.max(0, Math.min(newTop, maxTop));
+        
+        bar.style.left = newLeft + 'px';
+        bar.style.top = newTop + 'px';
+        
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    function onPointerUp(e) {
+        if (!isDragging) return;
+        
+        isDragging = false;
+        bar.classList.remove('dragging');
+        bar.releasePointerCapture(e.pointerId);
+        
+        // Save position to localStorage
+        const rect = bar.getBoundingClientRect();
+        localStorage.setItem('genca_rec_position', JSON.stringify({
+            left: rect.left,
+            top: rect.top
+        }));
+        
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    bar.addEventListener('pointerdown', onPointerDown);
+    bar.addEventListener('pointermove', onPointerMove);
+    bar.addEventListener('pointerup', onPointerUp);
+    bar.addEventListener('pointercancel', onPointerUp);
 }
 
 // === END AUDIO RECORDER FUNCTIONS ===
@@ -3830,11 +3920,14 @@ function updateHeldChords() {
 canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
     requestDraw();
+    // Add note-dragging class to prevent UI button interference
+    document.body.classList.add('note-dragging');
     if (state.audio.enabled) resumeAudioContext().then(updateAudioStatus);
     const uiRect = els.ui.getBoundingClientRect();
     const inUi = els.ui.contains(e.target);
     if (!state.midi.output || (els.ui.classList.contains('active') && e.clientY < (uiRect.height + 5)) || inUi) {
         if (!state.midi.output) els.midiStatus.innerText = 'NESSUN MIDI OUT';
+        document.body.classList.remove('note-dragging');
         return;
     }
     if (state.groupShiftEnabled) {
@@ -4243,6 +4336,10 @@ canvas.addEventListener('pointerup', e => {
         state.activeTouches.delete(e.pointerId);
         cleanupGroupDrag(groupKey);
     }
+    // Remove note-dragging class when no more active touches
+    if (state.activeTouches.size === 0) {
+        document.body.classList.remove('note-dragging');
+    }
     if (state.audio.enabled && state.audio.wavetable.mode !== 'sampler' && state.activeTouches.size === 0 && !els.holdNotes.checked) {
         stopAllVoicesInternal();
     }
@@ -4271,6 +4368,10 @@ function cancelActivePointer(pointerId) {
     state.mpeChannels.sort((a,b)=>a-b);
     state.activeTouches.delete(pointerId);
     cleanupGroupDrag(groupKey);
+    // Remove note-dragging class when no more active touches
+    if (state.activeTouches.size === 0) {
+        document.body.classList.remove('note-dragging');
+    }
     if (state.audio.enabled && state.audio.wavetable.mode !== 'sampler' && state.activeTouches.size === 0 && !els.holdNotes.checked) {
         stopAllVoicesInternal();
     }
@@ -4922,6 +5023,10 @@ function bindUI() {
     }
     if (els.recStopBtn) {
         els.recStopBtn.onclick = () => stopRecording();
+    }
+    // Make recorder bar draggable
+    if (els.recControls) {
+        setupDraggableRecControls();
     }
     if (els.sampleSetSelect) {
         refreshSampleSetSelect(state.audio.activeSet);
