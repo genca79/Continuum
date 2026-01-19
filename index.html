@@ -462,6 +462,37 @@
     </div>
 </div>
 
+<!-- Recording Editor Modal -->
+<div id="recEditorModal" class="rec-editor-modal">
+    <div class="rec-editor-content">
+        <div class="rec-editor-header">
+            <h3>Recording Editor</h3>
+            <button id="recEditorClose" class="rec-editor-close" title="Close">×</button>
+        </div>
+        <div class="rec-editor-waveform">
+            <canvas id="recWaveformCanvas"></canvas>
+            <div id="recSelection" class="rec-selection"></div>
+            <div id="recPlayhead" class="rec-playhead"></div>
+        </div>
+        <div class="rec-editor-info">
+            <span id="recDuration">Duration: 00:00</span>
+            <span id="recSelectionInfo">Selection: Full</span>
+        </div>
+        <div class="rec-editor-controls">
+            <button id="recPlayBtn" class="menu-btn btn-accent" title="Play"><span class="btn-icon">▶</span></button>
+            <button id="recStopPlayBtn" class="menu-btn" title="Stop"><span class="btn-icon">■</span></button>
+            <button id="recClearSelBtn" class="menu-btn" title="Select All">Select All</button>
+            <div class="rec-editor-name">
+                <label>Filename:</label>
+                <input type="text" id="recFileName" placeholder="recording">
+                <span>.wav</span>
+            </div>
+            <button id="recSaveBtn" class="menu-btn btn-ok" title="Save WAV">💾 Save</button>
+            <button id="recDiscardBtn" class="menu-btn btn-danger" title="Discard">🗑 Discard</button>
+        </div>
+    </div>
+</div>
+
 <script src="script.js" defer></script>
 </body>
 </html>

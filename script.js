@@ -159,7 +159,21 @@ const els = {
     recStartBtn: document.getElementById('recStartBtn'),
     recStopBtn: document.getElementById('recStopBtn'),
     recTimer: document.getElementById('recTimer'),
-    recControls: document.getElementById('recControls')
+    recControls: document.getElementById('recControls'),
+    // Recording Editor elements
+    recEditorModal: document.getElementById('recEditorModal'),
+    recEditorClose: document.getElementById('recEditorClose'),
+    recWaveformCanvas: document.getElementById('recWaveformCanvas'),
+    recSelection: document.getElementById('recSelection'),
+    recPlayhead: document.getElementById('recPlayhead'),
+    recDuration: document.getElementById('recDuration'),
+    recSelectionInfo: document.getElementById('recSelectionInfo'),
+    recPlayBtn: document.getElementById('recPlayBtn'),
+    recStopPlayBtn: document.getElementById('recStopPlayBtn'),
+    recClearSelBtn: document.getElementById('recClearSelBtn'),
+    recFileName: document.getElementById('recFileName'),
+    recSaveBtn: document.getElementById('recSaveBtn'),
+    recDiscardBtn: document.getElementById('recDiscardBtn')
 };
 const sampleFileEls = [els.sampleFile1, els.sampleFile2, els.sampleFile3, els.sampleFile4, els.sampleFile5, els.sampleFile6, els.sampleFile7];
 const sampleNameEls = [els.sampleName1, els.sampleName2, els.sampleName3, els.sampleName4, els.sampleName5, els.sampleName6, els.sampleName7];
@@ -513,7 +527,18 @@ const state = {
         isRecording: false,
         workletNode: null,
         startTime: 0,
-        timerInterval: null
+        timerInterval: null,
+        // Editor state
+        buffers: null,
+        sampleRate: 44100,
+        leftData: null,
+        rightData: null,
+        selectionStart: 0,
+        selectionEnd: 1,
+        isPlaying: false,
+        playbackSource: null,
+        playheadInterval: null,
+        playStartTime: 0
     }
 };
 const FADE_TAIL_MS = 200;
@@ -991,7 +1016,8 @@ async function initRecorderWorklet() {
         // Handle messages from worklet
         state.recorder.workletNode.port.onmessage = (event) => {
             if (event.data.command === 'buffers') {
-                exportWavFile(event.data.buffers, event.data.sampleRate);
+                // Open editor instead of direct export
+                openRecordingEditor(event.data.buffers, event.data.sampleRate);
             }
         };
         
@@ -1181,6 +1207,400 @@ function writeString(view, offset, string) {
         view.setUint8(offset + i, string.charCodeAt(i));
     }
 }
+
+// === RECORDING EDITOR FUNCTIONS ===
+
+function openRecordingEditor(buffers, sampleRate) {
+    // Merge chunks into single arrays
+    const leftChunks = buffers[0];
+    const rightChunks = buffers[1] && buffers[1].length ? buffers[1] : buffers[0];
+    
+    const totalSamples = leftChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    if (totalSamples === 0) return;
+    
+    const leftData = new Float32Array(totalSamples);
+    const rightData = new Float32Array(totalSamples);
+    
+    let offset = 0;
+    for (let i = 0; i < leftChunks.length; i++) {
+        leftData.set(leftChunks[i], offset);
+        if (rightChunks[i]) rightData.set(rightChunks[i], offset);
+        offset += leftChunks[i].length;
+    }
+    
+    // Store in state
+    state.recorder.buffers = buffers;
+    state.recorder.sampleRate = sampleRate || 44100;
+    state.recorder.leftData = leftData;
+    state.recorder.rightData = rightData;
+    state.recorder.selectionStart = 0;
+    state.recorder.selectionEnd = 1;
+    
+    // Set default filename
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    if (els.recFileName) els.recFileName.value = `GENCA_Recording_${timestamp}`;
+    
+    // Show modal
+    if (els.recEditorModal) {
+        els.recEditorModal.classList.add('active');
+    }
+    
+    // Draw waveform
+    drawWaveform();
+    updateSelectionUI();
+    
+    // Update duration display
+    const duration = totalSamples / state.recorder.sampleRate;
+    if (els.recDuration) {
+        els.recDuration.textContent = `Duration: ${formatTime(duration)}`;
+    }
+}
+
+function closeRecordingEditor() {
+    stopRecordingPlayback();
+    if (els.recEditorModal) {
+        els.recEditorModal.classList.remove('active');
+    }
+    // Clear buffers
+    state.recorder.buffers = null;
+    state.recorder.leftData = null;
+    state.recorder.rightData = null;
+}
+
+function drawWaveform() {
+    const canvas = els.recWaveformCanvas;
+    if (!canvas || !state.recorder.leftData) return;
+    
+    const ctx = canvas.getContext('2d');
+    const width = canvas.offsetWidth;
+    const height = canvas.offsetHeight;
+    
+    // Set canvas resolution
+    canvas.width = width * window.devicePixelRatio;
+    canvas.height = height * window.devicePixelRatio;
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    
+    // Clear
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(0, 0, width, height);
+    
+    // Draw center line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, height / 2);
+    ctx.lineTo(width, height / 2);
+    ctx.stroke();
+    
+    // Draw waveform (mono mix for display)
+    const left = state.recorder.leftData;
+    const right = state.recorder.rightData;
+    const samples = left.length;
+    const samplesPerPixel = Math.ceil(samples / width);
+    
+    ctx.strokeStyle = '#00f2ff';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    
+    for (let x = 0; x < width; x++) {
+        const startSample = Math.floor(x * samples / width);
+        const endSample = Math.min(startSample + samplesPerPixel, samples);
+        
+        let min = 1, max = -1;
+        for (let i = startSample; i < endSample; i++) {
+            const mono = (left[i] + right[i]) / 2;
+            if (mono < min) min = mono;
+            if (mono > max) max = mono;
+        }
+        
+        const yMin = ((1 - max) / 2) * height;
+        const yMax = ((1 - min) / 2) * height;
+        
+        if (x === 0) {
+            ctx.moveTo(x, yMin);
+        }
+        ctx.lineTo(x, yMin);
+        ctx.lineTo(x, yMax);
+    }
+    
+    ctx.stroke();
+}
+
+function updateSelectionUI() {
+    const canvas = els.recWaveformCanvas;
+    const selection = els.recSelection;
+    const info = els.recSelectionInfo;
+    
+    if (!canvas || !selection) return;
+    
+    const width = canvas.offsetWidth;
+    const start = state.recorder.selectionStart;
+    const end = state.recorder.selectionEnd;
+    
+    if (start === 0 && end === 1) {
+        // Full selection - hide selection div
+        selection.classList.remove('active');
+        if (info) info.textContent = 'Selection: Full';
+    } else {
+        selection.classList.add('active');
+        selection.style.left = (start * width) + 'px';
+        selection.style.width = ((end - start) * width) + 'px';
+        
+        if (info && state.recorder.leftData) {
+            const totalDuration = state.recorder.leftData.length / state.recorder.sampleRate;
+            const selStart = start * totalDuration;
+            const selEnd = end * totalDuration;
+            info.textContent = `Selection: ${formatTime(selStart)} - ${formatTime(selEnd)} (${formatTime(selEnd - selStart)})`;
+        }
+    }
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = (seconds % 60).toFixed(1);
+    return `${mins}:${secs.padStart(4, '0')}`;
+}
+
+function startRecordingPlayback() {
+    if (!state.recorder.leftData || !state.audio.ctx) return;
+    
+    stopRecordingPlayback();
+    
+    const left = state.recorder.leftData;
+    const right = state.recorder.rightData;
+    const sr = state.recorder.sampleRate;
+    
+    // Calculate selection range
+    const startSample = Math.floor(state.recorder.selectionStart * left.length);
+    const endSample = Math.floor(state.recorder.selectionEnd * left.length);
+    const numSamples = endSample - startSample;
+    
+    if (numSamples <= 0) return;
+    
+    // Create audio buffer
+    const buffer = state.audio.ctx.createBuffer(2, numSamples, sr);
+    const leftCh = buffer.getChannelData(0);
+    const rightCh = buffer.getChannelData(1);
+    
+    for (let i = 0; i < numSamples; i++) {
+        leftCh[i] = left[startSample + i];
+        rightCh[i] = right[startSample + i];
+    }
+    
+    // Create source
+    const source = state.audio.ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(state.audio.ctx.destination);
+    
+    source.onended = () => {
+        stopRecordingPlayback();
+    };
+    
+    state.recorder.playbackSource = source;
+    state.recorder.isPlaying = true;
+    state.recorder.playStartTime = state.audio.ctx.currentTime;
+    
+    // Update button states
+    if (els.recPlayBtn) els.recPlayBtn.disabled = true;
+    if (els.recStopPlayBtn) els.recStopPlayBtn.disabled = false;
+    
+    // Start playhead animation
+    updatePlayhead();
+    state.recorder.playheadInterval = setInterval(updatePlayhead, 50);
+    
+    source.start();
+}
+
+function stopRecordingPlayback() {
+    if (state.recorder.playbackSource) {
+        try {
+            state.recorder.playbackSource.stop();
+        } catch (e) {}
+        state.recorder.playbackSource = null;
+    }
+    
+    state.recorder.isPlaying = false;
+    
+    if (state.recorder.playheadInterval) {
+        clearInterval(state.recorder.playheadInterval);
+        state.recorder.playheadInterval = null;
+    }
+    
+    // Update button states
+    if (els.recPlayBtn) els.recPlayBtn.disabled = false;
+    if (els.recStopPlayBtn) els.recStopPlayBtn.disabled = true;
+    
+    // Hide playhead
+    if (els.recPlayhead) {
+        els.recPlayhead.classList.remove('active');
+    }
+}
+
+function updatePlayhead() {
+    if (!state.recorder.isPlaying || !state.audio.ctx || !els.recPlayhead || !els.recWaveformCanvas) return;
+    
+    const elapsed = state.audio.ctx.currentTime - state.recorder.playStartTime;
+    const left = state.recorder.leftData;
+    const sr = state.recorder.sampleRate;
+    
+    const startSample = Math.floor(state.recorder.selectionStart * left.length);
+    const endSample = Math.floor(state.recorder.selectionEnd * left.length);
+    const selectionDuration = (endSample - startSample) / sr;
+    
+    if (elapsed >= selectionDuration) {
+        stopRecordingPlayback();
+        return;
+    }
+    
+    const progress = elapsed / selectionDuration;
+    const canvasWidth = els.recWaveformCanvas.offsetWidth;
+    const selectionWidth = (state.recorder.selectionEnd - state.recorder.selectionStart) * canvasWidth;
+    const selectionLeft = state.recorder.selectionStart * canvasWidth;
+    
+    els.recPlayhead.classList.add('active');
+    els.recPlayhead.style.left = (selectionLeft + progress * selectionWidth) + 'px';
+}
+
+function clearRecordingSelection() {
+    state.recorder.selectionStart = 0;
+    state.recorder.selectionEnd = 1;
+    updateSelectionUI();
+}
+
+function saveRecordingFromEditor() {
+    if (!state.recorder.leftData || !state.recorder.rightData) return;
+    
+    const left = state.recorder.leftData;
+    const right = state.recorder.rightData;
+    const sr = state.recorder.sampleRate;
+    
+    // Get selection range
+    const startSample = Math.floor(state.recorder.selectionStart * left.length);
+    const endSample = Math.floor(state.recorder.selectionEnd * left.length);
+    const numSamples = endSample - startSample;
+    
+    if (numSamples <= 0) return;
+    
+    // Extract selected portion
+    const selectedLeft = left.slice(startSample, endSample);
+    const selectedRight = right.slice(startSample, endSample);
+    
+    // Create WAV
+    const wavBuffer = createWavBuffer(selectedLeft, selectedRight, sr);
+    
+    // Get filename
+    let filename = els.recFileName ? els.recFileName.value.trim() : '';
+    if (!filename) {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        filename = `GENCA_Recording_${timestamp}`;
+    }
+    // Ensure .wav extension
+    if (!filename.toLowerCase().endsWith('.wav')) {
+        filename += '.wav';
+    }
+    
+    // Download
+    const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    // Close editor
+    closeRecordingEditor();
+}
+
+function setupRecordingEditorEvents() {
+    // Close button
+    if (els.recEditorClose) {
+        els.recEditorClose.onclick = closeRecordingEditor;
+    }
+    
+    // Playback controls
+    if (els.recPlayBtn) {
+        els.recPlayBtn.onclick = startRecordingPlayback;
+    }
+    if (els.recStopPlayBtn) {
+        els.recStopPlayBtn.onclick = stopRecordingPlayback;
+        els.recStopPlayBtn.disabled = true;
+    }
+    
+    // Clear selection
+    if (els.recClearSelBtn) {
+        els.recClearSelBtn.onclick = clearRecordingSelection;
+    }
+    
+    // Save/Discard
+    if (els.recSaveBtn) {
+        els.recSaveBtn.onclick = saveRecordingFromEditor;
+    }
+    if (els.recDiscardBtn) {
+        els.recDiscardBtn.onclick = closeRecordingEditor;
+    }
+    
+    // Waveform selection (click and drag)
+    const canvas = els.recWaveformCanvas;
+    if (canvas) {
+        let isDragging = false;
+        let dragStart = 0;
+        
+        canvas.addEventListener('pointerdown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            isDragging = true;
+            dragStart = Math.max(0, Math.min(1, x));
+            state.recorder.selectionStart = dragStart;
+            state.recorder.selectionEnd = dragStart;
+            canvas.setPointerCapture(e.pointerId);
+        });
+        
+        canvas.addEventListener('pointermove', (e) => {
+            if (!isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            
+            if (x < dragStart) {
+                state.recorder.selectionStart = x;
+                state.recorder.selectionEnd = dragStart;
+            } else {
+                state.recorder.selectionStart = dragStart;
+                state.recorder.selectionEnd = x;
+            }
+            updateSelectionUI();
+        });
+        
+        canvas.addEventListener('pointerup', (e) => {
+            isDragging = false;
+            canvas.releasePointerCapture(e.pointerId);
+            
+            // If very small selection, treat as full selection
+            if (Math.abs(state.recorder.selectionEnd - state.recorder.selectionStart) < 0.01) {
+                state.recorder.selectionStart = 0;
+                state.recorder.selectionEnd = 1;
+                updateSelectionUI();
+            }
+        });
+    }
+    
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        if (els.recEditorModal && els.recEditorModal.classList.contains('active')) {
+            drawWaveform();
+            updateSelectionUI();
+        }
+    });
+    
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && els.recEditorModal && els.recEditorModal.classList.contains('active')) {
+            closeRecordingEditor();
+        }
+    });
+}
+
+// === END RECORDING EDITOR FUNCTIONS ===
 
 function setupDraggableRecControls() {
     const bar = els.recControls;
@@ -1797,6 +2217,10 @@ function setAudioEnabled(isEnabled) {
     updateActiveOutput();
     updateAudioStatus();
     
+    // Show/hide REC controls based on Internal Synth state
+    if (els.recControls) {
+        els.recControls.style.display = isEnabled ? 'flex' : 'none';
+    }
 }
 
 function getChannelPbSemis(chan) {
@@ -5065,7 +5489,12 @@ function bindUI() {
     // Make recorder bar draggable
     if (els.recControls) {
         setupDraggableRecControls();
+        // Set initial visibility based on Internal Synth state
+        els.recControls.style.display = state.audio.enabled ? 'flex' : 'none';
     }
+    // Setup recording editor events
+    setupRecordingEditorEvents();
+    
     if (els.sampleSetSelect) {
         refreshSampleSetSelect(state.audio.activeSet);
         els.sampleSetSelect.onchange = () => loadSampleSet(els.sampleSetSelect.value);

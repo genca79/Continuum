@@ -370,6 +370,169 @@ select:focus, input:focus {
     opacity: 0.4;
     cursor: not-allowed;
 }
+
+/* === RECORDING EDITOR MODAL === */
+.rec-editor-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.rec-editor-modal.active {
+    display: flex;
+}
+
+.rec-editor-content {
+    background: var(--bg-glass-heavy);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 20px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.rec-editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rec-editor-header h3 {
+    margin: 0;
+    color: var(--primary);
+    font-size: 18px;
+}
+
+.rec-editor-close {
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 28px;
+    cursor: pointer;
+    padding: 0 8px;
+    line-height: 1;
+}
+
+.rec-editor-close:hover {
+    color: #ff5555;
+}
+
+.rec-editor-waveform {
+    position: relative;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    height: 150px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    cursor: crosshair;
+}
+
+.rec-editor-waveform canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.rec-selection {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: rgba(0, 242, 255, 0.2);
+    border-left: 2px solid var(--primary);
+    border-right: 2px solid var(--primary);
+    pointer-events: none;
+    display: none;
+}
+
+.rec-selection.active {
+    display: block;
+}
+
+.rec-playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #ff4444;
+    pointer-events: none;
+    display: none;
+}
+
+.rec-playhead.active {
+    display: block;
+}
+
+.rec-editor-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 15px;
+}
+
+.rec-editor-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.rec-editor-controls .menu-btn {
+    min-width: 44px;
+    height: 40px;
+}
+
+.rec-editor-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 200px;
+}
+
+.rec-editor-name label {
+    color: #888;
+    font-size: 12px;
+}
+
+.rec-editor-name input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: #fff;
+    font-size: 14px;
+}
+
+.rec-editor-name span {
+    color: #666;
+    font-size: 14px;
+}
+
+.rec-editor-controls .btn-ok {
+    min-width: 100px;
+}
+
+.rec-editor-controls .btn-danger {
+    min-width: 100px;
+}
+/* === END RECORDING EDITOR MODAL === */
+
 /* === END AUDIO RECORDER STYLES === */
 
 .menu-btn.active, .menu-btn.toggle-on { 
