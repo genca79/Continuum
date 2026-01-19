@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GENCA MPE Ultra Continuum - Master Manual</title>
+    <style>
+        :root {
+            --bg-color: #0f0f0f;
+            --section-bg: #1a1a1a;
+            --accent-color: #00ff99; /* Ghost Circle Green */
+            --text-color: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --border-color: #333;
+            --header-bg: #000;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: var(--header-bg);
+            padding: 2.5rem 1rem;
+            text-align: center;
+            border-bottom: 2px solid var(--accent-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            letter-spacing: 2px;
+            color: var(--accent-color);
+            text-transform: uppercase;
+        }
+
+        header p {
+            margin: 0.5rem 0 0;
+            color: var(--text-muted);
+            font-style: italic;
+            font-size: 1.1rem;
+        }
+
+        nav {
+            background: #222;
+            padding: 1rem;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            position: sticky;
+            top: 118px; /* Adjusted based on header height */
+            z-index: 90;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        nav a {
+            color: var(--text-color);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: bold;
+            padding: 5px 12px;
+            border-radius: 4px;
+            transition: all 0.3s;
+            border: 1px solid transparent;
+        }
+
+        nav a:hover {
+            background: var(--accent-color);
+            color: #000;
+            border-color: #fff;
+        }
+
+        main {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 0 1.5rem;
+        }
+
+        section {
+            background-color: var(--section-bg);
+            padding: 2.5rem;
+            margin-bottom: 2.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        h2 {
+            color: var(--accent-color);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.8rem;
+            margin-top: 0;
+            font-size: 1.8rem;
+        }
+
+        h3 {
+            color: #fff;
+            margin-top: 1.8rem;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+        }
+
+        h3::before {
+            content: "▶";
+            color: var(--accent-color);
+            font-size: 0.8rem;
+            margin-right: 10px;
+        }
+
+        /* --- Video Embed Styles --- */
+        .video-wrapper {
+            background: #000;
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid var(--accent-color);
+            margin: 2rem 0;
+        }
+
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            overflow: hidden;
+            max-width: 100%;
+        }
+
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        ul { padding-left: 1.5rem; }
+        li { margin-bottom: 0.8rem; }
+        
+        code {
+            background: #000;
+            color: var(--accent-color);
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.95rem;
+        }
+
+        .pro-tip {
+            background: rgba(0, 255, 153, 0.07);
+            border-left: 5px solid var(--accent-color);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            font-style: italic;
+            border-radius: 0 8px 8px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background: #111;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: #000;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            font-size: 0.85rem;
+        }
+
+        footer {
+            text-align: center;
+            padding: 4rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .highlight {
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            nav { position: relative; top: 0; }
+            header h1 { font-size: 1.8rem; }
+            section { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>GENCA MPE Ultra Continuum</h1>
+    <p>Hybrid Synthesizer & Sampler - Official Master Manual</p>
+</header>
+
+<nav>
+    <a href="#intro">Introduction</a>
+    <a href="#video">Video Demo</a>
+    <a href="#setup">Setup</a>
+    <a href="#engine">Hybrid Engine</a>
+    <a href="#mpe">Expression</a>
+    <a href="#harmonics">Harmonics</a>
+    <a href="#export">Recording</a>
+</nav>
+
+<main>
+    <section id="intro">
+        <h2>Introduction</h2>
+        <p>The <strong>GENCA MPE Ultra Continuum</strong> is a professional browser-based instrument that merges <strong>Wavetable Synthesis</strong> with an <strong>Advanced Multi-Sample Engine</strong>. Built for <strong>MPE (MIDI Polyphonic Expression)</strong>, it allows per-note control over pitch and timbre.</p>
+        <p>This manual covers both <strong>Standalone Use</strong> (performing directly in the browser) and <strong>DAW Integration</strong> (using the app as a controller/sound source for Ableton Live, Logic, etc.).</p>
+    </section>
+
+    <section id="video">
+        <h2>Interactive Tutorial</h2>
+        <p>Explore the expressive interface and learn how the "Ghost Circles" translate MIDI input into visual sound modulation.</p>
+        <div class="video-wrapper">
+            <div class="video-container">
+               <iframe 
+                    src="https://www.youtube-nocookie.com/embed/Vn9N9vGaoLA" 
+                    title="YouTube video player" 
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                    referrerpolicy="strict-origin-when-cross-origin" 
+                    allowfullscreen>
+               </iframe>
+            </div>
+        </div>
+        <p style="text-align: center; font-size: 0.9rem; color: var(--text-muted);">
+            Trouble viewing? <a href="https://www.youtube.com/watch?v=Vn9N9vGaoLA" target="_blank" style="color: var(--accent-color);">Watch directly on YouTube</a>
+        </p>
+    </section>
+
+    <section id="setup">
+        <h2>1. System Setup & Connectivity</h2>
+        <h3>Operating Modes</h3>
+        <ul>
+            <li><strong>Standalone:</strong> Play instantly using your <span class="highlight"> touch </span> or mouse. Ensure <code>Internal Synth</code> is <strong>ON</strong>.</li>
+            <li><strong>External MIDI:</strong> Connect a controller before launching. The app upgrades standard MIDI into a high-expression MPE signal.</li>
+            <li><strong>DAW Bridge:</strong> Route the MIDI Out to a virtual port (loopMIDI/IAC) to pilot external VSTs with Continuum's scale and chord logic.</li>
+        </ul>
+    </section>
+
+    <section id="engine">
+        <h2>2. Hybrid Sound Architecture</h2>
+        <h3>A. Wavetable Synthesis</h3>
+        <ul>
+            <li><strong>WT Type:</strong> Select the digital core of your sound.</li>
+            <li><strong>WT Mix:</strong> Morph between wavetable and sampler. </li>
+        </ul>
+
+        <h3>B. 7-Slot Multi-Sampler</h3>
+        <p>The sampler is a versatile tool for both realism and sound design:</p>
+        <ul>
+            <li><strong>Pitch Mapping:</strong> Every slot (1-7) has a dedicated <code>Root Note</code>. Assign different samples to different keys to create a <strong>Multi-sampled Instrument</strong> or a <strong>Drum Kit</strong>.</li>
+            <li><strong>Independent Controls:</strong> Each slot features its own Gain, Loop mode, and Start/End points.</li>
+            <li><strong>Layering:</strong> Load multiple samples on the same note to create thick, textured "Stacks".</li>
+        </ul>
+    </section>
+
+    <section id="mpe">
+        <h2>3. Expression: The Ghost Circles</h2>
+        <p>The central performance area transforms notes into <strong> Circles</strong>.</p>
+        <ul>
+            <li><strong>Horizontal (X):</strong> Perform fluid <strong>Pitch Slides</strong> between notes (Fretless mode).</li>
+            <li><strong>Vertical (Y):</strong> Modulate <strong>Filter Cutoff</strong> or <strong>Wavetable Position</strong> per-note.</li>
+            <li><strong>Snap Rate:</strong> Adjust how quickly a slide "snaps" back to the nearest scale degree.</li>
+        </ul>
+        <div class="pro-tip">
+            <strong>Tip:</strong> Even with a standard MIDI keyboard, you can use your touch or mouse to "grab" a circle and slide it while holding the physical key!
+        </div>
+    </section>
+
+    <section id="harmonics">
+        <h2>4. Harmonic & Scale Engine</h2>
+        <h3>Microtonal & Custom Scales</h3>
+        <ul>
+            <li><strong>Microtonality:</strong> Edit notes in <code>Cents</code> for quarter-tone or experimental tunings.</li>
+            <li><strong>Scale Presets:</strong> Over 20 built-in scales (Arabic, Hirajoshi, Minor, etc.).</li>
+        </ul>
+        <h3>Chord Generator (GROUP Menu)</h3>
+        <ul>
+            <li><strong>Auto Diatonic:</strong> Automatically generates chords that stay in key.</li>
+            <li><strong>Inversion & Spread:</strong> Flip and widen chord voicings for cinematic atmospheres.</li>
+        </ul>
+    </section>
+
+    <section id="export">
+        <h2>5. Integrated Recording</h2>
+        <p>Capture your sessions without leaving the browser:</p>
+        <ol>
+            <li>Press <strong>● (Record)</strong> in the transport bar.</li>
+            <li>Once finished, press <strong>■ (Stop)</strong>.</li>
+            <li>Use the <strong>Recording Editor</strong> to trim the waveform.</li>
+            <li>Export as a high-fidelity <strong>.wav</strong> file.</li>
+        </ol>
+    </section>
+</main>
+
+<footer>
+    <p>Manual generated for GENCA MPE Ultra Continuum User Community.</p>
+    <p>&copy; 2026 GENCA Hybrid Audio Tools - Designed for Expressive Musicians.</p>
+</footer>
+
+</body>
+</html>

@@ -589,7 +589,7 @@ function initFactoryUI() {
     els.factoryLoadBtn.onclick = async () => {
         const setName = els.factorySelect.value;
         if (!setName || !FACTORY_LIBRARY[setName]) return;
-        if (!state.audio.ctx) initAudioContext();
+        if (!state.audio.ctx) await initAudioContext();
         if (state.audio.ctx.state === 'suspended') await state.audio.ctx.resume();
         els.midiStatus.innerText = "LOADING FACTORY SET...";
         if(els.sampleSetName) els.sampleSetName.value = setName;
@@ -848,7 +848,7 @@ async function loadSavedSamples(setName = state.audio.activeSet) {
         
         // Initialize audio context if needed
         if (!state.audio.ctx) {
-            initAudioContext();
+            await initAudioContext();
         }
         if (!state.audio.ctx) {
             console.warn("Cannot decode samples: AudioContext not available");
@@ -935,7 +935,7 @@ async function normalizeSampleData(data) {
     return null;
 }
 
-function initAudioContext() {
+async function initAudioContext() {
     if (state.audio.ctx) return;
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
@@ -952,7 +952,7 @@ function initAudioContext() {
     state.audio.delayFeedback = state.audio.ctx.createGain();
     state.audio.delayWetGain = state.audio.ctx.createGain();
     state.audio.delayDryGain = state.audio.ctx.createGain();
-    state.audio.reverseDelay = createReverseDelayNode(state.audio.ctx);
+    state.audio.reverseDelay = await createReverseDelayNode(state.audio.ctx);
     state.audio.reverseWetGain = state.audio.ctx.createGain();
     state.audio.reverbInput = state.audio.ctx.createGain();
     state.audio.convolver = state.audio.ctx.createConvolver();
@@ -995,8 +995,8 @@ function initAudioContext() {
     state.audio.chorusLfo.start();
 }
 
-function resumeAudioContext() {
-    initAudioContext();
+async function resumeAudioContext() {
+    await initAudioContext();
     if (!state.audio.ctx) return Promise.resolve();
     if (state.audio.ctx.state === 'running') return Promise.resolve();
     return state.audio.ctx.resume();
@@ -1037,10 +1037,10 @@ async function initRecorderWorklet() {
     }
 }
 
-function startRecording() {
+async function startRecording() {
     // Initialize audio context if needed (even if enabled flag is true)
     if (!state.audio.ctx || !state.audio.master) {
-        initAudioContext();
+        await initAudioContext();
     }
     
     // Still check after init attempt
@@ -2079,9 +2079,46 @@ function rebuildReverbImpulse() {
     state.audio.convolver.buffer = impulse;
 }
 
-function createReverseDelayNode(ctx) {
+async function createReverseDelayNode(ctx) {
+    // Try to use AudioWorkletNode (modern, non-deprecated)
+    try {
+        await ctx.audioWorklet.addModule('reverse-delay-processor.js');
+        const workletNode = new AudioWorkletNode(ctx, 'reverse-delay-processor', {
+            numberOfInputs: 1,
+            numberOfOutputs: 1,
+            outputChannelCount: [2],
+            processorOptions: {
+                delaySamples: Math.floor(ctx.sampleRate * 0.3)
+            }
+        });
+        
+        // Create a wrapper object with the same interface as before
+        workletNode._feedback = 0;
+        workletNode._setDelaySamples = (samples) => {
+            workletNode.port.postMessage({ type: 'setDelaySamples', value: samples });
+        };
+        
+        // Override the _feedback setter to send messages to the worklet
+        let feedbackValue = 0;
+        Object.defineProperty(workletNode, '_feedback', {
+            get: () => feedbackValue,
+            set: (val) => {
+                feedbackValue = val;
+                workletNode.port.postMessage({ type: 'setFeedback', value: val });
+            }
+        });
+        
+        return workletNode;
+    } catch (e) {
+        console.warn('AudioWorklet not supported, falling back to ScriptProcessorNode:', e);
+        return createReverseDelayNodeFallback(ctx);
+    }
+}
+
+// Fallback for browsers without AudioWorklet support
+function createReverseDelayNodeFallback(ctx) {
     const node = ctx.createScriptProcessor(2048, 2, 2);
-    const state = {
+    const nodeState = {
         delaySamples: Math.max(1, Math.floor(ctx.sampleRate * 0.3)),
         writeBuf: 0,
         readBuf: 1,
@@ -2092,19 +2129,19 @@ function createReverseDelayNode(ctx) {
     };
 
     function initBuffers(samples) {
-        state.delaySamples = Math.max(1, Math.floor(samples));
-        state.buffers = [
-            [new Float32Array(state.delaySamples), new Float32Array(state.delaySamples)],
-            [new Float32Array(state.delaySamples), new Float32Array(state.delaySamples)]
+        nodeState.delaySamples = Math.max(1, Math.floor(samples));
+        nodeState.buffers = [
+            [new Float32Array(nodeState.delaySamples), new Float32Array(nodeState.delaySamples)],
+            [new Float32Array(nodeState.delaySamples), new Float32Array(nodeState.delaySamples)]
         ];
-        state.writeBuf = 0;
-        state.readBuf = 1;
-        state.writeIndex = 0;
-        state.readIndex = state.delaySamples - 1;
-        state.playing = false;
+        nodeState.writeBuf = 0;
+        nodeState.readBuf = 1;
+        nodeState.writeIndex = 0;
+        nodeState.readIndex = nodeState.delaySamples - 1;
+        nodeState.playing = false;
     }
 
-    initBuffers(state.delaySamples);
+    initBuffers(nodeState.delaySamples);
     node._feedback = 0;
     node._setDelaySamples = samples => initBuffers(samples);
 
@@ -2118,26 +2155,26 @@ function createReverseDelayNode(ctx) {
         for (let i = 0; i < outL.length; i++) {
             let outSampleL = 0;
             let outSampleR = 0;
-            if (state.playing) {
-                outSampleL = state.buffers[state.readBuf][0][state.readIndex];
-                outSampleR = state.buffers[state.readBuf][1][state.readIndex];
-                state.readIndex -= 1;
-                if (state.readIndex < 0) {
-                    state.playing = false;
+            if (nodeState.playing) {
+                outSampleL = nodeState.buffers[nodeState.readBuf][0][nodeState.readIndex];
+                outSampleR = nodeState.buffers[nodeState.readBuf][1][nodeState.readIndex];
+                nodeState.readIndex -= 1;
+                if (nodeState.readIndex < 0) {
+                    nodeState.playing = false;
                 }
             }
             const fb = node._feedback || 0;
-            state.buffers[state.writeBuf][0][state.writeIndex] = inL[i] + outSampleL * fb;
-            state.buffers[state.writeBuf][1][state.writeIndex] = inR[i] + outSampleR * fb;
+            nodeState.buffers[nodeState.writeBuf][0][nodeState.writeIndex] = inL[i] + outSampleL * fb;
+            nodeState.buffers[nodeState.writeBuf][1][nodeState.writeIndex] = inR[i] + outSampleR * fb;
             outL[i] = outSampleL;
             outR[i] = outSampleR;
-            state.writeIndex += 1;
-            if (state.writeIndex >= state.delaySamples) {
-                state.writeIndex = 0;
-                state.readIndex = state.delaySamples - 1;
-                state.readBuf = state.writeBuf;
-                state.writeBuf = state.writeBuf === 0 ? 1 : 0;
-                state.playing = true;
+            nodeState.writeIndex += 1;
+            if (nodeState.writeIndex >= nodeState.delaySamples) {
+                nodeState.writeIndex = 0;
+                nodeState.readIndex = nodeState.delaySamples - 1;
+                nodeState.readBuf = nodeState.writeBuf;
+                nodeState.writeBuf = nodeState.writeBuf === 0 ? 1 : 0;
+                nodeState.playing = true;
             }
         }
     };
@@ -2225,9 +2262,9 @@ function updateActiveOutput() {
     updateMidiStatusBase();
 }
 
-function setAudioEnabled(isEnabled) {
+async function setAudioEnabled(isEnabled) {
     state.audio.enabled = isEnabled;
-    if (isEnabled) initAudioContext();
+    if (isEnabled) await initAudioContext();
     else stopAllVoicesInternal();
     updateActiveOutput();
     updateAudioStatus();
@@ -2296,9 +2333,9 @@ function stopAllVoicesInternal() {
     state.audio.voices.clear();
 }
 
-function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
+async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
     if (!state.audio.enabled) return;
-    initAudioContext();
+    await initAudioContext();
     if (!state.audio.ctx || !state.audio.master) return;
     const modeFlags = getWavetableModeFlags();
     const sample = modeFlags.sampler ? findBestSample(note) : null;
@@ -2580,7 +2617,7 @@ async function deleteSampleSet(name) {
 }
 
 async function loadSampleFromFile(slotIndex, file) {
-    initAudioContext();
+    await initAudioContext();
     if (!state.audio.ctx) return;
     const arrayBuffer = await file.arrayBuffer();
     const buffer = await state.audio.ctx.decodeAudioData(arrayBuffer.slice(0));
