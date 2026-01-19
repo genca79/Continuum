@@ -154,7 +154,11 @@ const els = {
     sampleRoot7: document.getElementById('sampleRoot7'),
     sampleClear7: document.getElementById('sampleClear7'),
     factorySelect: document.getElementById('factorySelect'),
-    factoryLoadBtn: document.getElementById('factoryLoadBtn')
+    factoryLoadBtn: document.getElementById('factoryLoadBtn'),
+    // Audio Recorder elements
+    recStartBtn: document.getElementById('recStartBtn'),
+    recStopBtn: document.getElementById('recStopBtn'),
+    recTimer: document.getElementById('recTimer')
 };
 const sampleFileEls = [els.sampleFile1, els.sampleFile2, els.sampleFile3, els.sampleFile4, els.sampleFile5, els.sampleFile6, els.sampleFile7];
 const sampleNameEls = [els.sampleName1, els.sampleName2, els.sampleName3, els.sampleName4, els.sampleName5, els.sampleName6, els.sampleName7];
@@ -166,10 +170,16 @@ const sampleClearEls = [els.sampleClear1, els.sampleClear2, els.sampleClear3, el
 
 // === RANGE SLIDER PROGRESS BAR ===
 function updateRangeProgress(input) {
+    if (!input) return;
     const min = parseFloat(input.min) || 0;
     const max = parseFloat(input.max) || 100;
-    const val = parseFloat(input.value) || 0;
-    const percent = ((val - min) / (max - min)) * 100;
+    const val = parseFloat(input.value);
+    // Ensure we have valid numbers and avoid division by zero
+    if (isNaN(val) || max === min) {
+        input.style.setProperty('--range-progress', '0%');
+        return;
+    }
+    const percent = Math.max(0, Math.min(100, ((val - min) / (max - min)) * 100));
     input.style.setProperty('--range-progress', percent + '%');
 }
 
@@ -288,11 +298,11 @@ const FACTORY_LIBRARY = {
         { root: 0, file: null }, { root: 0, file: null }, { root: 0, file: null }, { root: 0, file: null }
     ],
     'Bassoon': [
-        { root: 34, file: 'samples/BassoonSustain_Ad1.wav', loop: false },
-        { root: 46, file: 'samples/BassoonSustain_Ad2.wav', loop: false },
+        { root: 34, file: 'samples/BassoonSustain_As1.wav', loop: false },
+        { root: 46, file: 'samples/BassoonSustain_As2.wav', loop: false },
         { root: 55, file: 'samples/BassoonSustain_G3.wav', loop: false },
-        { root: 68, file: 'samples/BassoonSustain_Gd4.wav', loop: false },
-        { root: 75, file: 'samples/BassoonSustain_Dd5.wav', loop: false },
+        { root: 68, file: 'samples/BassoonSustain_Gs4.wav', loop: false },
+        { root: 75, file: 'samples/BassoonSustain_Ds5.wav', loop: false },
         { root: 0, file: null }, { root: 0, file: null }
     ],
     'Cello': [
@@ -496,6 +506,13 @@ const state = {
         fx: { ...DEFAULT_FX },
         fxActiveGroup: 'filter',
         fxEnabled: false
+    },
+    // Audio Recorder state
+    recorder: {
+        isRecording: false,
+        workletNode: null,
+        startTime: 0,
+        timerInterval: null
     }
 };
 const FADE_TAIL_MS = 200;
@@ -956,6 +973,178 @@ function resumeAudioContext() {
     return state.audio.ctx.resume();
 }
 
+// === AUDIO RECORDER FUNCTIONS ===
+
+async function initRecorderWorklet() {
+    if (!state.audio.ctx) return false;
+    if (state.recorder.workletNode) return true;
+    
+    try {
+        await state.audio.ctx.audioWorklet.addModule('recorder-processor.js');
+        state.recorder.workletNode = new AudioWorkletNode(state.audio.ctx, 'recorder-processor');
+        
+        // Connect master output to recorder (passthrough)
+        state.audio.master.connect(state.recorder.workletNode);
+        state.recorder.workletNode.connect(state.audio.ctx.destination);
+        
+        // Handle messages from worklet
+        state.recorder.workletNode.port.onmessage = (event) => {
+            if (event.data.command === 'buffers') {
+                exportWavFile(event.data.buffers, event.data.sampleRate);
+            }
+        };
+        
+        return true;
+    } catch (err) {
+        console.error('Failed to init recorder worklet:', err);
+        return false;
+    }
+}
+
+function startRecording() {
+    if (!state.audio.ctx || !state.audio.master) {
+        alert('Please enable Internal Synth first');
+        return;
+    }
+    
+    resumeAudioContext().then(async () => {
+        const ready = await initRecorderWorklet();
+        if (!ready) {
+            alert('Could not initialize recorder');
+            return;
+        }
+        
+        state.recorder.isRecording = true;
+        state.recorder.startTime = Date.now();
+        state.recorder.workletNode.port.postMessage({ command: 'start' });
+        
+        // Update UI
+        if (els.recStartBtn) {
+            els.recStartBtn.classList.add('recording');
+            els.recStartBtn.disabled = true;
+        }
+        if (els.recStopBtn) els.recStopBtn.disabled = false;
+        if (els.recTimer) els.recTimer.classList.add('active');
+        
+        // Start timer update
+        state.recorder.timerInterval = setInterval(updateRecTimer, 100);
+    });
+}
+
+function stopRecording() {
+    if (!state.recorder.isRecording || !state.recorder.workletNode) return;
+    
+    state.recorder.isRecording = false;
+    state.recorder.workletNode.port.postMessage({ command: 'stop' });
+    
+    // Update UI
+    if (els.recStartBtn) {
+        els.recStartBtn.classList.remove('recording');
+        els.recStartBtn.disabled = false;
+    }
+    if (els.recStopBtn) els.recStopBtn.disabled = true;
+    if (els.recTimer) {
+        els.recTimer.classList.remove('active');
+        els.recTimer.textContent = '00:00';
+    }
+    
+    // Stop timer
+    if (state.recorder.timerInterval) {
+        clearInterval(state.recorder.timerInterval);
+        state.recorder.timerInterval = null;
+    }
+}
+
+function updateRecTimer() {
+    if (!state.recorder.isRecording || !els.recTimer) return;
+    const elapsed = Math.floor((Date.now() - state.recorder.startTime) / 1000);
+    const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+    const secs = (elapsed % 60).toString().padStart(2, '0');
+    els.recTimer.textContent = `${mins}:${secs}`;
+}
+
+function exportWavFile(buffers, sampleRate) {
+    // Merge chunks into single arrays
+    const leftChunks = buffers[0];
+    const rightChunks = buffers[1] && buffers[1].length ? buffers[1] : buffers[0];
+    
+    const totalSamples = leftChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    if (totalSamples === 0) return;
+    
+    const leftData = new Float32Array(totalSamples);
+    const rightData = new Float32Array(totalSamples);
+    
+    let offset = 0;
+    for (let i = 0; i < leftChunks.length; i++) {
+        leftData.set(leftChunks[i], offset);
+        if (rightChunks[i]) rightData.set(rightChunks[i], offset);
+        offset += leftChunks[i].length;
+    }
+    
+    // Create WAV file (16-bit PCM, stereo, 44.1kHz or context rate)
+    const wavBuffer = createWavBuffer(leftData, rightData, sampleRate || 44100);
+    
+    // Download file
+    const blob = new Blob([wavBuffer], { type: 'audio/wav' });
+    const url = URL.createObjectURL(blob);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filename = `GENCA_Recording_${timestamp}.wav`;
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function createWavBuffer(leftChannel, rightChannel, sampleRate) {
+    const numChannels = 2;
+    const bitsPerSample = 16;
+    const bytesPerSample = bitsPerSample / 8;
+    const numSamples = leftChannel.length;
+    const dataSize = numSamples * numChannels * bytesPerSample;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+    
+    // WAV header
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true); // fmt chunk size
+    view.setUint16(20, 1, true);  // PCM format
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * bytesPerSample, true); // byte rate
+    view.setUint16(32, numChannels * bytesPerSample, true); // block align
+    view.setUint16(34, bitsPerSample, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataSize, true);
+    
+    // Interleave and convert to 16-bit PCM
+    let offset = 44;
+    for (let i = 0; i < numSamples; i++) {
+        // Left channel
+        let sampleL = Math.max(-1, Math.min(1, leftChannel[i]));
+        view.setInt16(offset, sampleL < 0 ? sampleL * 0x8000 : sampleL * 0x7FFF, true);
+        offset += 2;
+        // Right channel
+        let sampleR = Math.max(-1, Math.min(1, rightChannel[i]));
+        view.setInt16(offset, sampleR < 0 ? sampleR * 0x8000 : sampleR * 0x7FFF, true);
+        offset += 2;
+    }
+    
+    return buffer;
+}
+
+function writeString(view, offset, string) {
+    for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+    }
+}
+
+// === END AUDIO RECORDER FUNCTIONS ===
+
 function updateAudioStatus() {
     if (els.audioStart) {
         const on = state.audio.enabled;
@@ -1134,7 +1323,10 @@ function parseNoteName(value) {
 function updateWavetableUI() {
     if (els.wtMode) els.wtMode.value = state.audio.wavetable.mode;
     if (els.wtSelect) els.wtSelect.value = state.audio.wavetable.type;
-    if (els.wtMix) els.wtMix.value = state.audio.wavetable.mix.toFixed(2);
+    if (els.wtMix) {
+        els.wtMix.value = state.audio.wavetable.mix.toFixed(2);
+        updateRangeProgress(els.wtMix);
+    }
     if (els.wtMixBox) {
         els.wtMixBox.style.display = state.audio.wavetable.mode === 'layer' ? '' : 'none';
     }
@@ -1753,7 +1945,10 @@ async function loadSampleSet(name) {
         updateSampleName(idx);
     });
     state.audio.samplerGain = loadSamplerGainForSet(setName);
-    if (els.samplerGain) els.samplerGain.value = state.audio.samplerGain.toFixed(2);
+    if (els.samplerGain) {
+        els.samplerGain.value = state.audio.samplerGain.toFixed(2);
+        updateRangeProgress(els.samplerGain);
+    }
     if (sampleFileEls) sampleFileEls.forEach(input => { if (input) input.value = ''; });
     await loadSavedSamples(setName);
     updateAudioStatus();
@@ -1993,7 +2188,21 @@ function getPresetState() {
         arpSync: els.arpSync.value,
         arpBpm: els.arpBpm.value,
         arpLatch: els.arpLatch.checked,
-        currentOctave: state.currentOctave
+        currentOctave: state.currentOctave,
+        // Internal Synth settings
+        audioEnabled: state.audio.enabled,
+        wtMode: state.audio.wavetable.mode,
+        wtType: state.audio.wavetable.type,
+        wtMix: state.audio.wavetable.mix,
+        // Sampler settings
+        samplerGain: state.audio.samplerGain,
+        samplerMaxVoices: state.audio.maxSamplerVoices,
+        sampleLoop: state.audio.loopGlobal,
+        // Fade settings
+        fadeSeconds: els.fadeSeconds ? els.fadeSeconds.value : '3',
+        // FX settings
+        fx: { ...state.audio.fx },
+        fxEnabled: state.audio.fxEnabled
     };
 }
 
@@ -2076,6 +2285,81 @@ function applyPresetState(presetState) {
     updateScaleNotes();
     syncArpFromUI();
     updateScaleModeUI();
+    // Internal Synth settings
+    if (presetState.audioEnabled !== undefined) {
+        setAudioEnabled(presetState.audioEnabled);
+    }
+    if (presetState.wtMode !== undefined) {
+        state.audio.wavetable.mode = presetState.wtMode;
+        if (els.wtMode) els.wtMode.value = presetState.wtMode;
+        if (els.wtMixBox) els.wtMixBox.style.display = presetState.wtMode === 'layer' ? '' : 'none';
+    }
+    if (presetState.wtType !== undefined) {
+        state.audio.wavetable.type = presetState.wtType;
+        if (els.wtSelect) els.wtSelect.value = presetState.wtType;
+    }
+    if (presetState.wtMix !== undefined) {
+        state.audio.wavetable.mix = presetState.wtMix;
+        if (els.wtMix) {
+            els.wtMix.value = presetState.wtMix.toFixed(2);
+            updateRangeProgress(els.wtMix);
+        }
+    }
+    // Sampler settings
+    if (presetState.samplerGain !== undefined) {
+        state.audio.samplerGain = presetState.samplerGain;
+        if (els.samplerGain) {
+            els.samplerGain.value = presetState.samplerGain.toFixed(2);
+            updateRangeProgress(els.samplerGain);
+        }
+    }
+    if (presetState.samplerMaxVoices !== undefined) {
+        state.audio.maxSamplerVoices = presetState.samplerMaxVoices;
+        if (els.samplerMaxVoices) els.samplerMaxVoices.value = presetState.samplerMaxVoices;
+    }
+    if (presetState.sampleLoop !== undefined) {
+        state.audio.loopGlobal = presetState.sampleLoop;
+        if (els.sampleLoopBtn) els.sampleLoopBtn.classList.toggle('active', presetState.sampleLoop);
+    }
+    // Fade settings
+    if (presetState.fadeSeconds !== undefined && els.fadeSeconds) {
+        els.fadeSeconds.value = presetState.fadeSeconds;
+    }
+    // FX settings
+    if (presetState.fx) {
+        state.audio.fx = { ...DEFAULT_FX, ...presetState.fx };
+        if (els.fxAttack) { els.fxAttack.value = state.audio.fx.attack; updateRangeProgress(els.fxAttack); }
+        if (els.fxDecay) { els.fxDecay.value = state.audio.fx.decay; updateRangeProgress(els.fxDecay); }
+        if (els.fxSustain) { els.fxSustain.value = state.audio.fx.sustain; updateRangeProgress(els.fxSustain); }
+        if (els.fxRelease) { els.fxRelease.value = state.audio.fx.release; updateRangeProgress(els.fxRelease); }
+        if (els.fxCutoff) { els.fxCutoff.value = state.audio.fx.filterCutoff; updateRangeProgress(els.fxCutoff); }
+        if (els.fxResonance) { els.fxResonance.value = state.audio.fx.filterQ; updateRangeProgress(els.fxResonance); }
+        if (els.fxFilterEnv) { els.fxFilterEnv.value = state.audio.fx.filterEnv; updateRangeProgress(els.fxFilterEnv); }
+        if (els.fxFilterToggle) els.fxFilterToggle.classList.toggle('active', !!state.audio.fx.filterOn);
+        if (els.fxChorusRate) { els.fxChorusRate.value = state.audio.fx.chorusRate; updateRangeProgress(els.fxChorusRate); }
+        if (els.fxChorusDepth) { els.fxChorusDepth.value = state.audio.fx.chorusDepth; updateRangeProgress(els.fxChorusDepth); }
+        if (els.fxChorusToggle) els.fxChorusToggle.classList.toggle('active', !!state.audio.fx.chorusOn);
+        if (els.fxDelayTime) { els.fxDelayTime.value = state.audio.fx.delayTime; updateRangeProgress(els.fxDelayTime); }
+        if (els.fxDelayFeedback) { els.fxDelayFeedback.value = state.audio.fx.delayFeedback; updateRangeProgress(els.fxDelayFeedback); }
+        if (els.fxDelayDry) { els.fxDelayDry.value = state.audio.fx.delayDry; updateRangeProgress(els.fxDelayDry); }
+        if (els.fxDelayWet) { els.fxDelayWet.value = state.audio.fx.delayWet; updateRangeProgress(els.fxDelayWet); }
+        if (els.fxDelayReverse) { els.fxDelayReverse.value = state.audio.fx.delayReverseMix; updateRangeProgress(els.fxDelayReverse); }
+        if (els.fxDelayToggle) els.fxDelayToggle.classList.toggle('active', !!state.audio.fx.delayOn);
+        if (els.fxReverbDecay) { els.fxReverbDecay.value = state.audio.fx.reverbDecay; updateRangeProgress(els.fxReverbDecay); }
+        if (els.fxReverbDry) { els.fxReverbDry.value = state.audio.fx.reverbDry; updateRangeProgress(els.fxReverbDry); }
+        if (els.fxReverbWet) { els.fxReverbWet.value = state.audio.fx.reverbWet; updateRangeProgress(els.fxReverbWet); }
+        if (els.fxReverbToggle) els.fxReverbToggle.classList.toggle('active', !!state.audio.fx.reverbOn);
+        if (els.fxMix) { els.fxMix.value = state.audio.fx.fxMix; updateRangeProgress(els.fxMix); }
+        // Apply FX to audio nodes if initialized
+        if (state.audio.ctx) updateFxNodes();
+    }
+    if (presetState.fxEnabled !== undefined) {
+        state.audio.fxEnabled = presetState.fxEnabled;
+    }
+    // Update range slider progress bars
+    [els.chordSpread, els.roundRate, els.deadCenterForce, els.smoothAmt, els.yDeadzone, els.touchSensitivity, els.arpGate].forEach(input => {
+        if (input) updateRangeProgress(input);
+    });
 }
 
 function loadPresets() {
@@ -2178,6 +2462,10 @@ function applyMpePresetState(mpePresetState) {
     if (els.touchSensitivity) els.touchSensitivity.value = mpePresetState.touchSensitivity ?? 75;
     els.quantizeRelease.checked = mpePresetState.quantizeRelease ?? els.quantizeRelease.checked;
     setPitchBendRange(parseInt(els.pbRange.value, 10));
+    // Update range slider progress bars
+    [els.roundRate, els.deadCenterForce, els.smoothAmt, els.yDeadzone, els.touchSensitivity].forEach(input => {
+        if (input) updateRangeProgress(input);
+    });
 }
 
 function loadMpePresets() {
@@ -2227,6 +2515,7 @@ function fillDatalistFromNames(datalist, names) {
 }
 
 function refreshPresetSelect(presets, selected) {
+    applyPresetState(state.presets.Init);
     const names = Object.keys(presets).sort();
     fillSelectFromNames(els.presetSelect, names);
     if (selected && names.includes(selected)) els.presetSelect.value = selected;
@@ -2281,6 +2570,8 @@ function updateLoopKnobUI() {
 }
 
 function updateArpParamsToggleLabel() {
+    // ARP params moved to Advanced tab, this function kept for compatibility
+    if (!els.arpParamsToggle || !els.arpParamsPanel) return;
     const label = els.arpParamsToggle.querySelector('.btn-text');
     const isOpen = !els.arpParamsPanel.classList.contains('hidden');
     if (label) label.textContent = isOpen ? 'X' : 'SET';
@@ -2421,6 +2712,22 @@ function setupMIDI() {
                 if (state.midi.input) state.midi.input.onmidimessage = handleExternalMIDI;
                 els.midiStatus.innerText = state.midi.input ? 'MIDI IN READY' : 'NESSUN MIDI IN';
             };
+            
+            // Applica le impostazioni MIDI salvate nel preset Init dopo che i dropdown sono popolati
+            if (state.presets.Init) {
+                const preset = state.presets.Init;
+                if (preset.midiOutId && access.outputs.has(preset.midiOutId)) {
+                    els.midiOutSelect.value = preset.midiOutId;
+                    state.midi.hardwareOutput = access.outputs.get(preset.midiOutId);
+                    updateActiveOutput();
+                }
+                if (preset.midiInId && access.inputs.has(preset.midiInId)) {
+                    els.midiInSelect.value = preset.midiInId;
+                    if (state.midi.input) state.midi.input.onmidimessage = null;
+                    state.midi.input = access.inputs.get(preset.midiInId);
+                    if (state.midi.input) state.midi.input.onmidimessage = handleExternalMIDI;
+                }
+            }
         }).catch(() => {
             updateMidiStatusBase();
         });
@@ -3588,7 +3895,10 @@ canvas.addEventListener('pointerdown', e => {
         const groupId = hv.group || 0;
         const grabbed = [hv];
         state.heldVoices = state.heldVoices.filter(v => !grabbed.includes(v));
-        const tmpVoice = { initialExact: hv.rootNote ?? hv.note, lastX: e.clientX, vibratoSpeed: 0 };
+        // FIX: Usa la nota effettiva del cerchio (incluso basePb) invece di rootNote
+        // per evitare che la prima interazione su note slave produca un pitch sbagliato
+        const voiceNoteFloat = getVoiceNoteFloat(hv);
+        const tmpVoice = { initialExact: voiceNoteFloat, lastX: e.clientX, vibratoSpeed: 0 };
         const m = getMPEData(e, tmpVoice);
         grabbed.forEach(gv => {
             const pb = getVoicePb(m, gv);
@@ -3598,8 +3908,8 @@ canvas.addEventListener('pointerdown', e => {
         });
         state.activeTouches.set(e.pointerId, { 
             voices: grabbed.map(gv => ({ chan: gv.chan, note: gv.note, basePb: gv.basePb, group: gv.group })), 
-            initialExact: hv.rootNote ?? hv.note, lastX: e.clientX, isGrab: false, isHoldGrab: true, holdGroup: groupId,
-            vibratoSpeed: 0, phase: hv.phase || 0, color: hv.color, lastM: m 
+            initialExact: voiceNoteFloat, lastX: e.clientX, isGrab: false, isHoldGrab: true, holdGroup: groupId,
+            vibratoSpeed: 0, phase: hv.phase || 0, color: hv.color, lastM: m, rootNote: hv.rootNote
         });
         if (groupId) {
             const existingEntry = Array.from(state.activeTouches.entries()).find(([id, t]) => t.isHoldGrab && t.holdGroup === groupId && id !== e.pointerId);
@@ -3887,7 +4197,7 @@ canvas.addEventListener('pointerup', e => {
                 snapHoldVoicesToScale(t);
                 const groupId = t.holdGroup || state.holdGroupSeq++;
                 t.voices.forEach(v => {
-                    state.heldVoices.push({ chan: v.chan, note: v.note, basePb: v.basePb, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId, rootNote: t.initialExact });
+                    state.heldVoices.push({ chan: v.chan, note: v.note, basePb: v.basePb, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId, rootNote: t.rootNote ?? t.initialExact });
                 });
             } else {
                 t.voices.forEach(v => {
@@ -4353,8 +4663,6 @@ if (!Object.keys(state.presets).length) {
             quantizeRelease: false
         }
     };
-} else if (state.presets.Init) {
-    state.presets.Init.visibleOctaves = "1";
 }
 savePresets(state.presets);
 refreshPresetSelect(state.presets, 'Init');
@@ -4523,10 +4831,12 @@ function bindUI() {
     els.arpSync.onchange = syncArpFromUI;
     els.arpBpm.onchange = syncArpFromUI;
     els.arpLatch.onchange = syncArpFromUI;
-    els.arpParamsToggle.onclick = () => {
-        els.arpParamsPanel.classList.toggle('hidden');
-        updateArpParamsToggleLabel();
-    };
+    if (els.arpParamsToggle && els.arpParamsPanel) {
+        els.arpParamsToggle.onclick = () => {
+            els.arpParamsPanel.classList.toggle('hidden');
+            updateArpParamsToggleLabel();
+        };
+    }
     els.groupShiftBtn.onclick = () => {
         state.groupShiftEnabled = !state.groupShiftEnabled;
         updateGroupShiftUI();
@@ -4605,6 +4915,13 @@ function bindUI() {
                 if (els.midiStatus) els.midiStatus.innerText = "SAMPLES READY";
             }
         };
+    }
+    // Audio Recorder bindings
+    if (els.recStartBtn) {
+        els.recStartBtn.onclick = () => startRecording();
+    }
+    if (els.recStopBtn) {
+        els.recStopBtn.onclick = () => stopRecording();
     }
     if (els.sampleSetSelect) {
         refreshSampleSetSelect(state.audio.activeSet);
@@ -4811,10 +5128,12 @@ function bindUI() {
     });
     if (els.samplerGain) {
         els.samplerGain.value = state.audio.samplerGain.toFixed(2);
+        updateRangeProgress(els.samplerGain);
         els.samplerGain.oninput = () => {
             state.audio.samplerGain = Math.max(0, Math.min(5, parseFloat(els.samplerGain.value) || 0));
             saveSamplerGainForSet(state.audio.activeSet);
             updateSamplerGainNodes();
+            updateRangeProgress(els.samplerGain);
         };
     }
     if (els.sampleLoopBtn) {
@@ -4877,6 +5196,12 @@ bindUI();
 setupChordKnob();
 setupArpKnob();
 // setupBowButton();
+
+// Applica Init all'avvio DOPO che bindUI() ha inizializzato tutto
+if (state.presets.Init) {
+    applyPresetState(state.presets.Init);
+    updatePresetDescription('Init');
+}
 
 function scheduleScaleUpdate() {
     if (state.scaleUpdateRaf != null) return;

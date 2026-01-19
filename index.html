@@ -35,6 +35,14 @@
             <div class="box"><label>Mode</label><select id="wtMode"></select></div>
             <div class="box"><label>WT Type</label><select id="wtSelect"></select></div>
             <div class="box" id="wtMixBox"><label>WT Mix</label><input type="range" id="wtMix" min="0" max="1" step="0.01" value="0.35"></div>
+            <div class="box recorder-box">
+                <label>Recorder</label>
+                <div class="recorder-controls">
+                    <button id="recStartBtn" class="menu-btn btn-rec" title="Start Recording"><span class="btn-icon">●</span><span class="btn-text">REC</span></button>
+                    <button id="recStopBtn" class="menu-btn btn-stop" title="Stop & Save" disabled><span class="btn-icon">■</span><span class="btn-text">STOP</span></button>
+                    <span id="recTimer" class="rec-timer">00:00</span>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -237,13 +245,27 @@
     <div class="ui-tab-content" id="tabAdvanced" data-tab-content="advanced">
         <!-- Row 2: Sub-tabs for advanced sections -->
         <div class="ui-tabs-row ui-subtabs" id="advSubTabs">
-            <button class="ui-tab active" data-subtab="chord">CHORD</button>
-            <button class="ui-tab" data-subtab="mpe">MPE</button>
             <button class="ui-tab" data-subtab="preset">PRESET</button>
+            <button class="ui-tab active" data-subtab="arp">ARP</button>
+            <button class="ui-tab" data-subtab="chord">CHORD</button>
+            <button class="ui-tab" data-subtab="mpe">MPE</button>
+           
+        </div>
+
+        <!-- Sub-tab: ARP -->
+        <div class="ui-subtab-content active" data-subtab-content="arp">
+            <div class="ui-group-inline">
+                <div class="box" style="max-width:100px;"><label>Gate</label><input type="range" id="arpGate" min="10" max="100" value="60" data-param="arpGate"></div>
+                <div class="box" style="max-width:100px;"><label>Sync</label><select id="arpSync" data-param="arpSync">
+                    <option value="internal" selected>Internal</option>
+                    <option value="midi">MIDI</option>
+                </select></div>
+                <div class="box" style="max-width:100px;"><label>BPM</label><input type="number" id="arpBpm" min="40" max="300" value="120" data-param="arpBpm"></div>
+            </div>
         </div>
 
         <!-- Sub-tab: CHORD -->
-        <div class="ui-subtab-content active" data-subtab-content="chord">
+        <div class="ui-subtab-content" data-subtab-content="chord">
             <div class="ui-group-inline">
                 <div class="box" style="max-width:100px;"><label>Inversion</label><select id="chordInversion" data-param="chordInversion">
                     <option value="0">Root</option><option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option>
@@ -362,20 +384,6 @@
             <option value="1/16T">1/16T</option>
             <option value="1/32">1/32</option>
         </select>
-        <button id="arpParamsToggle" class="perf-btn" title="ARP Settings">SET</button>
-        <div id="arpParamsPanel" class="arp-params hidden">
-            <div class="arp-params-row">
-                <label for="arpGate">Gate</label>
-                <input type="range" id="arpGate" min="10" max="100" value="60" data-param="arpGate">
-                <label for="arpSync">Sync</label>
-                <select id="arpSync" data-param="arpSync">
-                    <option value="internal" selected>ON</option>
-                    <option value="midi">MIDI</option>
-                </select>
-                <label for="arpBpm">BPM</label>
-                <input type="number" id="arpBpm" min="40" max="300" value="120" data-param="arpBpm" class="bpm-input">
-            </div>
-        </div>
     </div>
     <div class="perf-group">
         <button id="fxToggle" class="perf-btn" title="FX Panel">FX</button>

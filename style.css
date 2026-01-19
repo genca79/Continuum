@@ -330,6 +330,73 @@ select:focus, input:focus {
 .menu-btn.btn-danger { background: rgba(255, 0, 85, 0.2); color: #ff5588; }
 .menu-btn.btn-ok { background: rgba(0, 255, 136, 0.2); color: #55ffaa; }
 
+/* === AUDIO RECORDER STYLES === */
+.recorder-box {
+    min-width: 180px;
+}
+
+.recorder-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.menu-btn.btn-rec {
+    background: rgba(255, 50, 50, 0.2);
+    color: #ff6666;
+    border: 1px solid rgba(255, 80, 80, 0.4);
+    min-width: 70px;
+}
+
+.menu-btn.btn-rec:hover {
+    background: rgba(255, 50, 50, 0.35);
+}
+
+.menu-btn.btn-rec.recording {
+    background: rgba(255, 0, 0, 0.6);
+    color: #fff;
+    border-color: #ff0000;
+    animation: rec-blink 0.8s ease-in-out infinite;
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+}
+
+@keyframes rec-blink {
+    0%, 100% { opacity: 1; background: rgba(255, 0, 0, 0.7); }
+    50% { opacity: 0.7; background: rgba(255, 0, 0, 0.4); }
+}
+
+.menu-btn.btn-stop {
+    background: rgba(100, 100, 100, 0.2);
+    color: #aaa;
+    border: 1px solid rgba(150, 150, 150, 0.3);
+    min-width: 70px;
+}
+
+.menu-btn.btn-stop:not(:disabled):hover {
+    background: rgba(255, 200, 50, 0.3);
+    color: #ffcc33;
+    border-color: #ffcc33;
+}
+
+.menu-btn.btn-stop:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.rec-timer {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: bold;
+    color: #888;
+    min-width: 45px;
+    text-align: center;
+}
+
+.rec-timer.active {
+    color: #ff4444;
+}
+/* === END AUDIO RECORDER STYLES === */
+
 .menu-btn.active, .menu-btn.toggle-on { 
     background: var(--primary); 
     color: #000; 
