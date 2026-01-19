@@ -634,7 +634,15 @@ input[type="checkbox"]:checked::after {
     justify-content: center;
 }
 #uiToggle { top: 12px; right: 64px; }
-#guideBtn { top: 12px; left: 12px; }
+#guideBtn { 
+    top: 12px; 
+    left: 12px; 
+    width: 44px; 
+    max-width: 44px;
+    padding: 0;
+    font-size: 18px;
+    font-weight: bold;
+}
 
 /* Small square settings button at top-right */
 #setToggle {
@@ -762,9 +770,6 @@ body.note-dragging .rec-controls-bar {
     pointer-events: none;
 }
 
-/* Nascondi temporaneamente il pulsante GUIDE se non desiderato */
-#guideBtn { display: none !important; }
-
 /* --- PERFORMANCE BAR INFERIORE --- */
 #performance {
     position: fixed; left: 0; right: 0; bottom: 0;
@@ -786,7 +791,53 @@ body.note-dragging .rec-controls-bar {
     scrollbar-width: none; 
 }
 #performance::-webkit-scrollbar { display: none; }
-#performance.collapsed { transform: translateY(110%); }
+
+/* === COMPACT MODE === */
+#performance.compact {
+    justify-content: center;
+    gap: 12px;
+}
+/* Hide non-essential elements in compact mode */
+#performance.compact .perf-group {
+    display: none !important;
+}
+#performance.compact .perf-label,
+#performance.compact #groupShiftBtn,
+#performance.compact #fxToggle,
+#performance.compact #fxPresetQuick,
+#performance.compact #fadeBtn,
+#performance.compact #fadeSeconds {
+    display: none !important;
+}
+/* Show compact-essential elements at root level */
+#performance.compact > .compact-essential {
+    display: inline-flex !important;
+}
+/* Bigger buttons in compact mode */
+#performance.compact .perf-btn.compact-essential {
+    padding: 16px 24px;
+    font-size: 18px;
+    min-height: 56px;
+    min-width: 80px;
+}
+/* Bigger knobs in compact mode */
+#performance.compact .perf-knob.compact-essential {
+    width: 56px;
+    height: 56px;
+    font-size: 12px;
+}
+/* Bigger selects in compact mode */
+#performance.compact select.compact-essential {
+    padding: 14px 12px;
+    font-size: 16px;
+    min-height: 56px;
+    min-width: 90px;
+    background: var(--bg-input);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    color: var(--btn-text);
+}
+/* === END COMPACT MODE === */
 
 /* Performance bar groups */
 .perf-group {

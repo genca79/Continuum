@@ -10,7 +10,7 @@
 </head>
 <body>
 
-<a id="guideBtn" class="menu-btn btn-accent" href="USER_MANUAL.md" target="_blank" rel="noopener" title="Open Guide"><span class="btn-text">GUIDE</span></a>
+<a id="guideBtn" class="menu-btn btn-accent" href="USER_MANUAL.md" target="_blank" rel="noopener" title="Manuale Utente"><span class="btn-text">?</span></a>
 <!-- uiToggle removed: replaced by gear settings button (#setToggle) -->
 <button id="perfToggle" class="menu-btn btn-accent" title="Toggle Performance"><span class="btn-icon">▶</span></button>
 <button id="setToggle" class="menu-btn" title="Settings" aria-label="Settings"></button>
@@ -336,54 +336,52 @@
         <button class="perf-btn" id="octUpBtn" title="Oct +">&gt;</button>
     </div>
     <button id="groupShiftBtn" class="perf-btn toggle-btn" title="Group Shift">GROUP</button>
-    <div class="perf-group">
-        <span class="perf-label">Chords</span>
-        <div id="chordWheel" class="perf-knob" title="Rotate to change chord">Off</div>
-        <select id="chordMode" title="Chords" data-param="chordMode">
-            <option value="off">Off</option>
-            <option value="auto">Auto (Diatonic)</option>
-            <option value="auto7">Auto (Diatonic 7th)</option>
-            <option value="power">Power 5</option>
-            <option value="triad">Triad (Maj)</option>
-            <option value="minTriad">Triad (Min)</option>
-            <option value="dimTriad">Triad (Dim)</option>
-            <option value="augTriad">Triad (Aug)</option>
-            <option value="sus2">Sus2</option>
-            <option value="sus4">Sus4</option>
-            <option value="add9">Add9</option>
-            <option value="sixth">6th</option>
-            <option value="seventh">7th (Dom)</option>
-            <option value="maj7">Maj7</option>
-            <option value="min7">Min7</option>
-            <option value="halfDim7">7th (Half-Dim)</option>
-            <option value="dim7">7th (Dim)</option>
-            <option value="dom9">Dom9</option>
-            <option value="maj9">Maj9</option>
-            <option value="min9">Min9</option>
-            <option value="eleventh">11th</option>
-            <option value="thirteenth">13th</option>
-        </select>
-    </div>
-    <button id="holdBtn" class="perf-btn toggle-btn has-led" title="Hold"><span class="led"></span>HOLD</button>
+    <!-- Chord Knob - visible in compact mode -->
+    <div id="chordWheel" class="perf-knob compact-essential" title="Rotate to change chord">Off</div>
+    <!-- Chord Select - visible in compact mode -->
+    <select id="chordMode" class="compact-essential" title="Chords" data-param="chordMode">
+        <option value="off">Off</option>
+        <option value="auto">Auto (Diatonic)</option>
+        <option value="auto7">Auto (Diatonic 7th)</option>
+        <option value="power">Power 5</option>
+        <option value="triad">Triad (Maj)</option>
+        <option value="minTriad">Triad (Min)</option>
+        <option value="dimTriad">Triad (Dim)</option>
+        <option value="augTriad">Triad (Aug)</option>
+        <option value="sus2">Sus2</option>
+        <option value="sus4">Sus4</option>
+        <option value="add9">Add9</option>
+        <option value="sixth">6th</option>
+        <option value="seventh">7th (Dom)</option>
+        <option value="maj7">Maj7</option>
+        <option value="min7">Min7</option>
+        <option value="halfDim7">7th (Half-Dim)</option>
+        <option value="dim7">7th (Dim)</option>
+        <option value="dom9">Dom9</option>
+        <option value="maj9">Maj9</option>
+        <option value="min9">Min9</option>
+        <option value="eleventh">11th</option>
+        <option value="thirteenth">13th</option>
+    </select>
+    <button id="holdBtn" class="perf-btn toggle-btn has-led compact-essential" title="Hold"><span class="led"></span>HOLD</button>
     <input type="checkbox" id="holdNotes" style="display:none" data-param="holdNotes">
-    <button id="panicBtn" class="perf-btn btn-danger" title="Stop">STOP</button>
+    <button id="panicBtn" class="perf-btn btn-danger compact-essential" title="Stop">STOP</button>
     <div class="perf-group">
         <button id="fadeBtn" class="perf-btn toggle-btn" title="Fade Out">⇣ FADE</button>
         <input type="number" id="fadeSeconds" min="1" max="20" value="4">
         <span class="perf-label">sec</span>
     </div>
-    <div class="perf-group">
-        <span class="perf-label">ARP</span>
-        <div id="arpWheel" class="perf-knob" title="Rotate to change rate">Off</div>
-        <select id="arpRateSelect" class="perf-select" title="ARP Rate">
-            <option value="1/4">1/4</option>
-            <option value="1/8">1/8</option>
-            <option value="1/8T">1/8T</option>
-            <option value="1/16" selected>1/16</option>
-            <option value="1/16T">1/16T</option>
-            <option value="1/32">1/32</option>
-        </select>
-    </div>
+    <!-- ARP Knob - visible in compact mode -->
+    <div id="arpWheel" class="perf-knob compact-essential" title="Rotate to change rate">Off</div>
+    <!-- ARP Rate Select - visible in compact mode -->
+    <select id="arpRateSelect" class="perf-select compact-essential" title="ARP Rate">
+        <option value="1/4">1/4</option>
+        <option value="1/8">1/8</option>
+        <option value="1/8T">1/8T</option>
+        <option value="1/16" selected>1/16</option>
+        <option value="1/16T">1/16T</option>
+        <option value="1/32">1/32</option>
+    </select>
     <div class="perf-group">
         <button id="fxToggle" class="perf-btn" title="FX Panel">FX</button>
         <select id="fxPresetQuick"></select>

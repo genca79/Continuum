@@ -279,12 +279,13 @@ function triggerBow(voiceObj, attackTime = 0.05) {
             if (activeVoice.source) activeVoice.source.stop(now + 0.03);
             if (activeVoice.osc) activeVoice.osc.stop(now + 0.03);
         } catch(e) {}
-        state.audio.voices.delete(key);
     }
+    // Delete voice immediately so the new one starts fresh
+    state.audio.voices.delete(key);
     
     const m = voiceObj.lastM || { press: 90 };
     const press = m.press || 90;
-    // Restart with override
+    // Restart with override - creates new voice with fresh startTime
     noteOnInternal(voiceObj.note, press, voiceObj.chan, attackTime);
 }
 const PRESET_KEY = 'genca_presets_v1';
@@ -526,8 +527,10 @@ const state = {
     recorder: {
         isRecording: false,
         workletNode: null,
+        silentSink: null,
         startTime: 0,
         timerInterval: null,
+        maxDurationSec: 300, // 5 minutes max to prevent memory issues
         // Editor state
         buffers: null,
         sampleRate: 44100,
@@ -1009,9 +1012,15 @@ async function initRecorderWorklet() {
         await state.audio.ctx.audioWorklet.addModule('recorder-processor.js');
         state.recorder.workletNode = new AudioWorkletNode(state.audio.ctx, 'recorder-processor');
         
-        // Connect master output to recorder (passthrough)
+        // Connect master output to recorder WITHOUT connecting worklet to destination
+        // This avoids double audio path (master already connects to destination)
+        // Worklet only captures audio, doesn't need to output anything
         state.audio.master.connect(state.recorder.workletNode);
-        state.recorder.workletNode.connect(state.audio.ctx.destination);
+        // Create a silent sink (gain=0) to keep the worklet processing without adding volume
+        state.recorder.silentSink = state.audio.ctx.createGain();
+        state.recorder.silentSink.gain.value = 0;
+        state.recorder.workletNode.connect(state.recorder.silentSink);
+        state.recorder.silentSink.connect(state.audio.ctx.destination);
         
         // Handle messages from worklet
         state.recorder.workletNode.port.onmessage = (event) => {
@@ -1126,6 +1135,12 @@ function updateRecTimer() {
     const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
     const secs = (elapsed % 60).toString().padStart(2, '0');
     els.recTimer.textContent = `${mins}:${secs}`;
+    
+    // Auto-stop if max duration reached
+    if (elapsed >= state.recorder.maxDurationSec) {
+        console.log('Recording auto-stopped: max duration reached');
+        stopRecording();
+    }
 }
 
 function exportWavFile(buffers, sampleRate) {
@@ -1228,8 +1243,8 @@ function openRecordingEditor(buffers, sampleRate) {
         offset += leftChunks[i].length;
     }
     
-    // Store in state
-    state.recorder.buffers = buffers;
+    // Store merged data only (don't keep original chunks to save memory)
+    state.recorder.buffers = null; // Clear chunks - we have merged data now
     state.recorder.sampleRate = sampleRate || 44100;
     state.recorder.leftData = leftData;
     state.recorder.rightData = rightData;
@@ -3094,7 +3109,7 @@ function updateArpControlsUI() {
     els.arpWheel.classList.toggle('knob-on', isOn);
     els.arpWheel.classList.toggle('knob-off', !isOn);
     const rateValue = els.arpRate ? els.arpRate.value : '1/16';
-    els.arpWheel.innerText = isOn ? rateValue : 'Off';
+    els.arpWheel.innerText = isOn ? rateValue : 'ARP off';
     // Sync the visible rate select with the hidden one
     if (els.arpRateSelect && els.arpRate) {
         els.arpRateSelect.value = els.arpRate.value;
@@ -4332,6 +4347,58 @@ function convertHeldToArp() {
     requestDraw();
 }
 
+function updateArpChords() {
+    // Update ARP notes when chord mode changes
+    if (!state.arp.enabled || !state.arpHoldTouches.length) return;
+    
+    const chordMode = els.chordMode.value;
+    
+    state.arpHoldTouches.forEach(touch => {
+        if (!touch.noteObjs || !touch.noteObjs.length) return;
+        
+        // Get the root note from the first note object
+        const rootNoteFloat = touch.noteObjs[0].noteFloat;
+        // Snap to nearest scale note for root
+        const root = parseInt(els.rootNote.value, 10);
+        const def = getScaleDefinition();
+        const scaleKey = `${def.mode}:${def.name}`;
+        if (!state.scaleNotes.notes.length || state.scaleNotes.root !== root || state.scaleNotes.scale !== scaleKey) {
+            updateScaleNotes();
+        }
+        const rootNote = state.scaleNotes.notes.reduce((prev, curr) => 
+            Math.abs(curr - rootNoteFloat) < Math.abs(prev - rootNoteFloat) ? curr : prev
+        );
+        
+        const m = touch.lastM || { press: 90, slide: 0, pbValue: 8192 };
+        
+        if (chordMode === 'off') {
+            // When chord is off, keep only one note (the root)
+            if (touch.noteObjs.length > 1) {
+                const extra = touch.noteObjs.splice(1);
+                removeArpNotes(extra);
+            }
+            // Update the single note to match root
+            const voice = makeVoiceFromNote(rootNote);
+            touch.noteObjs[0].noteFloat = rootNote;
+            touch.noteObjs[0].note = voice.note;
+            touch.noteObjs[0].basePb = voice.basePb;
+        } else {
+            // Refresh with new chord notes
+            refreshArpNotes(touch.noteObjs, m, rootNote);
+        }
+    });
+    
+    // Rebuild state.arp.notes from all touches
+    state.arp.notes = [];
+    state.arpHoldTouches.forEach(touch => {
+        if (touch.noteObjs) {
+            state.arp.notes.push(...touch.noteObjs);
+        }
+    });
+    
+    requestDraw();
+}
+
 function updateHeldChords() {
     if (!state.heldVoices.length || !state.midi.output) return;
     const groups = new Map();
@@ -4623,9 +4690,25 @@ canvas.addEventListener('pointerdown', e => {
     state.activeTouches.set(e.pointerId, { voices, initialExact: rootNote, lastX: e.clientX, isGrab: false, vibratoSpeed: 0, phase: 0, color: `hsl(${voices[0]?.chan * 25 || 0}, 85%, 55%)`, lastM: m, smoothPb: touchState.smoothPb, smoothSlide: touchState.smoothSlide, smoothPress: touchState.smoothPress });
 });
 
+// Throttled pointermove handler for better performance
+let lastPointerMoveTime = 0;
+const POINTER_MOVE_THROTTLE_MS = 16; // ~60fps max
+
 canvas.addEventListener('pointermove', e => {
     const t = state.activeTouches.get(e.pointerId);
     if (!t || !state.midi.output) return;
+    
+    // Throttle pointermove events to reduce CPU load
+    const now = performance.now();
+    if (now - lastPointerMoveTime < POINTER_MOVE_THROTTLE_MS) {
+        // Store last event data for next frame but skip heavy processing
+        t.lastX = e.clientX;
+        t.pendingEvent = e;
+        return;
+    }
+    lastPointerMoveTime = now;
+    t.pendingEvent = null;
+    
     requestDraw();
     t.lastX = e.clientX;
     t.lastM = t.lastM ? { ...t.lastM, x: e.clientX, y: e.clientY } : { x: e.clientX, y: e.clientY, press: 0, slide: 0, pbValue: 8192, exact: t.initialExact ?? 0 };
@@ -4862,7 +4945,7 @@ function setupChordKnob() {
         select.selectedIndex = currentIndex;
         const isOn = select.value !== 'off';
         if (isOn) lastModeValue = select.value;
-        wheel.innerText = options[currentIndex].text;
+        wheel.innerText = isOn ? options[currentIndex].text : 'CHORD off';
         wheel.classList.toggle('knob-on', isOn);
         wheel.classList.toggle('knob-off', !isOn);
     }
@@ -4870,6 +4953,7 @@ function setupChordKnob() {
     select.addEventListener('change', () => {
         applyIndex(select.selectedIndex);
         updateHeldChords();
+        updateArpChords();
     });
 
     function toggleChord() {
@@ -4880,6 +4964,7 @@ function setupChordKnob() {
             applyIndex(0);
         }
         updateHeldChords();
+        updateArpChords();
     }
 
     function angleFromEvent(e) {
@@ -4899,6 +4984,7 @@ function setupChordKnob() {
         didRotate = true;
         applyIndex(nextIdx);
         updateHeldChords();
+        updateArpChords();
     }
 
     wheel.addEventListener('pointerdown', e => {
@@ -5334,7 +5420,7 @@ function bindUI() {
         };
     }
     perfToggle.onclick = () => {
-        els.performance.classList.toggle('collapsed');
+        els.performance.classList.toggle('compact');
         refreshLayout();
     };
     els.fsBtn.onclick = () => {
@@ -5944,7 +6030,7 @@ function drawHeldVoices(fadeMul, fadeDrop, height) {
         let flash = 0;
         if (v.bowFlash > 0) {
             flash = v.bowFlash;
-            v.bowFlash -= 0.05;
+            v.bowFlash -= 0.03; // Slower fade for smoother effect
         }
 
         const radius = (12 + (m.press / 127) * 22) + (flash * 10);
@@ -5973,7 +6059,8 @@ function drawHeldVoices(fadeMul, fadeDrop, height) {
                 sampleOpacity = 0.2; 
             }
         }
-        if (flash > 0) sampleOpacity = 1.0;
+        // BOW flash overrides opacity to full brightness
+        if (flash > 0) sampleOpacity = Math.max(sampleOpacity, 0.2 + flash * 0.8);
         const finalAlpha = fadeMul * sampleOpacity;
         
         ctx.globalAlpha = finalAlpha;
@@ -6149,9 +6236,8 @@ function updateLayoutVars() {
     const uiRect = els.ui.getBoundingClientRect();
     const perfRect = els.performance.getBoundingClientRect();
     const isActive = els.ui.classList.contains('active');
-    const isPerfCollapsed = els.performance.classList.contains('collapsed');
     const uiH = isActive ? uiRect.height : 0;
-    const perfH = isPerfCollapsed ? 0 : perfRect.height;
+    const perfH = perfRect.height;
     state.perfHeight = perfH;
     document.documentElement.style.setProperty('--ui-h', `${uiH}px`);
     document.documentElement.style.setProperty('--perf-h', `${perfH}px`);
@@ -6176,10 +6262,10 @@ function updateToggleLabels() {
     const uiLabel = uiToggle ? uiToggle.querySelector('.btn-text') : null;
     const advLabel = els.uiAdvancedToggle?.querySelector('.btn-text');
     if (uiLabel) uiLabel.textContent = els.ui.classList.contains('active') ? 'X' : '';
-    // Update perfToggle style based on panel state
+    // Update perfToggle style based on compact mode
     if (perfToggle) {
-        const isCollapsed = els.performance.classList.contains('collapsed');
-        perfToggle.classList.toggle('panel-closed', isCollapsed);
+        const isCompact = els.performance.classList.contains('compact');
+        perfToggle.classList.toggle('active', isCompact);
     }
     if (advLabel) advLabel.textContent = els.ui.classList.contains('show-advanced') ? 'X' : 'Sampler Set';
 }

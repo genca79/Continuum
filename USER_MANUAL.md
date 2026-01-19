@@ -1,97 +1,176 @@
-GENCA MPE Ultra Continuum - Operating Manual
-The GENCA MPE Ultra Continuum is a professional-grade web-based hybrid synthesizer and sampler designed for expressive performance. It bridges the gap between traditional MIDI controllers and MPE-enabled sound design.
+# GENCA MPE Ultra Continuum: Hybrid Edition
+User Manual (English)
 
-1. Getting Started & Connectivity
-Browser Requirements
-Recommended: Google Chrome, Microsoft Edge, or Opera.
+## 0. Basic Interaction Modes
+- Touch-only mode: Play directly on the surface with no external MIDI input. GENCA generates notes/MPE and sends them to the selected MIDI Out (hardware synth or virtual port). If no MIDI Out is selected, no sound is produced.
+- DAW mode / Hybrid mode: Use GENCA as the performance controller and route MIDI Out to a DAW instrument. In Hybrid mode you can additionally sync the arpeggiator to MIDI clock (ARP Sync = MIDI) or combine internal touch control with external devices while still monitoring everything through the DAW.
+- Touch + external MIDI devices + DAW: Play on the surface while also receiving external MIDI input. Incoming MIDI can be passed through (Thru) or microtonally remapped, and both touch and external input are routed to the DAW via MIDI Out.
 
-Why: These browsers natively support Web MIDI and Web Audio APIs, which are essential for low-latency performance.
+## 1. Overview
+GENCA MPE Ultra Continuum is a touch-based performance surface for expressive MIDI and MPE control. It supports diatonic, microtonal, and custom scales; chord generation; arpeggiation; and deep MPE shaping (pitch, slide, and pressure). The interface is split into a Setup UI at the top, a Performance Panel at the bottom, and a central playing surface.
 
-MIDI Configuration
-Open the MIDI & SYNTH tab.
+## 2. Interface Description
 
-MIDI In: Select your external keyboard or virtual MIDI bridge (e.g., loopMIDI or IAC Driver).
+### 2.1 Setup UI (Top Panel)
+Open/close with the SET button in the top-right corner.
 
-MIDI Out/Thru: Use these to route the processed MIDI (with scale/chord data) back into your DAW or other hardware.
+#### MIDI
+- MIDI In: Select external MIDI input device.
+- MIDI Out: Select output device.
+- Thru: Pass incoming MIDI straight to output (disabled for remapped microtonal input).
 
-Internal Synth: Toggle "INTERNAL SYNTH" to ON to use the built-in wavetable engine.
+#### Scale
+- Root: Scale root note (C through B).
+- Scale Set: Choose Diatonic, Microtonal, or Custom mode.
+- Octaves: Visible octaves on the surface (1 to 4).
 
-2. The Hybrid Sound Engine
-Internal Synth (Wavetable)
-WT Type: Choose the base wavetable waveform.
+Diatonic Scales:
+- Choose a standard scale (Major, Minor, Dorian, etc.).
 
-WT Mix: Blend between different wave shapes for evolving textures.
+Microtonal Scales:
+- Select a built-in microtonal scale.
+- Microtonalize MIDI In (MPE): Remaps external MIDI to the microtonal scale using per-note pitch bend.
 
-Sampler Section
-Loading Samples: Use the + icons in the 7 available slots to upload your own .wav files.
+Custom Scales:
+- Saved: Select a stored custom scale.
+- Name: Create or rename a custom scale.
+- Save / Del: Store or delete a custom scale.
+- Mode: Notes or Cents.
+- Notes list: Example "C, D#, F".
+- Cents list: Example "0, 240, 480".
 
-Factory Library: Use the dropdown menu to select pre-loaded instrument sets.
+#### Chord
+- Inversion: Root, 1st, 2nd, or 3rd inversion.
+- Spread: Expands chord notes across octaves.
 
-Controls: * Sampler Gain: Adjusts the overall volume of the samples.
+#### MPE
+- PB Range: Pitch bend range per note (in semitones).
+- Snap: Quantization strength toward scale notes.
+- Dead-Center: Adds a magnetic center for each pitch lane.
+- DC Force: Strength of dead-center pull.
+- Link YZ: Pressure follows Y position (slide) instead of touch size.
+- Smooth: Smoothing for pitch/slide/pressure.
+- Curve: Response curve (Linear, Soft, Hard).
+- Y Deadzone: Bottom dead-zone for slide.
+- Q Release: Quantize on release.
 
-Loop Mode: Toggle between one-shot and looped playback.
+#### MPE Preset
+Save and recall MPE-only settings.
 
-Max Voices: Limits polyphony to save CPU or create specific textures.
+#### Global Preset
+Save and recall full configuration, including scale, chord, MPE, and arp.
 
-3. Harmonic Engine (Scales & Chords)
-Scale Settings
-Root & Octaves: Set the fundamental key and the vertical range of the performance area.
+#### System
+- Full: Toggle fullscreen mode.
 
-Diatonic/Microtonal: Choose from classic Western scales (Major, Minor, Dorian) or explore world/microtonal scales.
+### 2.2 Performance Panel (Bottom Panel)
+Open/close with the PLAY button in the bottom-right corner.
 
-Custom Scale: Click the notes on the visual interface to create your own scale; use the 💾 (Save) icon to store it.
+- Transpose:
+  - Oct - and Oct + shift the octave (-2 to +2).
+- Group:
+  - GROUP enables group-shift behavior for held notes or arp groups.
+- Chords:
+  - Chord Wheel: Rotate to change chord type; tap to toggle on/off.
+- Hold:
+  - Latches played notes and chords.
+- Stop:
+  - Immediate all-notes-off and MPE reset.
+- Fade:
+  - Smoothly fades out active notes.
+  - Fade time in seconds (1 to 20).
+- Arp:
+  - Arp Wheel: Rotate to change rate; tap to toggle arp on/off.
+  - SET ARP opens arp parameters:
+    - Gate: Note length as a percentage.
+    - Sync: Internal or MIDI clock.
+    - BPM: Internal tempo when Sync is Internal.
 
-Chord Generator
-Group Menu: Located at the bottom right. Change Off to Auto (Diatonic) or specific structures like Power 5, Maj7, or 13th.
+### 2.3 Performance Surface (Canvas)
+The central playing surface displays:
+- Vertical lanes for scale degrees.
+- Emphasis for root and octave lines.
+- Note labels and cents (for microtonal/custom when there is space).
+- Animated note bubbles for touches, held notes, and arp notes.
+- Green ghost rings for recent external MIDI note-on events.
 
-Inversion: Shift the notes of the chord (Root, 1st, 2nd, 3rd position).
+## 3. Core Interaction Model
 
-Spread: Increases the distance between chord notes for a "wider" cinematic sound.
+### 3.1 Touch and MPE
+Each touch generates:
+- Pitch: Horizontal position.
+- Slide (CC74): Vertical position.
+- Pressure (channel pressure): Touch size or linked to Y when Link YZ is enabled.
 
-4. Performance & MPE Interaction
-The "Ghost Circles" (Visual Interaction)
-When you play a note on your physical MIDI keyboard, a green circle appears on the screen.
+### 3.2 Scale Quantization
+Pitch can be quantized to the active scale. Snap and Dead-Center controls affect how strongly pitch centers on notes.
 
-Horizontal Movement (X-Axis): Click and drag a circle left or right to perform a Pitch Slide. The note will move smoothly between frequencies.
+### 3.3 Chords
+If a chord mode is active, each touch triggers multiple notes based on the selected chord type, inversion, and spread. Auto modes build diatonic chords from the current scale.
 
-Vertical Movement (Y-Axis): Drag the circle up or down to modulate the assigned parameter (usually Filter Cutoff or Wavetable Position).
+### 3.4 Arpeggiator
+When ARP is on, chord tones are sequenced according to the selected rate.
+- Internal sync uses the BPM value.
+- MIDI sync follows external MIDI clock messages.
 
-Snap Rate: Controls how quickly the note "snaps" back to the perfect pitch of the scale when released.
+### 3.5 Hold
+When Hold is enabled, releasing a touch keeps the notes playing. Held notes are shown as animated bubbles.
 
-Advanced MPE Settings
-PB Range: Set this to match your DAW/Plugin (e.g., +/- 48) for accurate pitch bending.
+### 3.6 Group Shift
+With GROUP active, multiple held notes can be dragged together to shift pitch as a group. Two-finger group dragging is supported.
 
-Link Y > Press/Vel: Maps the vertical position to MIDI Aftertouch (Pressure) or Velocity.
+### 3.7 Removing Held Notes
+Double-tap a held note to drop and fade it out. For arp holds, double-tap removes individual arp notes.
 
-Area Sens: Adjusts how sensitive the "ghost circles" are to mouse/touch input.
+## 4. External MIDI Input
 
-5. Effects (FX) & Arpeggiator
-FX Control Panel
-The signal flow is: Filter → Chorus → Delay → Reverb.
+### 4.1 MIDI Thru
+If Thru is enabled, incoming MIDI is sent directly to the output.
 
-Filter: Features a dedicated ADSR Envelope (Attack, Decay, Sustain, Release) and Resonance control.
+### 4.2 Microtonalize MIDI In
+When Microtonalize MIDI In is enabled, incoming notes are mapped to the microtonal scale and transmitted as MPE (per-note pitch bend).
 
-Delay: Includes a D Rev (Reverse) mode for psychedelic textures.
+### 4.3 Ghost Indicators
+External note-on events produce brief green rings on the grid, indicating incoming MIDI activity.
 
-FX Mix: Controls the overall balance of the effect chain.
+## 5. Presets
 
-Arpeggiator (ARP)
-Sync: Choose between Internal BPM or MIDI clock from your DAW.
+### 5.1 Global Presets
+Store and recall the full state:
+- Scale settings
+- Chord mode, inversion, spread
+- MPE settings
+- Arp settings
+- Hold state and octave offset
 
-Rate: Set the speed (1/4 to 1/32, including triplets).
+### 5.2 MPE Presets
+Store and recall only MPE parameters:
+- PB Range, Snap, Dead-Center, DC Force
+- Link YZ, Smooth, Curve, Y Deadzone, Q Release
 
-Gate: Adjusts the length of the arpeggiated notes.
+## 6. Visual Feedback Summary
+- Highlighted columns show chord and arp activity.
+- Colored bubbles show active touches and held notes.
+- Ghost rings mark external MIDI note-on events.
 
-6. Recording & Exporting
-Integrated Recorder
-Click the ● (Record) button in the top transport bar.
+## 7. Safety and Recovery
+- STOP sends all-notes-off immediately and resets channels.
+- FADE reduces slide and pressure before releasing notes to avoid abrupt stops.
 
-Perform your piece.
+## 8. Typical Workflows
 
-Click ■ (Stop).
+### 8.1 Basic Chord Performance
+1. Set Root and Scale.
+2. Enable a chord mode with the Chord Wheel.
+3. Play the surface; adjust inversion/spread if needed.
 
-The Recording Editor window will pop up.
+### 8.2 Arp With MIDI Sync
+1. Enable ARP.
+2. Set Sync to MIDI.
+3. Start external MIDI clock to drive the arp.
 
-Trim: Select the start and end points of your recording.
+### 8.3 Microtonal Performance
+1. Select a microtonal scale.
+2. Enable Microtonalize MIDI In if using external input.
+3. Play the surface for expressive pitch glide within the microtonal scale.
 
-Save: Enter a filename and click 💾 Save to download the high-quality .wav file to your computer.
