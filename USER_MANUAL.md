@@ -1,96 +1,129 @@
-GENCA MPE Ultra Continuum - Master Manual
-The GENCA MPE Ultra Continuum is a browser-based hybrid instrument that combines Wavetable Synthesis with Multi-slot Sampling. It is designed to be played as a standalone synth or as a bridge for external MIDI controllers, offering high-level expressive control (MPE).
+This is the definitive **Operating Manual** for the **GENCA MPE Ultra Continuum (Hybrid Edition)**. This document integrates all technical features, from its hybrid sound engine to its advanced MPE mapping and standalone capabilities.
 
-1. The Hybrid Sound Engine (Standalone Power)
-Unlike standard synths, the Continuum allows you to layer digital synthesis with organic recordings.
+---
 
-A. Internal Wavetable Synth
-WT Type: Select the fundamental waveform shape.
+# GENCA MPE Ultra Continuum - Master Operating Manual
 
-WT Mix: Morphs between different wave states to create evolving textures.
+The **GENCA MPE Ultra Continuum** is a high-performance, browser-based hybrid instrument. It combines **Wavetable Synthesis** with a **Multi-Sample Engine**, all controlled via a sophisticated **MPE (MIDI Polyphonic Expression)** logic. It functions both as a standalone synthesizer and a powerful MIDI transformer for external hardware and DAWs.
 
-Best Use: Provides the "electronic" core of your sound, ideal for sharp leads or deep sub-basses.
+---
 
-B. Multi-Slot Sampler
-7 Slots: Load up to 7 independent .wav files.
+## 1. System Setup & Connectivity
 
-Library: Access the Factory Library for instant instruments or use the + button to upload your own.
+### Browser Requirements
 
-Sampler Gain: Mix the volume of your samples against the Wavetable synth.
+* **Engine:** Built on Web Audio and Web MIDI APIs.
+* **Compatibility:** Optimized for **Google Chrome** and **Microsoft Edge**.
+* **Setup:** Connect MIDI devices *before* launching the app.
 
-Loop Mode: Set to Loop ON for sustained pads or OFF for percussive, one-shot hits.
+### MIDI Routing (MIDI & SYNTH Tab)
 
-Pro Tip: Combine a "String" sample with a "Square" wavetable and use the WT Mix to find the perfect hybrid balance.
+* **MIDI In:** Select your external controller. Standard MIDI keyboards are automatically upgraded to "Hybrid MPE" via the on-screen interface.
+* **MIDI Out/Thru:** Routes processed MIDI data (chords, scales, MPE modulations) to other software or hardware.
+* **Internal Synth:** Toggle **ON** to use the built-in sound engine.
 
-2. Expressive Performance: The "Ghost Circles"
-The visual interface is a "play zone" where you interact with active voices.
+---
 
-Triggering Notes: You can play using your PC Keyboard (QWERTY) or by clicking directly on the screen.
+## 2. The Hybrid Sound Engine
 
-Visual Feedback: Every active note appears as a Green Ghost Circle.
+Continuum uses a dual-engine architecture to blend synthetic and organic textures.
 
-X-Axis (Horizontal): Click and drag a circle left or right to perform a Pitch Slide. This allows for fretless-style transitions between notes.
+### A. Wavetable Synthesizer
 
-Y-Axis (Vertical): Drag a circle up or down to modulate the sound (Filter Cutoff or Wavetable position).
+* **WT Type:** Choose from various digital wavetables.
+* **WT Mix:** Morphs between different waveforms within the table for dynamic timbral changes.
 
-Snap Rate: Located in the ADVANCED tab. It determines how quickly a "bent" note returns to its perfect pitch. High values = instant snap; Low values = slow glide back.
+### B. Advanced Multi-Slot Sampler
 
-3. Harmonic & Chord Engine
-Transform a single note into a complex musical structure.
+The sampler features **7 independent slots**, allowing for complex multi-sampling or drum kits.
 
-Scale Selection
-Scales: Choose from over 20 scales (Diatonic, Minor, Arabic, Hirajoshi, etc.).
+* **Note Mapping:** Each slot can be assigned to a specific **Root Pitch**.
+* *Multi-Sampling:* Assign different samples of the same instrument to different keys for realistic pitch shifting.
+* *Drum Kits:* Assign a Kick to C2, Snare to D2, etc., to play a full kit.
 
-Microtonal: Access non-Western tuning systems or create a Custom Scale using the Note/Cents editor.
 
-Root & Octaves: Define the global key and the playable range of the interface.
+* **Loop Mode:** Toggle **LOOP ON** for infinite pads or **OFF** for one-shot samples.
+* **Sampler Gain:** Independent volume control for the sampling layer.
+* **Factory vs. User:** Load pre-built sets or drag-and-drop your own **.wav** files.
 
-The Chord Generator (Group Menu)
-Located in the bottom-right corner, the GROUP menu is a powerful tool:
+---
 
-Auto (Diatonic): Automatically generates the correct chord (Major/Minor/Dim) based on your selected scale.
+## 3. Performance & Expression (MPE Logic)
 
-Fixed Structures: Force every note to become a specific chord (e.g., Sus2, Maj9, 13th).
+The central interface represents a "fretless" expressive surface.
 
-Inversion & Spread: Use the CHORD tab to flip the notes or spread them across octaves for a wider "cinematic" feel.
+### The "Ghost Circles"
 
-4. Connectivity & DAW Integration (Ableton Live)
-The app can act as a "brain" for your external gear or software.
+When a note is triggered (via MIDI or QWERTY keyboard), a **Green Ghost Circle** appears.
 
-MIDI In: Select your physical keyboard. The app will apply your Scale/Chord settings to every note you play.
+* **X-Axis (Horizontal):** Drag to perform per-note **Pitch Slides**.
+* **Y-Axis (Vertical):** Drag to modulate the **Filter Cutoff** or **Wavetable Position**.
+* **Hybrid Control:** You can play notes on a physical keyboard and simultaneously use your mouse/touchscreen to move the circles, adding expression that standard keyboards cannot produce.
 
-MIDI Out: Route the app’s processed MIDI to Ableton Live or other VSTs using a virtual cable (loopMIDI on Windows / IAC Driver on Mac).
+### Advanced Expressive Settings
 
-MPE Conversion: Even if your keyboard is a standard MIDI controller, you can use the Ghost Circles on screen to add MPE-style pitch slides and Y-axis modulations to your DAW tracks.
+* **Snap Rate:** Sets how quickly a note "snaps" back to the perfect pitch of the scale after a slide.
+* **Dead-Center & Force:** Creates a pitch-stable zone in the center of the note to prevent accidental detuning.
+* **PB Range:** Adjust between +/- 2 and +/- 48 semitones. **Crucial:** Match this setting with your DAW/Plugin for accurate bending.
 
-5. Sound Sculpting (FX & Arpeggiator)
-FX Control Panel
-Filter: High-quality resonant filter with a dedicated ADSR Envelope.
+---
 
-Chorus: Adds thickness and stereo width.
+## 4. Harmonic Engine: Scales & Chords
 
-Delay: Includes D Time, Feedback, and a D Rev (Reverse) mode for ambient soundscapes.
+Transform simple input into professional arrangements.
 
-Reverb: A lush spatial processor with adjustable Decay and Mix.
+### Scale & Microtonal Tab
 
-Arpeggiator (ARP)
-Sync: Toggle between Internal BPM or MIDI Clock sync.
+* **Scale Presets:** Over 20 scales including Diatonic, Arabic, and Pentatonic.
+* **Microtonal Editor:** Adjust the tuning of individual notes in **Cents** (1/100th of a semitone). Perfect for non-Western tunings or Just Intonation.
+* **Custom Scale:** Activate/Deactivate specific notes on the grid and save your layout.
 
-Rate: Divisions from 1/4 down to 1/32 (including Triplets).
+### Chord Generator (GROUP Menu)
 
-Gate: Adjusts the "staccato" vs "legato" feel of the arpeggio.
+* **Auto (Diatonic):** Automatically plays the correct chord for the selected scale (e.g., plays a Minor 7th if that fits the current key).
+* **Fixed Structures:** Forces every note to play a specific chord type (Sus4, Add9, 13th, etc.).
+* **Inversion & Spread:** Adjust the "voicing" of the chords. **Spread** widens the chord across multiple octaves for cinematic depth.
 
-6. Recording and Export
-The app includes a built-in mastering-grade recorder.
+---
 
-Hit the ● (Record) button in the transport bar.
+## 5. Signal Processing & FX
 
-Once finished, hit ■ (Stop).
+The internal audio path includes a studio-grade FX chain.
 
-The Recording Editor opens:
+* **Filter:** Resonant low-pass filter with a dedicated **ADSR Envelope** (Attack, Decay, Sustain, Release).
+* **Chorus:** Adds stereo width and thickness.
+* **Delay:** Includes a **D Rev** (Reverse) mode for psychedelic, ambient echoes.
+* **Reverb:** High-quality spatial processor with adjustable **Decay** and **Dry/Wet** mix.
+* **Arpeggiator (ARP):** Syncs to internal BPM or external MIDI Clock. Includes various rhythmic rates and a **Gate** control for note length.
 
-Select All or trim the audio to your liking.
+---
 
-Name the file and hit 💾 Save.
+## 6. Recording & Export
 
-The app exports a high-fidelity .wav file directly to your downloads folder.
+Continuum allows you to capture your performance without external software.
+
+1. **Record:** Click the **●** icon in the transport bar.
+2. **Edit:** After stopping (**■**), the **Recording Editor** opens.
+3. **Trim:** Use the visual waveform to select the best part of your take.
+4. **Export:** Save as a high-quality **.wav** file directly to your device.
+
+---
+
+## 7. Operational Modes Summary
+
+| Mode | Use Case | Key Configuration |
+| --- | --- | --- |
+| **Standalone** | Sound Design / Live Jam | Internal Synth ON + Sampler ON. |
+| **MIDI Processor** | Playing other VSTs | MIDI Out to Virtual Cable -> DAW. |
+| **MPE Bridge** | Using MPE Controllers | Advanced Tab: Match PB Range + Link Y to Pressure. |
+| **Hybrid Performer** | Keyboard + Mouse | Play MIDI Keyboard + Drag Ghost Circles on screen. |
+
+---
+
+### **Quick Troubleshooting**
+
+* **No Sound?** Ensure "Internal Synth" is ON and your browser tab isn't muted.
+* **No MIDI?** Check "MIDI In" selection. Refresh the page if you connected the keyboard after opening the browser.
+* **Stuck Notes?** Click the **STOP** button in the transport bar to kill all active voices.
+
+Would you like me to generate a **Mapping Guide** for specific MIDI CC controllers to automate the FX knobs from your hardware?
