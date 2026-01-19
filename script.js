@@ -2079,10 +2079,84 @@ function rebuildReverbImpulse() {
     state.audio.convolver.buffer = impulse;
 }
 
+// AudioWorklet processor code embedded as string (avoids file loading issues)
+const reverseDelayProcessorCode = `
+class ReverseDelayProcessor extends AudioWorkletProcessor {
+    constructor(options) {
+        super();
+        const initialDelaySamples = options.processorOptions?.delaySamples || Math.floor(sampleRate * 0.3);
+        this.delaySamples = Math.max(1, initialDelaySamples);
+        this.feedback = 0;
+        this.writeBuf = 0;
+        this.readBuf = 1;
+        this.writeIndex = 0;
+        this.readIndex = this.delaySamples - 1;
+        this.playing = false;
+        this.buffers = [];
+        this._initBuffers(this.delaySamples);
+        this.port.onmessage = (event) => {
+            const { type, value } = event.data;
+            if (type === 'setFeedback') this.feedback = value || 0;
+            else if (type === 'setDelaySamples') this._initBuffers(Math.max(1, Math.floor(value)));
+        };
+    }
+    _initBuffers(samples) {
+        this.delaySamples = samples;
+        this.buffers = [
+            [new Float32Array(this.delaySamples), new Float32Array(this.delaySamples)],
+            [new Float32Array(this.delaySamples), new Float32Array(this.delaySamples)]
+        ];
+        this.writeBuf = 0;
+        this.readBuf = 1;
+        this.writeIndex = 0;
+        this.readIndex = this.delaySamples - 1;
+        this.playing = false;
+    }
+    process(inputs, outputs) {
+        const input = inputs[0];
+        const output = outputs[0];
+        if (!input || !input.length || !output || !output.length) return true;
+        const inL = input[0] || new Float32Array(128);
+        const inR = input.length > 1 ? input[1] : inL;
+        const outL = output[0];
+        const outR = output.length > 1 ? output[1] : outL;
+        for (let i = 0; i < outL.length; i++) {
+            let outSampleL = 0, outSampleR = 0;
+            if (this.playing) {
+                outSampleL = this.buffers[this.readBuf][0][this.readIndex];
+                outSampleR = this.buffers[this.readBuf][1][this.readIndex];
+                if (--this.readIndex < 0) this.playing = false;
+            }
+            this.buffers[this.writeBuf][0][this.writeIndex] = (inL[i] || 0) + outSampleL * this.feedback;
+            this.buffers[this.writeBuf][1][this.writeIndex] = (inR[i] || 0) + outSampleR * this.feedback;
+            outL[i] = outSampleL;
+            outR[i] = outSampleR;
+            if (++this.writeIndex >= this.delaySamples) {
+                this.writeIndex = 0;
+                this.readIndex = this.delaySamples - 1;
+                this.readBuf = this.writeBuf;
+                this.writeBuf = this.writeBuf === 0 ? 1 : 0;
+                this.playing = true;
+            }
+        }
+        return true;
+    }
+}
+registerProcessor('reverse-delay-processor', ReverseDelayProcessor);
+`;
+
+let reverseDelayWorkletRegistered = false;
+
 async function createReverseDelayNode(ctx) {
     // Try to use AudioWorkletNode (modern, non-deprecated)
     try {
-        await ctx.audioWorklet.addModule('reverse-delay-processor.js');
+        if (!reverseDelayWorkletRegistered) {
+            const blob = new Blob([reverseDelayProcessorCode], { type: 'application/javascript' });
+            const url = URL.createObjectURL(blob);
+            await ctx.audioWorklet.addModule(url);
+            URL.revokeObjectURL(url);
+            reverseDelayWorkletRegistered = true;
+        }
         const workletNode = new AudioWorkletNode(ctx, 'reverse-delay-processor', {
             numberOfInputs: 1,
             numberOfOutputs: 1,
@@ -2264,8 +2338,9 @@ function updateActiveOutput() {
 
 async function setAudioEnabled(isEnabled) {
     state.audio.enabled = isEnabled;
-    if (isEnabled) await initAudioContext();
-    else stopAllVoicesInternal();
+    // Don't create AudioContext here - defer until actual user gesture (noteOn, recording, etc.)
+    // This avoids the "AudioContext was not allowed to start" warning
+    if (!isEnabled) stopAllVoicesInternal();
     updateActiveOutput();
     updateAudioStatus();
     
