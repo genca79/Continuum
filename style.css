@@ -636,7 +636,7 @@ input[type="checkbox"]:checked::after {
 #uiToggle { top: 12px; right: 64px; }
 #guideBtn { 
     top: 12px; 
-    left: 12px; 
+    right: 116px; 
     width: 44px; 
     max-width: 44px;
     padding: 0;
