@@ -11,6 +11,7 @@ const els = {
     uiAdvancedToggle: document.getElementById('uiAdvancedToggle'),
     midiInSelect: document.getElementById('midiInSelect'),
     midiOutSelect: document.getElementById('midiOutSelect'),
+    audioOutSelect: document.getElementById('audioOutSelect'),
     rootNote: document.getElementById('rootNote'),
     scaleType: document.getElementById('scaleType'),
     microScaleSelect: document.getElementById('microScaleSelect'),
@@ -29,6 +30,7 @@ const els = {
     chordSpread: document.getElementById('chordSpread'),
     pbRange: document.getElementById('pbRange'),
     midiThru: document.getElementById('midiThru'),
+    midiInMpe: document.getElementById('midiInMpe'),
     roundRate: document.getElementById('roundRate'),
     deadCenter: document.getElementById('deadCenter'),
     deadCenterForce: document.getElementById('deadCenterForce'),
@@ -524,6 +526,11 @@ const state = {
         loopGlobal: false,
         ctx: null,
         master: null,
+        outputDeviceId: 'default',
+        outputConnectedTo: null,
+        outputStream: null,
+        outputEl: null,
+        deviceAccessRequested: false,
         dryGain: null,
         wetGain: null,
         fxBus: null,
@@ -1022,6 +1029,80 @@ async function normalizeSampleData(data) {
     return null;
 }
 
+function audioOutSupported() {
+    return !!(window.HTMLMediaElement && typeof HTMLMediaElement.prototype.setSinkId === 'function');
+}
+
+function safeDisconnect(node, dest) {
+    if (!node) return;
+    try {
+        if (dest) node.disconnect(dest);
+        else node.disconnect();
+    } catch (err) {
+        // Ignore disconnect errors.
+    }
+}
+
+function ensureAudioOutputPipeline() {
+    if (!state.audio.ctx) return;
+    if (!state.audio.outputStream) {
+        state.audio.outputStream = state.audio.ctx.createMediaStreamDestination();
+    }
+    if (!state.audio.outputEl) {
+        const el = document.createElement('audio');
+        el.autoplay = true;
+        el.playsInline = true;
+        el.style.display = 'none';
+        el.srcObject = state.audio.outputStream.stream;
+        document.body.appendChild(el);
+        state.audio.outputEl = el;
+    }
+}
+
+function connectMasterToDestination() {
+    if (!state.audio.master || !state.audio.ctx) return;
+    if (state.audio.outputConnectedTo === 'destination') return;
+    safeDisconnect(state.audio.master, state.audio.outputStream);
+    state.audio.master.connect(state.audio.ctx.destination);
+    state.audio.outputConnectedTo = 'destination';
+}
+
+function connectMasterToStream() {
+    if (!state.audio.master || !state.audio.outputStream) return;
+    if (state.audio.outputConnectedTo === 'stream') return;
+    safeDisconnect(state.audio.master, state.audio.ctx.destination);
+    state.audio.master.connect(state.audio.outputStream);
+    state.audio.outputConnectedTo = 'stream';
+}
+
+async function applyAudioOutputSelection(deviceId, options = {}) {
+    state.audio.outputDeviceId = deviceId || 'default';
+    if (!audioOutSupported()) {
+        connectMasterToDestination();
+        return;
+    }
+    if (!state.audio.ctx || !state.audio.master) {
+        if (!options.skipInit) await initAudioContext();
+        if (!state.audio.ctx || !state.audio.master) return;
+    }
+    ensureAudioOutputPipeline();
+    connectMasterToStream();
+    if (state.audio.outputEl) {
+        const sinkId = state.audio.outputDeviceId || 'default';
+        try {
+            await state.audio.outputEl.setSinkId(sinkId);
+        } catch (err) {
+            connectMasterToDestination();
+            return;
+        }
+        try {
+            await state.audio.outputEl.play();
+        } catch (err) {
+            // Ignore autoplay restrictions.
+        }
+    }
+}
+
 async function initAudioContext() {
     if (state.audio.ctx) return;
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -1075,7 +1156,6 @@ async function initAudioContext() {
     state.audio.reverbInput.connect(state.audio.reverbDryGain);
     state.audio.reverbDryGain.connect(state.audio.wetGain);
     state.audio.wetGain.connect(state.audio.master);
-    state.audio.master.connect(state.audio.ctx.destination);
     rebuildReverbImpulse();
     updateFxNodes();
     state.audio.wavetables = buildWavetables(state.audio.ctx);
@@ -1087,6 +1167,7 @@ async function initAudioContext() {
         MORPH_GRID_STEPS
     );
     state.audio.chorusLfo.start();
+    await applyAudioOutputSelection(state.audio.outputDeviceId || 'default', { skipInit: true });
 }
 
 async function resumeAudioContext() {
@@ -3575,6 +3656,8 @@ function getPresetState() {
         holdNotes: els.holdNotes.checked,
         pbRange: els.pbRange.value,
         midiThru: els.midiThru.checked,
+        midiInMpe: els.midiInMpe ? els.midiInMpe.checked : false,
+        audioOutId: els.audioOutSelect ? els.audioOutSelect.value : 'default',
         arpEnabled: els.arpEnabled.checked,
         arpRate: els.arpRate.value,
         arpGate: els.arpGate.value,
@@ -3673,6 +3756,13 @@ function applyPresetState(presetState) {
     updateHoldButtonUI();
     els.pbRange.value = presetState.pbRange;
     els.midiThru.checked = presetState.midiThru;
+    if (els.midiInMpe) els.midiInMpe.checked = presetState.midiInMpe ?? els.midiInMpe.checked;
+    if (els.audioOutSelect) {
+        const desired = presetState.audioOutId || 'default';
+        state.audio.outputDeviceId = desired;
+        els.audioOutSelect.value = desired;
+        applyAudioOutputSelection(desired);
+    }
     els.arpEnabled.checked = !!presetState.arpEnabled;
     els.arpRate.value = presetState.arpRate ?? els.arpRate.value;
     els.arpGate.value = presetState.arpGate ?? els.arpGate.value;
@@ -4295,6 +4385,63 @@ function setupMIDI() {
     
 }
 
+async function refreshAudioOutputs() {
+    if (!els.audioOutSelect) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices || !audioOutSupported()) {
+        clearChildren(els.audioOutSelect);
+        appendOption(els.audioOutSelect, 'default', 'Default');
+        els.audioOutSelect.disabled = true;
+        return;
+    }
+    let devices = [];
+    try {
+        devices = await navigator.mediaDevices.enumerateDevices();
+    } catch (err) {
+        clearChildren(els.audioOutSelect);
+        appendOption(els.audioOutSelect, 'default', 'Default');
+        return;
+    }
+    const outputs = devices.filter(d => d.kind === 'audiooutput');
+    clearChildren(els.audioOutSelect);
+    appendOption(els.audioOutSelect, 'default', 'Default');
+    outputs.forEach((d, idx) => {
+        const label = d.label || `Audio Out ${idx + 1}`;
+        appendOption(els.audioOutSelect, d.deviceId, label);
+    });
+    els.audioOutSelect.disabled = false;
+    const desired = state.audio.outputDeviceId || 'default';
+    const hasOption = Array.from(els.audioOutSelect.options).some(o => o.value === desired);
+    els.audioOutSelect.value = hasOption ? desired : 'default';
+}
+
+function setupAudioOutput() {
+    if (!els.audioOutSelect) return;
+    refreshAudioOutputs();
+    els.audioOutSelect.addEventListener('pointerdown', async () => {
+        if (state.audio.deviceAccessRequested) return;
+        state.audio.deviceAccessRequested = true;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(t => t.stop());
+        } catch (err) {
+            // Permission denied or unavailable: keep current list.
+        }
+        refreshAudioOutputs();
+    });
+    els.audioOutSelect.onchange = () => {
+        const deviceId = els.audioOutSelect.value || 'default';
+        applyAudioOutputSelection(deviceId);
+    };
+    if (navigator.mediaDevices) {
+        if (typeof navigator.mediaDevices.addEventListener === 'function') {
+            navigator.mediaDevices.addEventListener('devicechange', refreshAudioOutputs);
+        } else {
+            navigator.mediaDevices.ondevicechange = refreshAudioOutputs;
+        }
+    }
+}
+
 // GESTIONE NOTE DA CONTROLLER ESTERNO
 function handleExternalMIDI(message) {
     const [status, data1, data2] = message.data;
@@ -4309,11 +4456,13 @@ function handleExternalMIDI(message) {
     const type = status & 0xf0;
     const srcChan = status & 0x0f;
     const microtonalize = els.scaleModeMicro.checked && els.microtonalizeIn.checked;
+    const mpeFromIn = els.midiInMpe && els.midiInMpe.checked;
     if (type === 0x90 && velocity > 0 && isLocalNoteOn(note)) {
         return;
     }
-    const thruOnly = els.midiThru.checked && !microtonalize;
-    if (thruOnly) {
+    const thruRaw = els.midiThru.checked && !mpeFromIn;
+    const thruOnly = thruRaw && !microtonalize;
+    if (thruRaw) {
         if (state.midi.output) state.midi.output.send(message.data);
     }
     if (type === 0x90 && velocity > 0) {
@@ -4337,7 +4486,6 @@ function handleExternalMIDI(message) {
             state.externalNoteMap.set(`${srcChan}:${note}`, { keyNote: voice.note, chan: chan || 0 });
         } else {
             ensureVisibleForNotes([note], { allowSingle: true });
-            const physicalChan = srcChan + 1;
             const chan = thruOnly ? 0 : state.mpeChannels.shift();
             if (!thruOnly && !chan) {
                 els.midiStatus.innerText = 'MPE CHANNELS FULL';
@@ -4346,7 +4494,7 @@ function handleExternalMIDI(message) {
                 state.midi.output.send([0x90 + chan - 1, note, velocity]);
             }
             const list = state.physicalNotes.get(note) || [];
-            list.push({ chan: physicalChan, note, basePb: 0, velocity, grabbed: false, srcChan, srcNote: note, lastPb: 8192, lastSlide: 0, lastPress: 0, onTs: Date.now() });
+            list.push({ chan: chan || 0, note, basePb: 0, velocity, grabbed: false, srcChan, srcNote: note, lastPb: 8192, lastSlide: 0, lastPress: 0, onTs: Date.now() });
             state.physicalNotes.set(note, list);
         }
     } else if (type === 0x80 || (type === 0x90 && velocity === 0)) {
@@ -7752,7 +7900,7 @@ document.addEventListener('visibilitychange', () => {
 });
 els.ui.addEventListener('transitionend', refreshLayout);
 els.performance.addEventListener('transitionend', refreshLayout);
-refreshLayout(); updateScaleModeUI(); updateScaleNotes(); syncArpFromUI(); updateHoldButtonUI(); updateArpParamsToggleLabel(); updateGroupShiftUI(); setupMIDI(); draw();
+refreshLayout(); updateScaleModeUI(); updateScaleNotes(); syncArpFromUI(); updateHoldButtonUI(); updateArpParamsToggleLabel(); updateGroupShiftUI(); setupMIDI(); setupAudioOutput(); draw();
 
 function updateToggleLabels() {
     const uiLabel = uiToggle ? uiToggle.querySelector('.btn-text') : null;
