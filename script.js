@@ -5,6 +5,9 @@ const CANVAS_FONT_FAMILY = "'Segoe UI', Roboto, sans-serif";
 const els = {
     ui: document.getElementById('ui'),
     performance: document.getElementById('performance'),
+    overlayToggle: document.getElementById('overlayToggle'),
+    gestureOverlay: document.getElementById('gestureOverlay'),
+    overlayModeToggle: document.getElementById('overlayModeToggle'),
     uiAdvancedToggle: document.getElementById('uiAdvancedToggle'),
     midiInSelect: document.getElementById('midiInSelect'),
     midiOutSelect: document.getElementById('midiOutSelect'),
@@ -155,6 +158,11 @@ const els = {
     sampleClear7: document.getElementById('sampleClear7'),
     factorySelect: document.getElementById('factorySelect'),
     factoryLoadBtn: document.getElementById('factoryLoadBtn'),
+    matrixToggle: document.getElementById('matrixToggle'),
+    matrixSceneSelect: document.getElementById('matrixSceneSelect'),
+    matrixSceneDesc: document.getElementById('matrixSceneDesc'),
+    amTone: document.getElementById('amTone'),
+    amBias: document.getElementById('amBias'),
     // Audio Recorder elements
     recStartBtn: document.getElementById('recStartBtn'),
     recStopBtn: document.getElementById('recStopBtn'),
@@ -277,7 +285,8 @@ function triggerBow(voiceObj, attackTime = 0.05) {
             activeVoice.gain.gain.setValueAtTime(activeVoice.gain.gain.value, now);
             activeVoice.gain.gain.linearRampToValueAtTime(0, now + 0.02); // Faster stop
             if (activeVoice.source) activeVoice.source.stop(now + 0.03);
-            if (activeVoice.osc) activeVoice.osc.stop(now + 0.03);
+            if (activeVoice.oscA) activeVoice.oscA.stop(now + 0.03);
+            if (activeVoice.oscB) activeVoice.oscB.stop(now + 0.03);
         } catch(e) {}
     }
     // Delete voice immediately so the new one starts fresh
@@ -474,6 +483,7 @@ const state = {
     scaleNotes: { notes: [], root: 0, scale: '' },
     gridCache: null,
     groupShiftEnabled: false,
+    overlay: { active: false, side: 'right' },
     fadeState: { active: false, start: 0, durationMs: 0 },
     drawRaf: null,
     scaleUpdateRaf: null,
@@ -511,6 +521,16 @@ const state = {
             type: 'Saw',
             mix: 0.35
         },
+        macro: {
+            morph: 0.5,
+            texture: 0
+        },
+        crossMod: {
+            mode: 'fm',
+            depth: 0,
+            amTone: 5000,
+            amBias: 0.15
+        },
         dynamicVelocity: true,
         samplerGain: 1,
         maxSamplerVoices: 24,
@@ -521,7 +541,13 @@ const state = {
         bowMode: false,
         fx: { ...DEFAULT_FX },
         fxActiveGroup: 'filter',
-        fxEnabled: false
+        fxEnabled: false,
+        matrix: {
+            enabled: false,
+            scene: 'Aether',
+            macros: { a: 0, b: 0, c: 0, d: 0 },
+            snapshot: null
+        }
     },
     // Audio Recorder state
     recorder: {
@@ -551,6 +577,7 @@ const ECHO_INTERVAL_MS = 140;
 const ECHO_NOTE_MS = 90;
 const ECHO_DECAY = 0.75;
 const FADE_ECHO_ENABLED = true;
+const WAVETABLE_ORDER = ['Saw', 'Square', 'Triangle', 'PWM', 'Formant'];
 const PRESET_DESCRIPTIONS = {
     Init: 'Default baseline settings.',
     Ableton: 'Studio-friendly sync: MIDI clock ARP and cleaner control.',
@@ -562,6 +589,38 @@ const MPE_PRESET_DESCRIPTIONS = {
     Expressive: 'Loose feel with minimal snap and magnetism.',
     Tight: 'High precision snap and strong dead-center.',
     Glide: 'Free pitch glide with no snap or dead-center.'
+};
+const MATRIX_SCENES = {
+    Aether: {
+        desc: 'Airy shimmer with smooth morphing.',
+        base: { wtmix: 0.55, morph: 0.2, mod: 0.15, space: 0.45, cutoff: 12000 },
+        weights: {
+            a: { morph: 0.5, cutoff: 0.2 },
+            b: { wtmix: 0.4, space: 0.2 },
+            c: { mod: 0.6, morph: -0.15 },
+            d: { space: 0.6, cutoff: -0.3 }
+        }
+    },
+    Metal: {
+        desc: 'Metallic growl and tight edge.',
+        base: { wtmix: 0.7, morph: 0.65, mod: 0.35, space: 0.2, cutoff: 8000 },
+        weights: {
+            a: { mod: 0.7, morph: 0.2 },
+            b: { morph: 0.45, cutoff: -0.25 },
+            c: { wtmix: 0.3, mod: 0.35 },
+            d: { space: 0.4, cutoff: -0.2 }
+        }
+    },
+    Bloom: {
+        desc: 'Wide, evolving pad textures.',
+        base: { wtmix: 0.5, morph: 0.35, mod: 0.2, space: 0.6, cutoff: 14000 },
+        weights: {
+            a: { space: 0.5, cutoff: 0.2 },
+            b: { morph: 0.4, wtmix: 0.2 },
+            c: { mod: 0.5, morph: -0.1 },
+            d: { space: 0.4, wtmix: -0.2 }
+        }
+    }
 };
 
 initSampleSlots();
@@ -1895,11 +1954,121 @@ function updateWavetableUI() {
     }
 }
 
+function setWavetableMode(mode) {
+    const next = mode === 'layer' ? 'layer' : (mode === 'wt' ? 'wt' : 'sampler');
+    state.audio.wavetable.mode = next;
+    if (els.wtMode) els.wtMode.value = next;
+    if (els.wtMixBox) els.wtMixBox.style.display = next === 'layer' ? '' : 'none';
+    updateSamplerGainNodes();
+    updateWavetableMix();
+}
+
+function clamp01(value) {
+    return Math.max(0, Math.min(1, value));
+}
+
+function getWavetableOrder() {
+    const available = WAVETABLE_ORDER.filter(name => state.audio.wavetables && state.audio.wavetables[name]);
+    if (available.length) return available;
+    const fallback = Object.keys(state.audio.wavetables || {});
+    return fallback.length ? fallback : Object.keys(WAVETABLES);
+}
+
+function getLayerWavetableMix() {
+    return clamp01(state.audio.wavetable.mix);
+}
+
+function getMacroSamplerBlend() {
+    return state.audio.wavetable.mode === 'layer' ? (1 - getLayerWavetableMix()) : 1;
+}
+
+function getMacroWavetableBlend() {
+    return state.audio.wavetable.mode === 'layer' ? getLayerWavetableMix() : 1;
+}
+
+function getEffectiveWavetableMix() {
+    return Math.max(0, Math.min(1, getMacroWavetableBlend()));
+}
+
+function getWavetableMorphState() {
+    const order = getWavetableOrder();
+    if (!order.length) return null;
+    if (order.length === 1) {
+        return { aType: order[0], bType: order[0], aGain: getEffectiveWavetableMix(), bGain: 0 };
+    }
+    const morph = clamp01(state.audio.macro.morph);
+    const pos = morph * (order.length - 1);
+    const idx = Math.floor(pos);
+    const frac = pos - idx;
+    const aType = order[idx];
+    const bType = order[Math.min(order.length - 1, idx + 1)];
+    const mix = getEffectiveWavetableMix();
+    return { aType, bType, aGain: mix * (1 - frac), bGain: mix * frac };
+}
+
+function applyWavetableMorphToVoice(voice) {
+    if (!voice || !voice.oscA || !voice.oscB || !voice.wtGainA || !voice.wtGainB || !state.audio.ctx) return;
+    const order = getWavetableOrder();
+    if (!order.length) return;
+    const morph = clamp01(state.audio.macro.morph);
+    const mix = getEffectiveWavetableMix();
+    if (order.length === 1) {
+        const wave = state.audio.wavetables[order[0]];
+        if (wave) {
+            voice.oscA.setPeriodicWave(wave);
+            voice.oscB.setPeriodicWave(wave);
+        }
+        voice.wtGainA.gain.setTargetAtTime(mix, state.audio.ctx.currentTime, 0.02);
+        voice.wtGainB.gain.setTargetAtTime(0, state.audio.ctx.currentTime, 0.02);
+        return;
+    }
+    const pos = morph * (order.length - 1);
+    const idx = Math.floor(pos);
+    const frac = pos - idx;
+    const nextIdx = Math.min(order.length - 1, idx + 1);
+    const lowType = order[idx];
+    const highType = order[nextIdx];
+    const lowWave = state.audio.wavetables[lowType];
+    const highWave = state.audio.wavetables[highType];
+    if (!voice.morphState) {
+        voice.morphState = { lowIdx: idx, highIdx: nextIdx, lowOsc: 'A' };
+        if (lowWave) voice.oscA.setPeriodicWave(lowWave);
+        if (highWave) voice.oscB.setPeriodicWave(highWave);
+    } else if (voice.morphState.lowIdx === idx && voice.morphState.highIdx === nextIdx) {
+        // same segment, no reassignment
+    } else if (idx === voice.morphState.highIdx) {
+        // moving forward
+        const newLowOsc = voice.morphState.lowOsc === 'A' ? 'B' : 'A';
+        const otherOsc = newLowOsc === 'A' ? voice.oscB : voice.oscA;
+        if (highWave) otherOsc.setPeriodicWave(highWave);
+        voice.morphState = { lowIdx: idx, highIdx: nextIdx, lowOsc: newLowOsc };
+    } else if (nextIdx === voice.morphState.lowIdx) {
+        // moving backward
+        const newLowOsc = voice.morphState.lowOsc === 'A' ? 'B' : 'A';
+        const otherOsc = newLowOsc === 'A' ? voice.oscB : voice.oscA;
+        if (lowWave) otherOsc.setPeriodicWave(lowWave);
+        voice.morphState = { lowIdx: idx, highIdx: nextIdx, lowOsc: newLowOsc };
+    } else {
+        // jump: reset assignment
+        voice.morphState = { lowIdx: idx, highIdx: nextIdx, lowOsc: 'A' };
+        if (lowWave) voice.oscA.setPeriodicWave(lowWave);
+        if (highWave) voice.oscB.setPeriodicWave(highWave);
+    }
+    const lowGain = mix * (1 - frac);
+    const highGain = mix * frac;
+    if (voice.morphState.lowOsc === 'A') {
+        voice.wtGainA.gain.setTargetAtTime(lowGain, state.audio.ctx.currentTime, 0.02);
+        voice.wtGainB.gain.setTargetAtTime(highGain, state.audio.ctx.currentTime, 0.02);
+    } else {
+        voice.wtGainA.gain.setTargetAtTime(highGain, state.audio.ctx.currentTime, 0.02);
+        voice.wtGainB.gain.setTargetAtTime(lowGain, state.audio.ctx.currentTime, 0.02);
+    }
+}
+
 function updateWavetableMix() {
-    const mix = state.audio.wavetable.mix;
     if (!state.audio.ctx) return;
     state.audio.voices.forEach(v => {
-        if (v.wtGain) v.wtGain.gain.setTargetAtTime(mix, state.audio.ctx.currentTime, 0.02);
+        applyWavetableMorphToVoice(v);
     });
 }
 
@@ -1907,9 +2076,232 @@ function updateSamplerGainNodes() {
     if (!state.audio.ctx) return;
     state.audio.voices.forEach(v => {
         if (!v.sampleGain || v.sampleGainValue == null) return;
-        const next = Math.max(0, Math.min(5, state.audio.samplerGain * v.sampleGainValue));
+        const blend = getMacroSamplerBlend();
+        const next = Math.max(0, Math.min(5, state.audio.samplerGain * v.sampleGainValue * blend));
         v.sampleGain.gain.setTargetAtTime(next, state.audio.ctx.currentTime, 0.02);
     });
+}
+
+function getModDepthHz(value) {
+    const norm = clamp01(value);
+    const maxHz = 4000;
+    const scaled = (Math.pow(10, norm * 2) - 1) / (Math.pow(10, 2) - 1);
+    return scaled * maxHz;
+}
+
+function applyVoiceModRouting(voice) {
+    if (!state.audio.ctx || !voice || !voice.ringGain) return;
+    const now = state.audio.ctx.currentTime;
+    const mode = state.audio.crossMod.mode;
+    const depth = clamp01(state.audio.crossMod.depth);
+    const depthScaled = depth;
+    const amBias = clamp01(state.audio.crossMod.amBias);
+    const hasModSource = !!voice.modSourceGain && !!voice.modGain;
+
+    if (voice.modSourceGain) {
+        try { voice.modSourceGain.disconnect(); } catch (err) {}
+    }
+    if (voice.modFilterLP) {
+        try { voice.modFilterLP.disconnect(); } catch (err) {}
+    }
+    if (voice.modFilterHP) {
+        try { voice.modFilterHP.disconnect(); } catch (err) {}
+    }
+    if (voice.modGain) {
+        try { voice.modGain.disconnect(); } catch (err) {}
+    }
+
+    if (!hasModSource) {
+        if (voice.ringGain) voice.ringGain.gain.setTargetAtTime(1, now, 0.02);
+        return;
+    }
+
+    if (mode === 'fm') {
+        if (depthScaled <= 0) {
+            voice.ringGain.gain.setTargetAtTime(1, now, 0.02);
+            return;
+        }
+        voice.modSourceGain.connect(voice.modFilterLP);
+        voice.modFilterLP.connect(voice.modGain);
+        voice.modGain.gain.setTargetAtTime(getModDepthHz(depthScaled), now, 0.02);
+        if (voice.oscA) voice.modGain.connect(voice.oscA.frequency);
+        if (voice.oscB) voice.modGain.connect(voice.oscB.frequency);
+        voice.ringGain.gain.setTargetAtTime(1, now, 0.02);
+    } else {
+        if (depthScaled <= 0 && amBias <= 0) {
+            voice.ringGain.gain.setTargetAtTime(1, now, 0.02);
+            return;
+        }
+        voice.modSourceGain.connect(voice.modFilterHP);
+        if (voice.modFilterLP) {
+            voice.modFilterLP.type = 'lowpass';
+            voice.modFilterLP.frequency.setTargetAtTime(state.audio.crossMod.amTone, now, 0.02);
+            voice.modFilterHP.connect(voice.modFilterLP);
+            voice.modFilterLP.connect(voice.modGain);
+        } else {
+            voice.modFilterHP.connect(voice.modGain);
+        }
+        const effectiveDepth = amBias + (1 - amBias) * depthScaled;
+        voice.modGain.gain.setTargetAtTime(effectiveDepth, now, 0.02);
+        voice.modGain.connect(voice.ringGain.gain);
+        voice.ringGain.gain.setTargetAtTime(0, now, 0.02);
+    }
+}
+
+function updateCrossModDepth() {
+    if (!state.audio.ctx) return;
+    state.audio.voices.forEach(v => applyVoiceModRouting(v));
+}
+
+function updateOverlayFaderValue(name, value, force = false) {
+    if (!els.gestureOverlay) return;
+    if (!force && state.audio.matrix.enabled && ['wtmix', 'morph', 'depth', 'texture'].includes(name)) return;
+    const faderEl = els.gestureOverlay.querySelector(`.overlay-fader[data-fader="${name}"]`);
+    if (!faderEl) return;
+    faderEl.style.setProperty('--fader-value', clamp01(value).toFixed(3));
+}
+
+function updateOverlayModeButton() {
+    if (!els.overlayModeToggle) return;
+    els.overlayModeToggle.dataset.mode = state.audio.crossMod.mode;
+    els.overlayModeToggle.textContent = state.audio.crossMod.mode.toUpperCase();
+}
+
+function setMacroMorph(value) {
+    state.audio.macro.morph = clamp01(value);
+    const morphState = getWavetableMorphState();
+    if (morphState) {
+        state.audio.wavetable.type = morphState.aType;
+        if (els.wtSelect) els.wtSelect.value = morphState.aType;
+    }
+    updateWavetableMix();
+    if (!state.audio.matrix.enabled) {
+        updateOverlayFaderValue('morph', state.audio.macro.morph);
+    }
+}
+
+function setWavetableMix(value) {
+    state.audio.wavetable.mix = clamp01(value);
+    if (els.wtMix) {
+        els.wtMix.value = state.audio.wavetable.mix.toFixed(2);
+        updateRangeProgress(els.wtMix);
+    }
+    updateSamplerGainNodes();
+    updateWavetableMix();
+    if (!state.audio.matrix.enabled) {
+        updateOverlayFaderValue('wtmix', state.audio.wavetable.mix);
+    }
+}
+
+function setCrossModDepth(value) {
+    state.audio.crossMod.depth = clamp01(value);
+    updateCrossModDepth();
+    if (!state.audio.matrix.enabled) {
+        updateOverlayFaderValue('depth', state.audio.crossMod.depth);
+    }
+}
+
+function setMacroTexture(value) {
+    state.audio.macro.texture = clamp01(value);
+    updateFxNodes();
+    if (!state.audio.matrix.enabled) {
+        updateOverlayFaderValue('texture', state.audio.macro.texture);
+    }
+}
+
+function setCrossModMode(mode) {
+    state.audio.crossMod.mode = mode === 'am' ? 'am' : 'fm';
+    updateCrossModDepth();
+    updateOverlayModeButton();
+}
+
+function setMatrixMacro(key, value) {
+    const name = String(key || '').toLowerCase();
+    if (!state.audio.matrix.macros.hasOwnProperty(name)) return;
+    state.audio.matrix.macros[name] = clamp01(value);
+    const faderMap = { a: 'wtmix', b: 'morph', c: 'depth', d: 'texture' };
+    updateOverlayFaderValue(faderMap[name], state.audio.matrix.macros[name], true);
+    applyMatrix();
+}
+
+function updateOverlayLabelsForMatrix(enabled) {
+    if (!els.gestureOverlay) return;
+    const labels = els.gestureOverlay.querySelectorAll('.overlay-fader .fader-label');
+    if (labels.length < 4) return;
+    if (enabled) {
+        labels[0].textContent = 'MAC A';
+        labels[1].textContent = 'MAC B';
+        labels[2].textContent = 'MAC C';
+        labels[3].textContent = 'MAC D';
+    } else {
+        labels[0].textContent = 'WT MIX';
+        labels[1].textContent = 'MORPH';
+        labels[2].textContent = 'MOD';
+        labels[3].textContent = 'SPACE';
+    }
+}
+
+function applyMatrix() {
+    if (!state.audio.matrix.enabled) return;
+    const scene = MATRIX_SCENES[state.audio.matrix.scene] || MATRIX_SCENES.Aether;
+    const macros = state.audio.matrix.macros;
+    Object.keys(MATRIX_DESTS).forEach(dest => {
+        const def = MATRIX_DESTS[dest];
+        const base = scene.base && scene.base[dest] != null ? scene.base[dest] : def.get();
+        const span = def.max - def.min;
+        let value = base;
+        const weights = scene.weights || {};
+        ['a', 'b', 'c', 'd'].forEach(key => {
+            const weight = (weights[key] && weights[key][dest]) ? weights[key][dest] : 0;
+            const macroVal = macros[key] ?? 0;
+            value += weight * macroVal * span;
+        });
+        value = Math.max(def.min, Math.min(def.max, value));
+        def.set(value);
+    });
+}
+
+function setMatrixEnabled(isEnabled) {
+    const enabled = !!isEnabled;
+    if (state.audio.matrix.enabled === enabled) return;
+    state.audio.matrix.enabled = enabled;
+    if (enabled) {
+        if (state.audio.wavetable.mode !== 'layer') {
+            setWavetableMode('layer');
+        }
+        state.audio.matrix.snapshot = {
+            wtmix: state.audio.wavetable.mix,
+            morph: state.audio.macro.morph,
+            mod: state.audio.crossMod.depth,
+            space: state.audio.macro.texture,
+            cutoff: state.audio.fx.filterCutoff
+        };
+        applyMatrix();
+        setMatrixMacro('a', state.audio.matrix.macros.a);
+        setMatrixMacro('b', state.audio.matrix.macros.b);
+        setMatrixMacro('c', state.audio.matrix.macros.c);
+        setMatrixMacro('d', state.audio.matrix.macros.d);
+    } else if (state.audio.matrix.snapshot) {
+        setWavetableMix(state.audio.matrix.snapshot.wtmix);
+        setMacroMorph(state.audio.matrix.snapshot.morph);
+        setCrossModDepth(state.audio.matrix.snapshot.mod);
+        setMacroTexture(state.audio.matrix.snapshot.space);
+        MATRIX_DESTS.cutoff.set(state.audio.matrix.snapshot.cutoff);
+    }
+    updateOverlayLabelsForMatrix(enabled);
+    if (els.matrixToggle) {
+        els.matrixToggle.classList.toggle('toggle-on', enabled);
+        els.matrixToggle.classList.toggle('toggle-off', !enabled);
+        els.matrixToggle.textContent = enabled ? 'MATRIX ON' : 'MATRIX OFF';
+    }
+}
+
+function setMatrixScene(name) {
+    const next = MATRIX_SCENES[name] ? name : 'Aether';
+    state.audio.matrix.scene = next;
+    if (els.matrixSceneSelect) els.matrixSceneSelect.value = next;
+    if (els.matrixSceneDesc) els.matrixSceneDesc.textContent = MATRIX_SCENES[next].desc || '';
+    if (state.audio.matrix.enabled) applyMatrix();
 }
 
 function getSamplerVoiceKeys() {
@@ -2043,12 +2435,61 @@ function updateFxNodes() {
     if (state.audio.delayWetGain) state.audio.delayWetGain.gain.value = (state.audio.fxEnabled && fx.delayOn) ? fwdMix : 0;
     if (state.audio.delayDryGain) state.audio.delayDryGain.gain.value = (state.audio.fxEnabled && fx.delayOn) ? fx.delayDry : 1;
     if (state.audio.reverseWetGain) state.audio.reverseWetGain.gain.value = (state.audio.fxEnabled && fx.delayOn) ? revWet : 0;
-    if (state.audio.reverbWetGain) state.audio.reverbWetGain.gain.value = (state.audio.fxEnabled && fx.reverbOn) ? fx.reverbWet : 0;
+    const reverbWet = getEffectiveReverbWet();
+    if (state.audio.reverbWetGain) state.audio.reverbWetGain.gain.value = (state.audio.fxEnabled && fx.reverbOn) ? reverbWet : 0;
     if (state.audio.reverbDryGain) state.audio.reverbDryGain.gain.value = (state.audio.fxEnabled && fx.reverbOn) ? fx.reverbDry : 1;
     if (state.audio.chorusLfo) state.audio.chorusLfo.frequency.value = fx.chorusRate;
     if (state.audio.chorusLfoGain) state.audio.chorusLfoGain.gain.value = (state.audio.fxEnabled && fx.chorusOn) ? fx.chorusDepth : 0;
     updateActiveFilters();
 }
+
+function getEffectiveReverbWet() {
+    const base = state.audio.fx.reverbWet;
+    const texture = clamp01(state.audio.macro.texture);
+    return Math.max(0, Math.min(1, base + (1 - base) * texture));
+}
+
+function getEffectiveRelease() {
+    const base = state.audio.fx.release;
+    const texture = clamp01(state.audio.macro.texture);
+    const floor = 0.2 * texture;
+    return (base * (1 + texture * 1.5)) + floor;
+}
+
+const MATRIX_DESTS = {
+    wtmix: {
+        min: 0, max: 1,
+        get: () => state.audio.wavetable.mix,
+        set: value => setWavetableMix(value)
+    },
+    morph: {
+        min: 0, max: 1,
+        get: () => state.audio.macro.morph,
+        set: value => setMacroMorph(value)
+    },
+    mod: {
+        min: 0, max: 1,
+        get: () => state.audio.crossMod.depth,
+        set: value => setCrossModDepth(value)
+    },
+    space: {
+        min: 0, max: 1,
+        get: () => state.audio.macro.texture,
+        set: value => setMacroTexture(value)
+    },
+    cutoff: {
+        min: 60, max: 20000,
+        get: () => state.audio.fx.filterCutoff,
+        set: value => {
+            state.audio.fx.filterCutoff = value;
+            if (els.fxCutoff) {
+                els.fxCutoff.value = Math.round(value);
+                updateRangeProgress(els.fxCutoff);
+            }
+            updateFxNodes();
+        }
+    }
+};
 
 function updateActiveFilters() {
     const fx = state.audio.fx;
@@ -2379,7 +2820,8 @@ function stopVoiceInternal(key) {
         voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
         voice.gain.gain.linearRampToValueAtTime(0, now + 0.03);
         if (voice.source) voice.source.stop(now + 0.05);
-        if (voice.osc) voice.osc.stop(now + 0.05);
+        if (voice.oscA) voice.oscA.stop(now + 0.05);
+        if (voice.oscB) voice.oscB.stop(now + 0.05);
     } catch (err) {
         // Ignore audio stop errors for already-stopped nodes.
     }
@@ -2390,13 +2832,14 @@ function releaseVoiceInternal(key) {
     const voice = state.audio.voices.get(key);
     if (!voice || !state.audio.ctx) return;
     const now = state.audio.ctx.currentTime;
-    const release = Math.max(0, state.audio.fx.release);
+    const release = Math.max(0, getEffectiveRelease());
     try {
         voice.gain.gain.cancelScheduledValues(now);
         voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
         voice.gain.gain.linearRampToValueAtTime(0, now + release);
         if (voice.source) voice.source.stop(now + release + 0.05);
-        if (voice.osc) voice.osc.stop(now + release + 0.05);
+        if (voice.oscA) voice.oscA.stop(now + release + 0.05);
+        if (voice.oscB) voice.oscB.stop(now + release + 0.05);
     } catch (err) {
         // Ignore audio stop errors for already-stopped nodes.
     }
@@ -2414,7 +2857,7 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
     if (!state.audio.ctx || !state.audio.master) return;
     const modeFlags = getWavetableModeFlags();
     const sample = modeFlags.sampler ? findBestSample(note) : null;
-    const wtEnabled = modeFlags.wt && state.audio.wavetables[state.audio.wavetable.type];
+    const wtEnabled = modeFlags.wt && Object.keys(state.audio.wavetables || {}).length;
     if (!sample && !wtEnabled) return;
     
     // Fix: Enforce Polyphony Limit for both Sampler and WT
@@ -2424,8 +2867,6 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
     const gain = state.audio.ctx.createGain();
     const filter = state.audio.ctx.createBiquadFilter();
     const sampleGain = sample ? state.audio.ctx.createGain() : null;
-    const wtGain = wtEnabled ? state.audio.ctx.createGain() : null;
-    const osc = wtEnabled ? state.audio.ctx.createOscillator() : null;
     const initVel = Math.max(0.02, velocity / 127);
     const press = state.audio.channelPress.get(chan) ?? 90;
     const pressNorm = Math.max(0, Math.min(1, press / 127));
@@ -2462,18 +2903,50 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
     filter.frequency.setValueAtTime(cutoff, now);
     filter.frequency.linearRampToValueAtTime(envTarget, now + attackTime);
     filter.frequency.linearRampToValueAtTime(cutoff, now + attackTime + fx.decay);
+    const modSourceGain = (sample && wtEnabled) ? state.audio.ctx.createGain() : null;
+    const modFilterLP = (sample && wtEnabled) ? state.audio.ctx.createBiquadFilter() : null;
+    const modFilterHP = (sample && wtEnabled) ? state.audio.ctx.createBiquadFilter() : null;
+    const modGain = (sample && wtEnabled) ? state.audio.ctx.createGain() : null;
+    const ringGain = wtEnabled ? state.audio.ctx.createGain() : null;
+    const wtGainA = wtEnabled ? state.audio.ctx.createGain() : null;
+    const wtGainB = wtEnabled ? state.audio.ctx.createGain() : null;
+    const oscA = wtEnabled ? state.audio.ctx.createOscillator() : null;
+    const oscB = wtEnabled ? state.audio.ctx.createOscillator() : null;
     if (sample && sampleGain) {
-        const gainValue = Math.max(0, Math.min(5, state.audio.samplerGain * (sample.gain ?? 1)));
+        const blend = getMacroSamplerBlend();
+        const gainValue = Math.max(0, Math.min(5, state.audio.samplerGain * (sample.gain ?? 1) * blend));
         sampleGain.gain.value = gainValue;
         source.connect(sampleGain);
         sampleGain.connect(filter);
+        if (modSourceGain) {
+            modSourceGain.gain.value = 1;
+            source.connect(modSourceGain);
+        }
     }
-    if (osc && wtGain) {
-        osc.setPeriodicWave(state.audio.wavetables[state.audio.wavetable.type]);
-        osc.frequency.value = midiToFreq(note + pbSemis);
-        wtGain.gain.value = state.audio.wavetable.mix;
-        osc.connect(wtGain);
-        wtGain.connect(filter);
+    if (modFilterLP) {
+        modFilterLP.type = 'lowpass';
+        modFilterLP.frequency.value = 5000;
+    }
+    if (modFilterHP) {
+        modFilterHP.type = 'highpass';
+        modFilterHP.frequency.value = 10;
+    }
+    if (oscA && oscB && wtGainA && wtGainB && ringGain) {
+        const morphState = getWavetableMorphState();
+        const waveA = morphState ? state.audio.wavetables[morphState.aType] : null;
+        const waveB = morphState ? state.audio.wavetables[morphState.bType] : null;
+        if (waveA) oscA.setPeriodicWave(waveA);
+        if (waveB) oscB.setPeriodicWave(waveB);
+        oscA.frequency.value = midiToFreq(note + pbSemis);
+        oscB.frequency.value = midiToFreq(note + pbSemis);
+        wtGainA.gain.value = morphState ? morphState.aGain : 0;
+        wtGainB.gain.value = morphState ? morphState.bGain : 0;
+        oscA.connect(wtGainA);
+        oscB.connect(wtGainB);
+        wtGainA.connect(ringGain);
+        wtGainB.connect(ringGain);
+        ringGain.gain.value = 1;
+        ringGain.connect(filter);
     }
     filter.connect(gain);
     gain.connect(state.audio.dryGain);
@@ -2487,15 +2960,23 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
         }
         source.start(0, offset);
     }
-    if (osc) osc.start();
+    if (oscA) oscA.start();
+    if (oscB) oscB.start();
     const voice = { 
         source: sample ? source : null, 
         gain, 
         filter, 
         sampleGain, 
         sampleGainValue: sample ? (sample.gain ?? 1) : null, 
-        wtGain, 
-        osc, 
+        ringGain,
+        wtGainA,
+        wtGainB,
+        oscA,
+        oscB,
+        modSourceGain,
+        modFilterLP,
+        modFilterHP,
+        modGain,
         note, 
         chan, 
         sampleRoot: sample ? sample.root : null, 
@@ -2505,10 +2986,12 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
         bufferDuration: (sample && sample.buffer) ? sample.buffer.duration : null 
     };
     state.audio.voices.set(key, voice);
+    applyVoiceModRouting(voice);
     if (source) {
         source.onended = () => {
             try {
-                if (osc) osc.stop();
+                if (oscA) oscA.stop();
+                if (oscB) oscB.stop();
             } catch (err) {
                 // Ignore stop errors for already-stopped oscillators.
             }
@@ -2534,8 +3017,11 @@ function updateChannelPitch(chan) {
             const rate = Math.pow(2, (v.note - v.sampleRoot + pbSemis) / 12);
             v.source.playbackRate.setValueAtTime(rate, state.audio.ctx.currentTime);
         }
-        if (v.osc) {
-            v.osc.frequency.setTargetAtTime(midiToFreq(v.note + pbSemis), state.audio.ctx.currentTime, 0.01);
+        if (v.oscA) {
+            v.oscA.frequency.setTargetAtTime(midiToFreq(v.note + pbSemis), state.audio.ctx.currentTime, 0.01);
+        }
+        if (v.oscB) {
+            v.oscB.frequency.setTargetAtTime(midiToFreq(v.note + pbSemis), state.audio.ctx.currentTime, 0.01);
         }
     });
 }
@@ -2555,6 +3041,7 @@ function updateChannelPress(chan) {
         // FIX: Allow silence (0) instead of clamping to 0.01
         const nextGain = Math.max(0, baseVel * pressGain * sustain);
         v.gain.gain.setTargetAtTime(nextGain, state.audio.ctx.currentTime, 0.02);
+        applyVoiceModRouting(v);
     });
 }
 
@@ -2873,6 +3360,15 @@ function getPresetState() {
         wtMode: state.audio.wavetable.mode,
         wtType: state.audio.wavetable.type,
         wtMix: state.audio.wavetable.mix,
+        macroMorph: state.audio.macro.morph,
+        macroTexture: state.audio.macro.texture,
+        crossModMode: state.audio.crossMod.mode,
+        crossModDepth: state.audio.crossMod.depth,
+        amTone: state.audio.crossMod.amTone,
+        amBias: state.audio.crossMod.amBias,
+        matrixEnabled: state.audio.matrix.enabled,
+        matrixScene: state.audio.matrix.scene,
+        matrixMacros: { ...state.audio.matrix.macros },
         // Sampler settings
         samplerGain: state.audio.samplerGain,
         samplerMaxVoices: state.audio.maxSamplerVoices,
@@ -2969,20 +3465,54 @@ function applyPresetState(presetState) {
         setAudioEnabled(presetState.audioEnabled);
     }
     if (presetState.wtMode !== undefined) {
-        state.audio.wavetable.mode = presetState.wtMode;
-        if (els.wtMode) els.wtMode.value = presetState.wtMode;
-        if (els.wtMixBox) els.wtMixBox.style.display = presetState.wtMode === 'layer' ? '' : 'none';
+        setWavetableMode(presetState.wtMode);
     }
     if (presetState.wtType !== undefined) {
         state.audio.wavetable.type = presetState.wtType;
         if (els.wtSelect) els.wtSelect.value = presetState.wtType;
     }
     if (presetState.wtMix !== undefined) {
-        state.audio.wavetable.mix = presetState.wtMix;
-        if (els.wtMix) {
-            els.wtMix.value = presetState.wtMix.toFixed(2);
-            updateRangeProgress(els.wtMix);
+        setWavetableMix(presetState.wtMix);
+    }
+    if (presetState.macroMorph !== undefined) {
+        setMacroMorph(presetState.macroMorph);
+    }
+    if (presetState.crossModMode !== undefined) {
+        setCrossModMode(presetState.crossModMode);
+    }
+    if (presetState.crossModDepth !== undefined) {
+        setCrossModDepth(presetState.crossModDepth);
+    }
+    if (presetState.amTone !== undefined) {
+        state.audio.crossMod.amTone = Math.max(1000, Math.min(8000, presetState.amTone));
+        if (els.amTone) {
+            els.amTone.value = state.audio.crossMod.amTone;
+            updateRangeProgress(els.amTone);
         }
+    }
+    if (presetState.amBias !== undefined) {
+        state.audio.crossMod.amBias = clamp01(presetState.amBias);
+        if (els.amBias) {
+            els.amBias.value = state.audio.crossMod.amBias.toFixed(2);
+            updateRangeProgress(els.amBias);
+        }
+    }
+    if (presetState.macroTexture !== undefined) {
+        setMacroTexture(presetState.macroTexture);
+    }
+    if (presetState.matrixScene !== undefined) {
+        setMatrixScene(presetState.matrixScene);
+    }
+    if (presetState.matrixMacros !== undefined && typeof presetState.matrixMacros === 'object') {
+        state.audio.matrix.macros = {
+            a: clamp01(presetState.matrixMacros.a ?? state.audio.matrix.macros.a),
+            b: clamp01(presetState.matrixMacros.b ?? state.audio.matrix.macros.b),
+            c: clamp01(presetState.matrixMacros.c ?? state.audio.matrix.macros.c),
+            d: clamp01(presetState.matrixMacros.d ?? state.audio.matrix.macros.d)
+        };
+    }
+    if (presetState.matrixEnabled !== undefined) {
+        setMatrixEnabled(!!presetState.matrixEnabled);
     }
     // Sampler settings
     if (presetState.samplerGain !== undefined) {
@@ -2991,6 +3521,7 @@ function applyPresetState(presetState) {
             els.samplerGain.value = presetState.samplerGain.toFixed(2);
             updateRangeProgress(els.samplerGain);
         }
+        updateSamplerGainNodes();
     }
     if (presetState.samplerMaxVoices !== undefined) {
         state.audio.maxSamplerVoices = presetState.samplerMaxVoices;
@@ -4560,6 +5091,7 @@ function updateHeldChords() {
 
 canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
     requestDraw();
     // Add note-dragging class to prevent UI button interference
     document.body.classList.add('note-dragging');
@@ -4898,6 +5430,7 @@ canvas.addEventListener('pointermove', e => {
 });
 
 canvas.addEventListener('pointerup', e => {
+    try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
     const t = state.activeTouches.get(e.pointerId);
     if (t) {
         requestDraw();
@@ -5003,6 +5536,7 @@ canvas.addEventListener('pointerup', e => {
 });
 
 function cancelActivePointer(pointerId) {
+    try { canvas.releasePointerCapture(pointerId); } catch (err) {}
     const t = state.activeTouches.get(pointerId);
     if (!t) return;
     const groupKey = t.groupDragKey;
@@ -5444,6 +5978,171 @@ const firstCustom = Object.keys(state.customScales)[0];
 els.customScaleName.value = firstCustom || '';
 loadCustomScaleByName(firstCustom);
 refreshCustomScaleDatalist();
+function initGestureOverlay() {
+    if (!els.gestureOverlay) return;
+    const overlay = els.gestureOverlay;
+    const toggle = els.overlayToggle;
+    const modeBtn = els.overlayModeToggle;
+    const gestureZone = overlay.querySelector('.overlay-gesture-zone');
+    const faders = Array.from(overlay.querySelectorAll('.overlay-fader'));
+    const getFaderConfig = (name) => {
+        if (state.audio.matrix.enabled) {
+            const map = { wtmix: 'a', morph: 'b', depth: 'c', texture: 'd' };
+            const key = map[name];
+            if (key) {
+                return {
+                    get: () => state.audio.matrix.macros[key],
+                    set: value => setMatrixMacro(key, value)
+                };
+            }
+        }
+        const base = {
+            wtmix: { get: () => state.audio.wavetable.mix, set: setWavetableMix },
+            morph: { get: () => state.audio.macro.morph, set: setMacroMorph },
+            depth: { get: () => state.audio.crossMod.depth, set: setCrossModDepth },
+            texture: { get: () => state.audio.macro.texture, set: setMacroTexture }
+        };
+        return base[name] || null;
+    };
+    const dragState = { active: null };
+    const gestureState = { id: null, startX: 0, startY: 0 };
+
+    const setOverlayVisible = (isVisible) => {
+        state.overlay.active = isVisible;
+        overlay.classList.toggle('hidden', !isVisible);
+        overlay.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+        if (toggle) toggle.classList.toggle('active', isVisible);
+        if (isVisible && state.audio.wavetable.mode !== 'layer') {
+            setWavetableMode('layer');
+        }
+    };
+
+    const setOverlaySide = (side) => {
+        state.overlay.side = side === 'left' ? 'left' : 'right';
+        overlay.dataset.side = state.overlay.side;
+    };
+
+    const syncFaderUI = (faderEl, value) => {
+        faderEl.style.setProperty('--fader-value', clamp01(value).toFixed(3));
+    };
+
+    const updateAllFaders = () => {
+        faders.forEach(faderEl => {
+            const name = faderEl.dataset.fader;
+            const cfg = getFaderConfig(name);
+            if (!cfg) return;
+            syncFaderUI(faderEl, cfg.get());
+        });
+    };
+
+    const updateModeUI = () => {
+        if (!modeBtn) return;
+        modeBtn.dataset.mode = state.audio.crossMod.mode;
+        modeBtn.textContent = state.audio.crossMod.mode.toUpperCase();
+    };
+
+    const getFaderValueFromEvent = (faderEl, e) => {
+        const track = faderEl.querySelector('.fader-track');
+        if (!track) return 0;
+        const rect = track.getBoundingClientRect();
+        const y = e.clientY;
+        const value = 1 - ((y - rect.top) / Math.max(1, rect.height));
+        return clamp01(value);
+    };
+
+    const startFaderDrag = (faderEl, e) => {
+        const name = faderEl.dataset.fader;
+        const cfg = getFaderConfig(name);
+        if (!cfg) return;
+        dragState.active = { el: faderEl, cfg };
+        faderEl.setPointerCapture(e.pointerId);
+        const value = getFaderValueFromEvent(faderEl, e);
+        cfg.set(value);
+        syncFaderUI(faderEl, value);
+    };
+
+    const moveFaderDrag = (faderEl, e) => {
+        if (!dragState.active || dragState.active.el !== faderEl) return;
+        const value = getFaderValueFromEvent(faderEl, e);
+        dragState.active.cfg.set(value);
+        syncFaderUI(faderEl, value);
+    };
+
+    const endFaderDrag = (faderEl, e) => {
+        if (!dragState.active || dragState.active.el !== faderEl) return;
+        dragState.active = null;
+        try { faderEl.releasePointerCapture(e.pointerId); } catch (err) {}
+    };
+
+    faders.forEach(faderEl => {
+        const handle = faderEl.querySelector('.fader-handle');
+        const track = faderEl.querySelector('.fader-track');
+        [handle, track].forEach(target => {
+            if (!target) return;
+            target.addEventListener('pointerdown', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                startFaderDrag(faderEl, e);
+            });
+        });
+        faderEl.addEventListener('pointermove', e => moveFaderDrag(faderEl, e));
+        faderEl.addEventListener('pointerup', e => endFaderDrag(faderEl, e));
+        faderEl.addEventListener('pointercancel', e => endFaderDrag(faderEl, e));
+    });
+
+    if (modeBtn) {
+        modeBtn.addEventListener('pointerdown', e => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        modeBtn.onclick = () => {
+            const next = state.audio.crossMod.mode === 'fm' ? 'am' : 'fm';
+            setCrossModMode(next);
+            updateModeUI();
+        };
+    }
+
+    if (toggle) {
+        toggle.onclick = () => setOverlayVisible(!state.overlay.active);
+    }
+
+    if (gestureZone) {
+        gestureZone.addEventListener('pointerdown', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            gestureState.id = e.pointerId;
+            gestureState.startX = e.clientX;
+            gestureState.startY = e.clientY;
+            gestureZone.setPointerCapture(e.pointerId);
+        });
+        gestureZone.addEventListener('pointerup', e => {
+            if (gestureState.id !== e.pointerId) return;
+            const dx = e.clientX - gestureState.startX;
+            const dy = e.clientY - gestureState.startY;
+            const absX = Math.abs(dx);
+            const absY = Math.abs(dy);
+            if (absX > 60 && absX > absY) {
+                setOverlaySide(dx > 0 ? 'right' : 'left');
+            } else if (dy > 60 && absY > absX) {
+                setOverlayVisible(false);
+            }
+            gestureState.id = null;
+            try { gestureZone.releasePointerCapture(e.pointerId); } catch (err) {}
+        });
+        gestureZone.addEventListener('pointercancel', e => {
+            if (gestureState.id !== e.pointerId) return;
+            gestureState.id = null;
+            try { gestureZone.releasePointerCapture(e.pointerId); } catch (err) {}
+        });
+    }
+
+    setOverlaySide(state.overlay.side);
+    updateOverlayLabelsForMatrix(state.audio.matrix.enabled);
+    updateAllFaders();
+    updateModeUI();
+    setOverlayVisible(state.overlay.active);
+}
+
 function bindUI() {
     els.presetSelect.onchange = e => {
         const presetState = state.presets[e.target.value];
@@ -5796,6 +6495,34 @@ function bindUI() {
     if (els.fxPresetQuick) {
         els.fxPresetQuick.onchange = () => applyFxPreset(els.fxPresetQuick.value);
     }
+    if (els.matrixSceneSelect) {
+        clearChildren(els.matrixSceneSelect);
+        Object.keys(MATRIX_SCENES).forEach(name => appendOption(els.matrixSceneSelect, name, name));
+        els.matrixSceneSelect.value = state.audio.matrix.scene;
+        els.matrixSceneSelect.onchange = () => setMatrixScene(els.matrixSceneSelect.value);
+        if (els.matrixSceneDesc) els.matrixSceneDesc.textContent = MATRIX_SCENES[state.audio.matrix.scene]?.desc || '';
+    }
+    if (els.matrixToggle) {
+        els.matrixToggle.onclick = () => setMatrixEnabled(!state.audio.matrix.enabled);
+    }
+    if (els.amTone) {
+        els.amTone.value = state.audio.crossMod.amTone;
+        updateRangeProgress(els.amTone);
+        els.amTone.oninput = () => {
+            state.audio.crossMod.amTone = Math.max(1000, Math.min(8000, parseFloat(els.amTone.value) || 1000));
+            updateRangeProgress(els.amTone);
+            updateCrossModDepth();
+        };
+    }
+    if (els.amBias) {
+        els.amBias.value = state.audio.crossMod.amBias.toFixed(2);
+        updateRangeProgress(els.amBias);
+        els.amBias.oninput = () => {
+            state.audio.crossMod.amBias = clamp01(parseFloat(els.amBias.value) || 0);
+            updateRangeProgress(els.amBias);
+            updateCrossModDepth();
+        };
+    }
     if (els.wtMode) {
         clearChildren(els.wtMode);
         appendOption(els.wtMode, 'sampler', 'Sampler only');
@@ -5803,7 +6530,7 @@ function bindUI() {
         appendOption(els.wtMode, 'layer', 'Layer');
         els.wtMode.value = state.audio.wavetable.mode;
         els.wtMode.onchange = () => {
-            state.audio.wavetable.mode = els.wtMode.value;
+            setWavetableMode(els.wtMode.value);
             updateWavetableUI();
         };
     }
@@ -5812,14 +6539,20 @@ function bindUI() {
         Object.keys(WAVETABLES).forEach(name => appendOption(els.wtSelect, name, name));
         els.wtSelect.value = state.audio.wavetable.type;
         els.wtSelect.onchange = () => {
-            state.audio.wavetable.type = els.wtSelect.value;
-            updateWavetableUI();
+            const order = getWavetableOrder();
+            const idx = order.indexOf(els.wtSelect.value);
+            if (idx >= 0 && order.length > 1) {
+                setMacroMorph(idx / (order.length - 1));
+            } else {
+                state.audio.wavetable.type = els.wtSelect.value;
+                updateWavetableUI();
+                updateWavetableMix();
+            }
         };
     }
     if (els.wtMix) {
         els.wtMix.oninput = () => {
-            state.audio.wavetable.mix = Math.max(0, Math.min(1, parseFloat(els.wtMix.value) || 0));
-            updateWavetableMix();
+            setWavetableMix(parseFloat(els.wtMix.value) || 0);
         };
     }
     if (els.fxFilterToggle) {
@@ -5944,6 +6677,21 @@ function bindUI() {
     updateFxValueDisplays();
     setFxEnabled(state.audio.fxEnabled);
     updateWavetableUI();
+    setWavetableMix(state.audio.wavetable.mix);
+    setMacroMorph(state.audio.macro.morph);
+    setCrossModDepth(state.audio.crossMod.depth);
+    setMacroTexture(state.audio.macro.texture);
+    setCrossModMode(state.audio.crossMod.mode);
+    if (els.amTone) {
+        els.amTone.value = state.audio.crossMod.amTone;
+        updateRangeProgress(els.amTone);
+    }
+    if (els.amBias) {
+        els.amBias.value = state.audio.crossMod.amBias.toFixed(2);
+        updateRangeProgress(els.amBias);
+    }
+    setMatrixScene(state.audio.matrix.scene);
+    setMatrixEnabled(state.audio.matrix.enabled);
 
     function updateMPEVisibility() {
         if (!els.deadCenter) return;
@@ -5963,6 +6711,7 @@ function bindUI() {
 }
 
 bindUI();
+initGestureOverlay();
 setupChordKnob();
 setupArpKnob();
 // setupBowButton();

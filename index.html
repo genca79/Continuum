@@ -248,6 +248,7 @@
             <button class="ui-tab active" data-subtab="arp">ARP</button>
             <button class="ui-tab" data-subtab="chord">CHORD</button>
             <button class="ui-tab" data-subtab="mpe">MPE</button>
+            <button class="ui-tab" data-subtab="matrix">MATRIX</button>
            
         </div>
 
@@ -323,6 +324,28 @@
                 </div>
             </div>
         </div>
+
+        <div class="ui-subtab-content" data-subtab-content="matrix">
+            <div class="ui-group-inline">
+                <div class="box" style="max-width:120px;">
+                    <label>Matrix Mode</label>
+                    <button id="matrixToggle" class="menu-btn toggle-off">MATRIX OFF</button>
+                </div>
+                <div class="box" style="min-width:200px;">
+                    <label>Macro Scene</label>
+                    <select id="matrixSceneSelect"></select>
+                    <div id="matrixSceneDesc" style="font-size:9px; color:#888; margin-top:4px;">&nbsp;</div>
+                </div>
+                <div class="box" style="max-width:140px;">
+                    <label>AM Tone</label>
+                    <input type="range" id="amTone" min="1000" max="8000" step="10" value="5000">
+                </div>
+                <div class="box" style="max-width:120px;">
+                    <label>AM Bias</label>
+                    <input type="range" id="amBias" min="0" max="1" step="0.01" value="0.15">
+                </div>
+            </div>
+        </div>
     </div><!-- end #tabAdvanced -->
 </div><!-- end #ui -->
 
@@ -336,6 +359,7 @@
         <button class="perf-btn" id="octUpBtn" title="Oct +">&gt;</button>
     </div>
     <button id="groupShiftBtn" class="perf-btn toggle-btn" title="Group Shift">GROUP</button>
+    <button id="overlayToggle" class="perf-btn toggle-btn" title="Gesture Overlay">LAYER</button>
     <!-- Chord Knob - visible in compact mode -->
     <div id="chordWheel" class="perf-knob compact-essential" title="Rotate to change chord">Off</div>
     <!-- Chord Select - visible in compact mode -->
@@ -404,6 +428,40 @@
         <div id="midiStatus">HYBRID ENGINE READY</div>
         <div>SPOSTA GIU' PER IL MENU</div>
     </div>
+</div>
+
+<div id="gestureOverlay" class="gesture-overlay hidden" data-side="right" aria-hidden="true">
+    <div class="overlay-header">
+        <span class="overlay-title">GESTURE</span>
+        <button id="overlayModeToggle" class="overlay-mode" data-mode="fm" title="AM/FM">FM</button>
+    </div>
+    <div class="overlay-faders">
+        <div class="overlay-fader" data-fader="wtmix">
+            <div class="fader-track"></div>
+            <div class="fader-fill"></div>
+            <div class="fader-handle" data-handle="wtmix"></div>
+            <div class="fader-label">WT MIX</div>
+        </div>
+        <div class="overlay-fader" data-fader="morph">
+            <div class="fader-track"></div>
+            <div class="fader-fill"></div>
+            <div class="fader-handle" data-handle="morph"></div>
+            <div class="fader-label">MORPH</div>
+        </div>
+        <div class="overlay-fader" data-fader="depth">
+            <div class="fader-track"></div>
+            <div class="fader-fill"></div>
+            <div class="fader-handle" data-handle="depth"></div>
+            <div class="fader-label">MOD</div>
+        </div>
+        <div class="overlay-fader" data-fader="texture">
+            <div class="fader-track"></div>
+            <div class="fader-fill"></div>
+            <div class="fader-handle" data-handle="texture"></div>
+            <div class="fader-label">SPACE</div>
+        </div>
+    </div>
+    <div class="overlay-gesture-zone" aria-hidden="true"></div>
 </div>
 
 <div id="fxPanel" class="fx-panel hidden">
