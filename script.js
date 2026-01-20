@@ -82,6 +82,7 @@ const els = {
     audioStart: document.getElementById('audioStart'),
     audioStatus: document.getElementById('audioStatus'),
     sampleSetSelect: document.getElementById('sampleSetSelect'),
+    sampleSetSelectMini: document.getElementById('sampleSetSelectMini'),
     sampleSetName: document.getElementById('sampleSetName'),
     sampleSetNew: document.getElementById('sampleSetNew'),
     sampleSetSave: document.getElementById('sampleSetSave'),
@@ -397,6 +398,8 @@ const WAVETABLES = {
     PWM: 'pwm',
     Formant: 'formant'
 };
+const WAVETABLE_HARMONICS = 128;
+const MORPH_GRID_STEPS = 64;
 const FX_PRESETS = {
     Init: { ...DEFAULT_FX },
     Pad: {
@@ -486,7 +489,7 @@ const FX_PRESETS = {
         fxMix: 0.8
     }
 };
-const LOCAL_SUPPRESS_MS = 30;
+const LOCAL_SUPPRESS_MS = 140;
 const GHOST_NOTE_MS = 220;
 const state = {
     midi: { output: null, input: null, access: null, hardwareOutput: null, outputWrapper: null },
@@ -539,6 +542,8 @@ const state = {
         reverbWetGain: null,
         reverbDryGain: null,
         wavetables: {},
+        wavetableCoeffs: null,
+        wavetableMorphGrid: null,
         wavetable: {
             mode: 'layer',
             type: 'Saw',
@@ -1074,6 +1079,13 @@ async function initAudioContext() {
     rebuildReverbImpulse();
     updateFxNodes();
     state.audio.wavetables = buildWavetables(state.audio.ctx);
+    state.audio.wavetableCoeffs = buildWavetableCoeffs();
+    state.audio.wavetableMorphGrid = buildWavetableMorphGrid(
+        state.audio.ctx,
+        state.audio.wavetableCoeffs,
+        WAVETABLE_ORDER,
+        MORPH_GRID_STEPS
+    );
     state.audio.chorusLfo.start();
 }
 
@@ -1859,6 +1871,11 @@ function setFxGroup(group) {
 function setFxEnabled(enabled) {
     state.audio.fxEnabled = enabled;
     updateFxNodes();
+    if (enabled) {
+        rebuildReverbImpulse();
+    } else {
+        resetFxBuffers();
+    }
     updateFxToggleButtons();
     if (els.fxPanel) {
         if (enabled) els.fxPanel.classList.remove('hidden');
@@ -1986,6 +2003,7 @@ function setWavetableMode(mode) {
     if (els.wtMixBox) els.wtMixBox.style.display = next === 'layer' ? '' : 'none';
     updateSamplerGainNodes();
     updateWavetableMix();
+    if (state.audio.enabled) restartInternalFromActiveNotes();
 }
 
 function clamp01(value) {
@@ -2047,47 +2065,72 @@ function applyWavetableMorphToVoice(voice) {
         voice.wtGainB.gain.setTargetAtTime(0, state.audio.ctx.currentTime, 0.02);
         return;
     }
+
+    const grid = state.audio.wavetableMorphGrid;
+    if (!grid || !grid.length) {
+        const pos = morph * (order.length - 1);
+        const idx = Math.floor(pos);
+        const frac = pos - idx;
+        const nextIdx = Math.min(order.length - 1, idx + 1);
+        const lowType = order[idx];
+        const highType = order[nextIdx];
+        const lowWave = state.audio.wavetables[lowType];
+        const highWave = state.audio.wavetables[highType];
+        if (!voice.morphState) {
+            voice.morphState = { lowIdx: idx, highIdx: nextIdx, lowOsc: 'A' };
+            if (lowWave) voice.oscA.setPeriodicWave(lowWave);
+            if (highWave) voice.oscB.setPeriodicWave(highWave);
+        } else if (voice.morphState.lowIdx === idx && voice.morphState.highIdx === nextIdx) {
+            // same segment, no reassignment
+        } else if (idx === voice.morphState.highIdx) {
+            // moving forward
+            const newLowOsc = voice.morphState.lowOsc === 'A' ? 'B' : 'A';
+            const otherOsc = newLowOsc === 'A' ? voice.oscB : voice.oscA;
+            if (highWave) otherOsc.setPeriodicWave(highWave);
+            voice.morphState = { lowIdx: idx, highIdx: nextIdx, lowOsc: newLowOsc };
+        } else if (nextIdx === voice.morphState.lowIdx) {
+            // moving backward
+            const newLowOsc = voice.morphState.lowOsc === 'A' ? 'B' : 'A';
+            const otherOsc = newLowOsc === 'A' ? voice.oscB : voice.oscA;
+            if (lowWave) otherOsc.setPeriodicWave(lowWave);
+            voice.morphState = { lowIdx: idx, highIdx: nextIdx, lowOsc: newLowOsc };
+        } else {
+            // jump: reset assignment
+            voice.morphState = { lowIdx: idx, highIdx: nextIdx, lowOsc: 'A' };
+            if (lowWave) voice.oscA.setPeriodicWave(lowWave);
+            if (highWave) voice.oscB.setPeriodicWave(highWave);
+        }
+        const lowGain = mix * (1 - frac);
+        const highGain = mix * frac;
+        if (voice.morphState.lowOsc === 'A') {
+            voice.wtGainA.gain.setTargetAtTime(lowGain, state.audio.ctx.currentTime, 0.02);
+            voice.wtGainB.gain.setTargetAtTime(highGain, state.audio.ctx.currentTime, 0.02);
+        } else {
+            voice.wtGainA.gain.setTargetAtTime(highGain, state.audio.ctx.currentTime, 0.02);
+            voice.wtGainB.gain.setTargetAtTime(lowGain, state.audio.ctx.currentTime, 0.02);
+        }
+        return;
+    }
+
     const pos = morph * (order.length - 1);
-    const idx = Math.floor(pos);
-    const frac = pos - idx;
-    const nextIdx = Math.min(order.length - 1, idx + 1);
-    const lowType = order[idx];
-    const highType = order[nextIdx];
-    const lowWave = state.audio.wavetables[lowType];
-    const highWave = state.audio.wavetables[highType];
-    if (!voice.morphState) {
-        voice.morphState = { lowIdx: idx, highIdx: nextIdx, lowOsc: 'A' };
-        if (lowWave) voice.oscA.setPeriodicWave(lowWave);
-        if (highWave) voice.oscB.setPeriodicWave(highWave);
-    } else if (voice.morphState.lowIdx === idx && voice.morphState.highIdx === nextIdx) {
-        // same segment, no reassignment
-    } else if (idx === voice.morphState.highIdx) {
-        // moving forward
-        const newLowOsc = voice.morphState.lowOsc === 'A' ? 'B' : 'A';
-        const otherOsc = newLowOsc === 'A' ? voice.oscB : voice.oscA;
-        if (highWave) otherOsc.setPeriodicWave(highWave);
-        voice.morphState = { lowIdx: idx, highIdx: nextIdx, lowOsc: newLowOsc };
-    } else if (nextIdx === voice.morphState.lowIdx) {
-        // moving backward
-        const newLowOsc = voice.morphState.lowOsc === 'A' ? 'B' : 'A';
-        const otherOsc = newLowOsc === 'A' ? voice.oscB : voice.oscA;
-        if (lowWave) otherOsc.setPeriodicWave(lowWave);
-        voice.morphState = { lowIdx: idx, highIdx: nextIdx, lowOsc: newLowOsc };
-    } else {
-        // jump: reset assignment
-        voice.morphState = { lowIdx: idx, highIdx: nextIdx, lowOsc: 'A' };
-        if (lowWave) voice.oscA.setPeriodicWave(lowWave);
-        if (highWave) voice.oscB.setPeriodicWave(highWave);
+    const segIdx = Math.min(grid.length - 1, Math.floor(pos));
+    const seg = grid[segIdx];
+    const segFrac = pos - segIdx;
+    const stepPos = segFrac * MORPH_GRID_STEPS;
+    const stepIdx = Math.floor(stepPos);
+    const stepFrac = stepPos - stepIdx;
+    const stepNext = Math.min(MORPH_GRID_STEPS, stepIdx + 1);
+    const waveA = seg[stepIdx] || seg[0];
+    const waveB = seg[stepNext] || waveA;
+    if (!voice.morphGridState || voice.morphGridState.seg !== segIdx || voice.morphGridState.stepA !== stepIdx || voice.morphGridState.stepB !== stepNext) {
+        if (waveA) voice.oscA.setPeriodicWave(waveA);
+        if (waveB) voice.oscB.setPeriodicWave(waveB);
+        voice.morphGridState = { seg: segIdx, stepA: stepIdx, stepB: stepNext };
     }
-    const lowGain = mix * (1 - frac);
-    const highGain = mix * frac;
-    if (voice.morphState.lowOsc === 'A') {
-        voice.wtGainA.gain.setTargetAtTime(lowGain, state.audio.ctx.currentTime, 0.02);
-        voice.wtGainB.gain.setTargetAtTime(highGain, state.audio.ctx.currentTime, 0.02);
-    } else {
-        voice.wtGainA.gain.setTargetAtTime(highGain, state.audio.ctx.currentTime, 0.02);
-        voice.wtGainB.gain.setTargetAtTime(lowGain, state.audio.ctx.currentTime, 0.02);
-    }
+    const lowGain = mix * (1 - stepFrac);
+    const highGain = mix * stepFrac;
+    voice.wtGainA.gain.setTargetAtTime(lowGain, state.audio.ctx.currentTime, 0.02);
+    voice.wtGainB.gain.setTargetAtTime(highGain, state.audio.ctx.currentTime, 0.02);
 }
 
 function updateWavetableMix() {
@@ -2259,7 +2302,7 @@ function updateOverlayLabelsForMatrix(enabled) {
         labels[2].textContent = 'MAC C';
         labels[3].textContent = 'MAC D';
     } else {
-        labels[0].textContent = 'WT MIX';
+        labels[0].textContent = 'MIX';
         labels[1].textContent = 'MORPH';
         labels[2].textContent = 'MOD';
         labels[3].textContent = 'SPACE';
@@ -2458,27 +2501,70 @@ function updateFxNodes() {
     const fwdMix = wetMix * (1 - revMix);
     const revWet = wetMix * revMix;
     if (state.audio.delayWetGain) state.audio.delayWetGain.gain.value = (state.audio.fxEnabled && fx.delayOn) ? fwdMix : 0;
-    if (state.audio.delayDryGain) state.audio.delayDryGain.gain.value = (state.audio.fxEnabled && fx.delayOn) ? fx.delayDry : 1;
+    if (state.audio.delayDryGain) {
+        state.audio.delayDryGain.gain.value = state.audio.fxEnabled ? ((fx.delayOn ? fx.delayDry : 1)) : 0;
+    }
     if (state.audio.reverseWetGain) state.audio.reverseWetGain.gain.value = (state.audio.fxEnabled && fx.delayOn) ? revWet : 0;
     const reverbWet = getEffectiveReverbWet();
     if (state.audio.reverbWetGain) state.audio.reverbWetGain.gain.value = (state.audio.fxEnabled && fx.reverbOn) ? reverbWet : 0;
-    if (state.audio.reverbDryGain) state.audio.reverbDryGain.gain.value = (state.audio.fxEnabled && fx.reverbOn) ? fx.reverbDry : 1;
+    if (state.audio.reverbDryGain) {
+        state.audio.reverbDryGain.gain.value = state.audio.fxEnabled ? ((fx.reverbOn ? fx.reverbDry : 1)) : 0;
+    }
     if (state.audio.chorusLfo) state.audio.chorusLfo.frequency.value = fx.chorusRate;
     if (state.audio.chorusLfoGain) state.audio.chorusLfoGain.gain.value = (state.audio.fxEnabled && fx.chorusOn) ? fx.chorusDepth : 0;
     updateActiveFilters();
 }
 
+function resetFxBuffers() {
+    if (!state.audio.ctx) return;
+    const ctx = state.audio.ctx;
+
+    if (state.audio.convolver) {
+        state.audio.convolver.buffer = ctx.createBuffer(2, 1, ctx.sampleRate);
+    }
+
+    if (state.audio.reverseDelay && state.audio.reverseDelay._setDelaySamples) {
+        const samples = Math.max(1, Math.floor(ctx.sampleRate * state.audio.fx.delayTime));
+        state.audio.reverseDelay._setDelaySamples(samples);
+    }
+
+    if (state.audio.delay && state.audio.chorusDelay) {
+        const oldDelay = state.audio.delay;
+        try { state.audio.chorusDelay.disconnect(oldDelay); } catch (err) {}
+        try { oldDelay.disconnect(); } catch (err) {}
+        if (state.audio.delayFeedback) {
+            try { state.audio.delayFeedback.disconnect(); } catch (err) {}
+        }
+        const delay = ctx.createDelay(2.0);
+        delay.delayTime.value = state.audio.fx.delayTime;
+        state.audio.delay = delay;
+        state.audio.chorusDelay.connect(delay);
+        if (state.audio.delayFeedback) {
+            delay.connect(state.audio.delayFeedback);
+            state.audio.delayFeedback.connect(delay);
+        }
+        if (state.audio.delayWetGain) delay.connect(state.audio.delayWetGain);
+        if (state.audio.delayDryGain) delay.connect(state.audio.delayDryGain);
+    }
+}
+
 function getEffectiveReverbWet() {
     const base = state.audio.fx.reverbWet;
     const texture = clamp01(state.audio.macro.texture);
-    return Math.max(0, Math.min(1, base + (1 - base) * texture));
+    const shaped = base + (1 - base) * Math.pow(texture, 0.6);
+    return clamp01(shaped + (0.35 * texture));
 }
 
 function getEffectiveRelease() {
     const base = state.audio.fx.release;
     const texture = clamp01(state.audio.macro.texture);
-    const floor = 0.2 * texture;
-    return (base * (1 + texture * 1.5)) + floor;
+    if (!state.audio.fxEnabled) {
+        if (texture <= 0) return 0;
+        const floor = 0.45 * texture;
+        return (base * texture * (1 + texture * 4.0)) + floor;
+    }
+    const floor = 0.45 * texture;
+    return (base * (1 + texture * 4.0)) + floor;
 }
 
 const MATRIX_DESTS = {
@@ -2723,7 +2809,7 @@ function createReverseDelayNodeFallback(ctx) {
 
 function buildWavetables(ctx) {
     const wts = {};
-    const harmonics = 128; // Increased from 32 for better bass definition
+    const harmonics = WAVETABLE_HARMONICS;
     const makeWave = (real, imag) => ctx.createPeriodicWave(real, imag, { disableNormalization: false });
 
     const sawReal = new Float32Array(harmonics + 1);
@@ -2769,6 +2855,81 @@ function buildWavetables(ctx) {
     wts.Formant = makeWave(formReal, formImag);
 
     return wts;
+}
+
+function buildWavetableCoeffs() {
+    const coeffs = {};
+    const harmonics = WAVETABLE_HARMONICS;
+
+    const sawReal = new Float32Array(harmonics + 1);
+    const sawImag = new Float32Array(harmonics + 1);
+    for (let n = 1; n <= harmonics; n++) {
+        sawImag[n] = 1 / n;
+    }
+    coeffs.Saw = { real: sawReal, imag: sawImag };
+
+    const squareReal = new Float32Array(harmonics + 1);
+    const squareImag = new Float32Array(harmonics + 1);
+    for (let n = 1; n <= harmonics; n += 2) {
+        squareImag[n] = 1 / n;
+    }
+    coeffs.Square = { real: squareReal, imag: squareImag };
+
+    const triReal = new Float32Array(harmonics + 1);
+    const triImag = new Float32Array(harmonics + 1);
+    for (let n = 1; n <= harmonics; n += 2) {
+        const sign = ((n - 1) / 2) % 2 === 0 ? 1 : -1;
+        triImag[n] = sign * (1 / (n * n));
+    }
+    coeffs.Triangle = { real: triReal, imag: triImag };
+
+    const pwmReal = new Float32Array(harmonics + 1);
+    const pwmImag = new Float32Array(harmonics + 1);
+    const pw = 0.25;
+    for (let n = 1; n <= harmonics; n++) {
+        pwmImag[n] = (2 / (n * Math.PI)) * Math.sin(n * Math.PI * pw);
+    }
+    coeffs.PWM = { real: pwmReal, imag: pwmImag };
+
+    const formReal = new Float32Array(harmonics + 1);
+    const formImag = new Float32Array(harmonics + 1);
+    formImag[1] = 0.6;
+    formImag[2] = 0.25;
+    formImag[3] = 1.0;
+    formImag[4] = 0.15;
+    formImag[5] = 0.8;
+    formImag[6] = 0.12;
+    formImag[7] = 0.6;
+    formImag[8] = 0.08;
+    coeffs.Formant = { real: formReal, imag: formImag };
+
+    return coeffs;
+}
+
+function buildWavetableMorphGrid(ctx, coeffs, order, steps) {
+    if (!ctx || !coeffs || !Array.isArray(order) || order.length < 2 || steps < 1) return null;
+    const grid = [];
+    for (let i = 0; i < order.length - 1; i++) {
+        const a = coeffs[order[i]];
+        const b = coeffs[order[i + 1]];
+        if (!a || !b) {
+            grid.push([]);
+            continue;
+        }
+        const segment = [];
+        for (let s = 0; s <= steps; s++) {
+            const t = s / steps;
+            const real = new Float32Array(a.real.length);
+            const imag = new Float32Array(a.imag.length);
+            for (let n = 0; n < real.length; n++) {
+                real[n] = a.real[n] + (b.real[n] - a.real[n]) * t;
+                imag[n] = a.imag[n] + (b.imag[n] - a.imag[n]) * t;
+            }
+            segment.push(ctx.createPeriodicWave(real, imag, { disableNormalization: false }));
+        }
+        grid.push(segment);
+    }
+    return grid;
 }
 
 function ensureOutputWrapper() {
@@ -2957,15 +3118,36 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
         modFilterHP.frequency.value = 10;
     }
     if (oscA && oscB && wtGainA && wtGainB && ringGain) {
-        const morphState = getWavetableMorphState();
-        const waveA = morphState ? state.audio.wavetables[morphState.aType] : null;
-        const waveB = morphState ? state.audio.wavetables[morphState.bType] : null;
-        if (waveA) oscA.setPeriodicWave(waveA);
-        if (waveB) oscB.setPeriodicWave(waveB);
+        const grid = state.audio.wavetableMorphGrid;
+        if (grid && grid.length) {
+            const order = getWavetableOrder();
+            const morph = clamp01(state.audio.macro.morph);
+            const pos = morph * (order.length - 1);
+            const segIdx = Math.min(grid.length - 1, Math.floor(pos));
+            const seg = grid[segIdx];
+            const segFrac = pos - segIdx;
+            const stepPos = segFrac * MORPH_GRID_STEPS;
+            const stepIdx = Math.floor(stepPos);
+            const stepFrac = stepPos - stepIdx;
+            const stepNext = Math.min(MORPH_GRID_STEPS, stepIdx + 1);
+            const waveA = seg[stepIdx] || seg[0];
+            const waveB = seg[stepNext] || waveA;
+            if (waveA) oscA.setPeriodicWave(waveA);
+            if (waveB) oscB.setPeriodicWave(waveB);
+            const mix = getEffectiveWavetableMix();
+            wtGainA.gain.value = mix * (1 - stepFrac);
+            wtGainB.gain.value = mix * stepFrac;
+        } else {
+            const morphState = getWavetableMorphState();
+            const waveA = morphState ? state.audio.wavetables[morphState.aType] : null;
+            const waveB = morphState ? state.audio.wavetables[morphState.bType] : null;
+            if (waveA) oscA.setPeriodicWave(waveA);
+            if (waveB) oscB.setPeriodicWave(waveB);
+            wtGainA.gain.value = morphState ? morphState.aGain : 0;
+            wtGainB.gain.value = morphState ? morphState.bGain : 0;
+        }
         oscA.frequency.value = midiToFreq(note + pbSemis);
         oscB.frequency.value = midiToFreq(note + pbSemis);
-        wtGainA.gain.value = morphState ? morphState.aGain : 0;
-        wtGainB.gain.value = morphState ? morphState.bGain : 0;
         oscA.connect(wtGainA);
         oscB.connect(wtGainB);
         wtGainA.connect(ringGain);
@@ -3011,6 +3193,7 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
         bufferDuration: (sample && sample.buffer) ? sample.buffer.duration : null 
     };
     state.audio.voices.set(key, voice);
+    applyWavetableMorphToVoice(voice);
     applyVoiceModRouting(voice);
     if (source) {
         source.onended = () => {
@@ -3103,14 +3286,19 @@ function handleInternalMidi(data) {
 }
 
 function refreshSampleSetSelect(activeName) {
-    if (!els.sampleSetSelect) return;
+    if (!els.sampleSetSelect && !els.sampleSetSelectMini) return;
     const sets = getSampleSetsState();
     ensureSampleSet('Default', sets);
     saveSampleSetsState(sets);
-    clearChildren(els.sampleSetSelect);
-    sets.names.forEach(name => appendOption(els.sampleSetSelect, name, name));
+    if (els.sampleSetSelect) clearChildren(els.sampleSetSelect);
+    if (els.sampleSetSelectMini) clearChildren(els.sampleSetSelectMini);
+    sets.names.forEach(name => {
+        if (els.sampleSetSelect) appendOption(els.sampleSetSelect, name, name);
+        if (els.sampleSetSelectMini) appendOption(els.sampleSetSelectMini, name, name);
+    });
     const selected = activeName && sets.names.includes(activeName) ? activeName : sets.names[0];
-    els.sampleSetSelect.value = selected;
+    if (els.sampleSetSelect) els.sampleSetSelect.value = selected;
+    if (els.sampleSetSelectMini) els.sampleSetSelectMini.value = selected;
 }
 
 async function loadSampleSet(name) {
@@ -3153,6 +3341,20 @@ async function saveSampleSet(name) {
     saveSampleSetsState(sets);
     setActiveSampleSetName(setName);
     refreshSampleSetSelect(setName);
+    sampleGainEls.forEach((input, idx) => {
+        if (!input || !state.audio.samples[idx]) return;
+        const next = Math.max(0, Math.min(5, parseFloat(input.value) || 0));
+        state.audio.samples[idx].gain = next;
+        input.value = next.toFixed(2);
+    });
+    if (els.samplerGain) {
+        const next = Math.max(0, Math.min(5, parseFloat(els.samplerGain.value) || 0));
+        state.audio.samplerGain = next;
+        els.samplerGain.value = next.toFixed(2);
+        updateRangeProgress(els.samplerGain);
+    }
+    sets.samplerGainBySet[setName] = state.audio.samplerGain ?? DEFAULT_SAMPLER_GAIN;
+    saveSampleSetsState(sets);
     saveSampleRootsForSet(setName);
     saveSampleGainsForSet(setName);
     saveSamplerGainForSet(setName);
@@ -3395,7 +3597,6 @@ function getPresetState() {
         matrixScene: state.audio.matrix.scene,
         matrixMacros: { ...state.audio.matrix.macros },
         // Sampler settings
-        samplerGain: state.audio.samplerGain,
         samplerMaxVoices: state.audio.maxSamplerVoices,
         sampleLoop: state.audio.loopGlobal,
         // Fade settings
@@ -3540,14 +3741,6 @@ function applyPresetState(presetState) {
         setMatrixEnabled(!!presetState.matrixEnabled);
     }
     // Sampler settings
-    if (presetState.samplerGain !== undefined) {
-        state.audio.samplerGain = presetState.samplerGain;
-        if (els.samplerGain) {
-            els.samplerGain.value = presetState.samplerGain.toFixed(2);
-            updateRangeProgress(els.samplerGain);
-        }
-        updateSamplerGainNodes();
-    }
     if (presetState.samplerMaxVoices !== undefined) {
         state.audio.maxSamplerVoices = presetState.samplerMaxVoices;
         if (els.samplerMaxVoices) els.samplerMaxVoices.value = presetState.samplerMaxVoices;
@@ -3589,7 +3782,9 @@ function applyPresetState(presetState) {
         if (state.audio.ctx) updateFxNodes();
     }
     if (presetState.fxEnabled !== undefined) {
-        state.audio.fxEnabled = presetState.fxEnabled;
+        setFxEnabled(!!presetState.fxEnabled);
+    } else {
+        updateFxToggleButtons();
     }
     // Update range slider progress bars
     [els.chordSpread, els.roundRate, els.deadCenterForce, els.smoothAmt, els.yDeadzone, els.touchSensitivity, els.arpGate].forEach(input => {
@@ -3765,6 +3960,13 @@ function fillDatalistFromNames(datalist, names) {
 
 function refreshPresetSelect(presets, selected) {
     applyPresetState(state.presets.Init);
+    const setGain = loadSamplerGainForSet(state.audio.activeSet);
+    state.audio.samplerGain = setGain;
+    if (els.samplerGain) {
+        els.samplerGain.value = setGain.toFixed(2);
+        updateRangeProgress(els.samplerGain);
+    }
+    updateSamplerGainNodes();
     const names = Object.keys(presets).sort();
     fillSelectFromNames(els.presetSelect, names);
     if (selected && names.includes(selected)) els.presetSelect.value = selected;
@@ -3921,11 +4123,118 @@ function getGridNoteAt(index, degrees, baseNote) {
     return baseNote + (oct * 12) + deg;
 }
 
-function changeOctave(delta) {
-    state.currentOctave = Math.max(-2, Math.min(2, state.currentOctave + delta));
+function setCurrentOctave(next, options = {}) {
+    const clamped = Math.max(-2, Math.min(2, next));
+    if (clamped === state.currentOctave) return;
+    const delta = clamped - state.currentOctave;
+    state.currentOctave = clamped;
     els.octVal.innerText = (state.currentOctave > 0 ? "+" : "") + state.currentOctave;
+    if (options.retune && delta !== 0) {
+        retuneActiveNotes(delta * 12);
+    }
     requestDraw();
 }
+
+function changeOctave(delta) {
+    setCurrentOctave(state.currentOctave + delta, { retune: true });
+}
+
+function ensureVisibleForNotes(notes, options = {}) {
+    if (!notes || !notes.length) return;
+    const allowSingle = !!options.allowSingle;
+    if (notes.length === 1 && !allowSingle) return;
+    const numOct = parseInt(els.visibleOctaves.value, 10) || 3;
+    const span = numOct * 12;
+    const grid = getGridDegrees();
+    const baseOffset = 48 + grid.root;
+    let minNote = Infinity;
+    let maxNote = -Infinity;
+    notes.forEach(n => {
+        const value = Number(n);
+        if (!Number.isFinite(value)) return;
+        minNote = Math.min(minNote, value);
+        maxNote = Math.max(maxNote, value);
+    });
+    if (!Number.isFinite(minNote) || !Number.isFinite(maxNote)) return;
+    let targetBase;
+    const range = maxNote - minNote;
+    if (range <= span) {
+        targetBase = Math.min(minNote, maxNote - span);
+    } else {
+        targetBase = ((minNote + maxNote) * 0.5) - (span * 0.5);
+    }
+    let nextOct = Math.round((targetBase - baseOffset) / 12);
+    let base = baseOffset + (nextOct * 12);
+    if (base > minNote) {
+        nextOct = Math.floor((minNote - baseOffset) / 12);
+        base = baseOffset + (nextOct * 12);
+    }
+    if (base + span < maxNote) {
+        nextOct = Math.ceil((maxNote - span - baseOffset) / 12);
+    }
+    setCurrentOctave(nextOct, { retune: false });
+}
+
+function retuneActiveNotes(deltaSemis) {
+    if (!state.midi.output || !Number.isFinite(deltaSemis) || deltaSemis === 0) return;
+    const clampNote = note => Math.max(0, Math.min(127, Math.round(note)));
+    const retuneVoice = (chan, voice, m) => {
+        if (!chan || !voice) return;
+        const noteFloat = getVoiceNoteFloat(voice);
+        const nextFloat = noteFloat + deltaSemis;
+        const nextVoice = makeVoiceFromNote(nextFloat);
+        const oldNote = clampNote(voice.note);
+        const newNote = clampNote(nextVoice.note);
+        sendMidi([0x80 + chan - 1, oldNote, 0]);
+        if (m) {
+            const pb = getVoicePb(m, nextVoice);
+            sendMidi([0xB0 + chan - 1, 74, m.slide || 0]);
+            sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+            sendMidi([0xD0 + chan - 1, m.press ?? 90]);
+        }
+        sendMidi([0x90 + chan - 1, newNote, Math.max(1, Math.min(127, Math.round(m?.press ?? 90)))]);
+        voice.note = newNote;
+        voice.basePb = nextVoice.basePb;
+    };
+
+    state.activeTouches.forEach(t => {
+        const m = t.lastM || { slide: 0, press: 90, pbValue: 8192 };
+        t.voices.forEach(v => retuneVoice(v.chan, v, m));
+        if (Number.isFinite(t.initialExact)) t.initialExact += deltaSemis;
+        if (t.lastM && Number.isFinite(t.lastM.exact)) t.lastM.exact += deltaSemis;
+    });
+
+    state.heldVoices.forEach(v => {
+        const m = v.lastM || { slide: 0, press: 90, pbValue: 8192 };
+        retuneVoice(v.chan, v, m);
+        if (Number.isFinite(v.rootNote)) v.rootNote += deltaSemis;
+        if (v.lastM && Number.isFinite(v.lastM.exact)) v.lastM.exact += deltaSemis;
+    });
+
+    if (state.arp && state.arp.notes) {
+        state.arp.notes.forEach(n => {
+            if (!Number.isFinite(n.noteFloat)) return;
+            n.noteFloat += deltaSemis;
+            const voice = makeVoiceFromNote(n.noteFloat);
+            n.note = voice.note;
+            n.basePb = voice.basePb;
+        });
+    }
+    state.arpHoldTouches.forEach(t => {
+        if (t.lastM && Number.isFinite(t.lastM.exact)) t.lastM.exact += deltaSemis;
+    });
+
+    if (state.arp && state.arp.active) {
+        state.arp.active.forEach(entry => {
+            const oldNote = clampNote(entry.note);
+            const newNote = clampNote(entry.note + deltaSemis);
+            sendMidi([0x80 + entry.chan - 1, oldNote, 0]);
+            sendMidi([0x90 + entry.chan - 1, newNote, 80]);
+            entry.note = newNote;
+        });
+    }
+}
+
 
 function setupMIDI() {
     if (navigator.requestMIDIAccess) {
@@ -4010,6 +4319,7 @@ function handleExternalMIDI(message) {
     if (type === 0x90 && velocity > 0) {
         if (microtonalize) {
             const noteFloat = mapMidiNoteToScale(note);
+            ensureVisibleForNotes([noteFloat], { allowSingle: true });
             const voice = makeVoiceFromNote(noteFloat);
             const chan = state.mpeChannels.shift();
             if (!chan) {
@@ -4026,6 +4336,8 @@ function handleExternalMIDI(message) {
             state.physicalNotes.set(voice.note, list);
             state.externalNoteMap.set(`${srcChan}:${note}`, { keyNote: voice.note, chan: chan || 0 });
         } else {
+            ensureVisibleForNotes([note], { allowSingle: true });
+            const physicalChan = srcChan + 1;
             const chan = thruOnly ? 0 : state.mpeChannels.shift();
             if (!thruOnly && !chan) {
                 els.midiStatus.innerText = 'MPE CHANNELS FULL';
@@ -4034,7 +4346,7 @@ function handleExternalMIDI(message) {
                 state.midi.output.send([0x90 + chan - 1, note, velocity]);
             }
             const list = state.physicalNotes.get(note) || [];
-            list.push({ chan: chan || 0, velocity, grabbed: false, srcChan, lastPb: 8192, lastSlide: 0, lastPress: 0, onTs: Date.now() });
+            list.push({ chan: physicalChan, note, basePb: 0, velocity, grabbed: false, srcChan, srcNote: note, lastPb: 8192, lastSlide: 0, lastPress: 0, onTs: Date.now() });
             state.physicalNotes.set(note, list);
         }
     } else if (type === 0x80 || (type === 0x90 && velocity === 0)) {
@@ -4131,6 +4443,12 @@ function applySmoothing(touch, m) {
 
 function sendMidi(data) {
     if (!state.midi.output) return;
+    if (data && data.length >= 3) {
+        const status = data[0] & 0xF0;
+        if (status === 0x90 && data[2] > 0) {
+            markLocalNoteOn(data[1]);
+        }
+    }
     state.midi.output.send(data);
 }
 
@@ -4228,6 +4546,7 @@ function arpNoteOn(noteObj, stepMs) {
 }
 
 function arpStep(stepMsOverride) {
+    if (state.fadeState.active) return;
     if (!state.arp.enabled || !state.arp.notes.length) return;
     const stepMs = stepMsOverride || getStepMs();
     const noteObj = state.arp.notes[state.arp.stepIndex % state.arp.notes.length];
@@ -4896,6 +5215,34 @@ function collectActiveNotes() {
     return Array.from(map.values());
 }
 
+function collectInternalNotesForRestart() {
+    const map = new Map();
+    function addNote(chan, note, press) {
+        if (!chan || note == null) return;
+        const key = `${chan}:${note}`;
+        const vel = Math.max(1, Math.min(127, Math.round(press || 80)));
+        map.set(key, { chan, note, vel });
+    }
+    state.activeTouches.forEach(t => {
+        t.voices.forEach(v => addNote(v.chan, v.note, t.lastM?.press));
+    });
+    state.heldVoices.forEach(v => addNote(v.chan, v.note, v.lastM?.press));
+    state.arp.active.forEach(v => addNote(v.chan, v.note, 80));
+    return Array.from(map.values());
+}
+
+function restartInternalFromActiveNotes() {
+    if (!state.audio.enabled) return;
+    const notes = collectInternalNotesForRestart();
+    if (!notes.length) return;
+    stopAllVoicesInternal();
+    notes.forEach(entry => {
+        const press = Math.max(1, Math.min(127, Math.round(entry.vel)));
+        state.audio.channelPress.set(entry.chan, press);
+        noteOnInternal(entry.note, press, entry.chan);
+    });
+}
+
 function runEchoTail() {
     return 0;
 }
@@ -4905,6 +5252,19 @@ function fadeOutAll() {
     if (state.fadeTimer) {
         clearInterval(state.fadeTimer);
         state.fadeTimer = null;
+    }
+    if (state.arp.timer) {
+        clearInterval(state.arp.timer);
+        state.arp.timer = null;
+        state.arp.running = false;
+    }
+    if (state.arp.active && state.arp.active.length) {
+        state.arp.active.forEach(entry => {
+            if (entry.offTimer) {
+                clearTimeout(entry.offTimer);
+                entry.offTimer = null;
+            }
+        });
     }
     const seconds = Math.max(1, Math.min(20, parseFloat(els.fadeSeconds.value) || 4));
     const channels = collectActiveChannels();
@@ -4933,6 +5293,9 @@ function fadeOutAll() {
                 state.fadeState = { active: false, start: 0, durationMs: 0 };
                 allNotesOff();
                 els.midiStatus.innerText = 'FADE OUT';
+                if (state.arp.enabled && state.arp.sync === 'internal') {
+                    restartInternalArp();
+                }
             }, FADE_TAIL_MS);
         }
     }, intervalMs);
@@ -4989,6 +5352,7 @@ function computeChordNotes(rootNote) {
 
 function refreshArpNotes(noteObjs, m, rootNote) {
     const chordNotes = computeChordNotes(rootNote);
+    ensureVisibleForNotes(chordNotes);
     if (noteObjs.length > chordNotes.length) {
         const extra = noteObjs.splice(chordNotes.length);
         removeArpNotes(extra);
@@ -5104,6 +5468,7 @@ function updateHeldChords() {
         state.mpeChannels.sort((a,b)=>a-b);
         const m = ref.lastM || { pbValue: 8192, slide: 0, press: 90 };
         const chordNotes = computeChordNotes(rootNote);
+        ensureVisibleForNotes(chordNotes);
         chordNotes.forEach(noteFloat => {
             const chan = state.mpeChannels.shift();
             if (!chan) return;
@@ -5312,18 +5677,19 @@ canvas.addEventListener('pointerdown', e => {
         const pNote = list.find(d => !d.grabbed);
         if (pNote) {
             pNote.grabbed = true;
-            state.activeTouches.set(e.pointerId, { 
-                voices: [{ chan: pNote.chan, note: rootNote }], 
-                initialExact: rootNote, lastX: e.clientX, isGrab: true,
-                vibratoSpeed: 0, phase: 0, color: '#00ff44', lastM: m 
-            });
-            return;
-        }
+        state.activeTouches.set(e.pointerId, { 
+            voices: [{ chan: pNote.chan, note: rootNote }], 
+            initialExact: rootNote, lastX: e.clientX, isGrab: true,
+            vibratoSpeed: 0, phase: 0, color: '#00ff44', lastM: m
+        });
+        return;
+    }
     }
 
     let voices = [];
     let chordNotes = computeChordNotes(rootNote);
     if (!chordNotes.length) return;
+    ensureVisibleForNotes(chordNotes);
     if (state.arp.enabled && !state.arp.latch) {
         const noteObjs = chordNotes.map(noteFloat => ({
             noteFloat,
@@ -5370,7 +5736,19 @@ canvas.addEventListener('pointerdown', e => {
         }
     }
     if (!voices.length) return;
-    state.activeTouches.set(e.pointerId, { voices, initialExact: rootNote, lastX: e.clientX, isGrab: false, vibratoSpeed: 0, phase: 0, color: `hsl(${voices[0]?.chan * 25 || 0}, 85%, 55%)`, lastM: m, smoothPb: touchState.smoothPb, smoothSlide: touchState.smoothSlide, smoothPress: touchState.smoothPress });
+    state.activeTouches.set(e.pointerId, {
+        voices,
+        initialExact: rootNote,
+        lastX: e.clientX,
+        isGrab: false,
+        vibratoSpeed: 0,
+        phase: 0,
+        color: `hsl(${voices[0]?.chan * 25 || 0}, 85%, 55%)`,
+        lastM: m,
+        smoothPb: touchState.smoothPb,
+        smoothSlide: touchState.smoothSlide,
+        smoothPress: touchState.smoothPress
+    });
 });
 
 // Throttled pointermove handler for better performance
@@ -6024,6 +6402,7 @@ function initGestureOverlay() {
     const toggle = els.overlayToggle;
     const modeBtn = els.overlayModeToggle;
     const gestureZone = overlay.querySelector('.overlay-gesture-zone');
+    const header = overlay.querySelector('.overlay-header');
     const faders = Array.from(overlay.querySelectorAll('.overlay-fader'));
     const getFaderConfig = (name) => {
         if (state.audio.matrix.enabled) {
@@ -6046,6 +6425,7 @@ function initGestureOverlay() {
     };
     const dragState = { active: null };
     const gestureState = { id: null, startX: 0, startY: 0 };
+    const overlayDrag = { active: false, id: null, startX: 0, startY: 0, startLeft: 0, startTop: 0 };
 
     const setOverlayVisible = (isVisible) => {
         state.overlay.active = isVisible;
@@ -6062,8 +6442,41 @@ function initGestureOverlay() {
         overlay.dataset.side = state.overlay.side;
     };
 
+    const loadOverlayPosition = () => {
+        const raw = localStorage.getItem('genca_layer_overlay_pos');
+        const saved = safeParseJson(raw, null);
+        if (!saved || !Number.isFinite(saved.left) || !Number.isFinite(saved.top)) return;
+        overlay.style.left = `${saved.left}px`;
+        overlay.style.top = `${saved.top}px`;
+        overlay.style.right = 'auto';
+        overlay.style.bottom = 'auto';
+    };
+
+    const saveOverlayPosition = (left, top) => {
+        localStorage.setItem('genca_layer_overlay_pos', JSON.stringify({ left, top }));
+    };
+
+    const updateFaderMarks = (faderEl, value) => {
+        const marks = faderEl.querySelectorAll('.fader-mark');
+        marks.forEach(mark => {
+            const pos = parseFloat(mark.getAttribute('data-pos'));
+            if (!Number.isFinite(pos)) return;
+            const dist = Math.abs(value - pos);
+            const intensity = Math.max(0, 1 - (dist / 0.35));
+            const yellow = { r: 255, g: 170, b: 0 };
+            const white = { r: 255, g: 255, b: 255 };
+            const mix = intensity;
+            const r = Math.round(white.r + (yellow.r - white.r) * mix);
+            const g = Math.round(white.g + (yellow.g - white.g) * mix);
+            const b = Math.round(white.b + (yellow.b - white.b) * mix);
+            mark.style.color = `rgb(${r}, ${g}, ${b})`;
+        });
+    };
+
     const syncFaderUI = (faderEl, value) => {
-        faderEl.style.setProperty('--fader-value', clamp01(value).toFixed(3));
+        const clamped = clamp01(value);
+        faderEl.style.setProperty('--fader-value', clamped.toFixed(3));
+        updateFaderMarks(faderEl, clamped);
     };
 
     const updateAllFaders = () => {
@@ -6176,6 +6589,52 @@ function initGestureOverlay() {
         });
     }
 
+    if (header) {
+        header.addEventListener('pointerdown', e => {
+            e.preventDefault();
+            overlayDrag.active = true;
+            overlayDrag.id = e.pointerId;
+            const rect = overlay.getBoundingClientRect();
+            overlayDrag.startX = e.clientX;
+            overlayDrag.startY = e.clientY;
+            overlayDrag.startLeft = rect.left;
+            overlayDrag.startTop = rect.top;
+            overlay.style.left = `${rect.left}px`;
+            overlay.style.top = `${rect.top}px`;
+            overlay.style.right = 'auto';
+            overlay.style.bottom = 'auto';
+            header.setPointerCapture(e.pointerId);
+        });
+        header.addEventListener('pointermove', e => {
+            if (!overlayDrag.active || overlayDrag.id !== e.pointerId) return;
+            const dx = e.clientX - overlayDrag.startX;
+            const dy = e.clientY - overlayDrag.startY;
+            const nextLeft = overlayDrag.startLeft + dx;
+            const nextTop = overlayDrag.startTop + dy;
+            const maxLeft = Math.max(0, window.innerWidth - overlay.offsetWidth - 8);
+            const maxTop = Math.max(0, window.innerHeight - overlay.offsetHeight - 8);
+            const left = Math.max(8, Math.min(maxLeft, nextLeft));
+            const top = Math.max(8, Math.min(maxTop, nextTop));
+            overlay.style.left = `${left}px`;
+            overlay.style.top = `${top}px`;
+        });
+        header.addEventListener('pointerup', e => {
+            if (!overlayDrag.active || overlayDrag.id !== e.pointerId) return;
+            overlayDrag.active = false;
+            overlayDrag.id = null;
+            header.releasePointerCapture(e.pointerId);
+            const rect = overlay.getBoundingClientRect();
+            saveOverlayPosition(rect.left, rect.top);
+        });
+        header.addEventListener('pointercancel', e => {
+            if (!overlayDrag.active || overlayDrag.id !== e.pointerId) return;
+            overlayDrag.active = false;
+            overlayDrag.id = null;
+            try { header.releasePointerCapture(e.pointerId); } catch (err) {}
+        });
+    }
+
+    loadOverlayPosition();
     setOverlaySide(state.overlay.side);
     updateOverlayLabelsForMatrix(state.audio.matrix.enabled);
     updateAllFaders();
@@ -6432,9 +6891,22 @@ function bindUI() {
     // Setup recording editor events
     setupRecordingEditorEvents();
     
-    if (els.sampleSetSelect) {
+    if (els.sampleSetSelect || els.sampleSetSelectMini) {
         refreshSampleSetSelect(state.audio.activeSet);
-        els.sampleSetSelect.onchange = () => loadSampleSet(els.sampleSetSelect.value);
+        if (els.sampleSetSelect) {
+            els.sampleSetSelect.onchange = () => {
+                const value = els.sampleSetSelect.value;
+                if (els.sampleSetSelectMini) els.sampleSetSelectMini.value = value;
+                loadSampleSet(value);
+            };
+        }
+        if (els.sampleSetSelectMini) {
+            els.sampleSetSelectMini.onchange = () => {
+                const value = els.sampleSetSelectMini.value;
+                if (els.sampleSetSelect) els.sampleSetSelect.value = value;
+                loadSampleSet(value);
+            };
+        }
     }
     if (els.sampleSetName) {
         els.sampleSetName.value = state.audio.activeSet;
@@ -6588,8 +7060,8 @@ function bindUI() {
     if (els.wtMode) {
         clearChildren(els.wtMode);
         appendOption(els.wtMode, 'sampler', 'Sampler only');
-        appendOption(els.wtMode, 'wt', 'WT only');
-        appendOption(els.wtMode, 'layer', 'Layer');
+        appendOption(els.wtMode, 'wt', 'Synth only');
+        appendOption(els.wtMode, 'layer', 'Mix');
         els.wtMode.value = state.audio.wavetable.mode;
         els.wtMode.onchange = () => {
             setWavetableMode(els.wtMode.value);
@@ -6919,7 +7391,7 @@ function drawGridCells(width, height, grid, numOct, noteW, baseMIDI, fadeMul, fa
             ctx.globalAlpha = 1;
         }
         const pList = state.physicalNotes.get(nRound);
-        const pData = pList ? pList.find(d => !d.grabbed && d.onTs && (time - d.onTs) <= GHOST_NOTE_MS) : null;
+        const pData = pList ? pList.find(d => !d.grabbed) : null;
         if (pData) {
             const rad = 20 + Math.sin(time/200)*5;
             const yBase = height / 2;
@@ -6945,9 +7417,108 @@ function getClampedVisualY(y, radius, height) {
     return Math.min(y, maxY);
 }
 
+function getVisualModeFlags() {
+    const mode = state.audio.wavetable.mode;
+    return {
+        wt: mode === 'wt',
+        sampler: mode === 'sampler',
+        layer: mode === 'layer'
+    };
+}
+
+function getWaveVisualMorph() {
+    const order = getWavetableOrder();
+    if (!order.length) return { a: 'Saw', b: 'Saw', mix: 0 };
+    if (order.length === 1) return { a: order[0], b: order[0], mix: 0 };
+    const morph = clamp01(state.audio.macro.morph);
+    const pos = morph * (order.length - 1);
+    const idx = Math.floor(pos);
+    const frac = pos - idx;
+    const a = order[idx];
+    const b = order[Math.min(order.length - 1, idx + 1)];
+    return { a, b, mix: frac };
+}
+
+function waveformSample(type, t) {
+    const phase = (t % 1 + 1) % 1;
+    switch (type) {
+        case 'Saw':
+            return (phase * 2) - 1;
+        case 'Square':
+            return phase < 0.5 ? 1 : -1;
+        case 'PWM': {
+            const duty = 0.28;
+            return phase < duty ? 1 : -1;
+        }
+        case 'Triangle': {
+            const tri = phase < 0.5 ? (phase * 4 - 1) : (3 - phase * 4);
+            return tri;
+        }
+        case 'Formant': {
+            const s1 = Math.sin(phase * Math.PI * 2);
+            const s2 = Math.sin(phase * Math.PI * 6);
+            const s3 = Math.sin(phase * Math.PI * 10);
+            const notch = Math.sin(phase * Math.PI * 4) * 0.2;
+            return (s1 * 0.4) + (s2 * 0.35) + (s3 * 0.25) + notch;
+        }
+        default:
+            return Math.sin(phase * Math.PI * 2);
+    }
+}
+
+function drawWaveformLine(x, y, radius, color, phase, vibratoSpeed) {
+    const { a, b, mix } = getWaveVisualMorph();
+    const amp = 4 + vibratoSpeed;
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    let t = phase * 0.08;
+    for (let ox = -50; ox <= 50; ox += 2) {
+        const sA = waveformSample(a, t);
+        const sB = waveformSample(b, t);
+        const oy = ((sA * (1 - mix)) + (sB * mix)) * amp;
+        if (ox === -50) ctx.moveTo(x + ox, y + oy);
+        else ctx.lineTo(x + ox, y + oy);
+        t += 0.02;
+    }
+    ctx.stroke();
+}
+
+function drawPulseDisc(x, y, radius, color, press) {
+    const pulse = 1 + Math.sin(Date.now() / 220) * 0.06;
+    const base = radius * (1.25 + (press / 127) * 0.35) * pulse;
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.arc(x, y, base, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+}
+
+function drawGrainyRing(x, y, radius, color, phase) {
+    const segs = 28;
+    const jitter = 2 + Math.sin(phase) * 1.5;
+    ctx.beginPath();
+    for (let i = 0; i <= segs; i++) {
+        const ang = (i / segs) * Math.PI * 2;
+        const noise = Math.sin(ang * 5 + phase) * jitter;
+        const r = radius * 1.1 + noise;
+        const px = x + Math.cos(ang) * r;
+        const py = y + Math.sin(ang) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.5;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+}
+
 function drawHeldVoices(fadeMul, fadeDrop, height) {
     if (!state.heldVoices.length) return;
     const now = state.audio.ctx ? state.audio.ctx.currentTime : 0;
+    const visual = getVisualModeFlags();
     state.heldVoices.forEach((v, i) => {
         const m = v.lastM;
         let flash = 0;
@@ -6987,14 +7558,15 @@ function drawHeldVoices(fadeMul, fadeDrop, height) {
         const finalAlpha = fadeMul * sampleOpacity;
         
         ctx.globalAlpha = finalAlpha;
-        
-        ctx.beginPath(); ctx.strokeStyle = flash > 0 ? '#ffffff' : v.color; ctx.lineWidth = 3 + (flash * 4);
-        for (let ox = -50; ox <= 50; ox += 2) {
-            const oy = Math.sin(ox * 0.15 + v.phase) * 3;
-            if (ox === -50) ctx.moveTo(x + ox, y + oy);
-            else ctx.lineTo(x + ox, y + oy);
+
+        if (visual.sampler || visual.layer) {
+            drawPulseDisc(x, y, radius, v.color, m.press);
+            drawGrainyRing(x, y, radius, v.color, v.phase);
         }
-        ctx.stroke();
+        if (visual.wt || visual.layer) {
+            const waveColor = flash > 0 ? '#ffffff' : v.color;
+            drawWaveformLine(x, y, radius, waveColor, v.phase, 0.5);
+        }
 
         const bubbleColor = flash > 0 ? '#ffffff' : v.color;
         drawNoteBubble(x, y, radius, bubbleColor, i === 0 ? "HOLD" : null);
@@ -7023,19 +7595,20 @@ function drawArpHoldTouches(fadeMul, fadeDrop, height) {
 }
 
 function drawActiveTouches(fadeMul, fadeDrop, height) {
+    const visual = getVisualModeFlags();
     state.activeTouches.forEach(t => {
         const radius = 12 + (t.lastM.press / 127) * 22;
         t.phase += 0.2 + (t.vibratoSpeed * 0.06);
         let y = t.lastM.y + ((height - t.lastM.y) * fadeDrop);
         y = getClampedVisualY(y, radius, height);
         ctx.globalAlpha = fadeMul;
-        ctx.beginPath(); ctx.strokeStyle = t.color; ctx.lineWidth = 3;
-        for (let ox = -50; ox <= 50; ox += 2) {
-            const oy = Math.sin(ox * 0.15 + t.phase) * (4 + t.vibratoSpeed);
-            if (ox === -50) ctx.moveTo(t.lastM.x + ox, y + oy);
-            else ctx.lineTo(t.lastM.x + ox, y + oy);
+        if (visual.sampler || visual.layer) {
+            drawPulseDisc(t.lastM.x, y, radius, t.color, t.lastM.press);
+            drawGrainyRing(t.lastM.x, y, radius, t.color, t.phase);
         }
-        ctx.stroke();
+        if (visual.wt || visual.layer) {
+            drawWaveformLine(t.lastM.x, y, radius, t.color, t.phase, t.vibratoSpeed);
+        }
         const label = t.isGrab
             ? "GRAB"
             : (t.isGroupDrag ? "GROUP" : (t.isArpHoldGrab ? "ARP HOLD" : (t.isArp ? "ARP" : `CH${t.voices[0].chan}`)));

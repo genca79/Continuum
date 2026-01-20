@@ -38,10 +38,11 @@
             <div class="box"><label>MIDI In</label><select id="midiInSelect" data-param="midiInSelect"><option value="">Nessun Input</option></select></div>
             <div class="box"><label>MIDI Out</label><select id="midiOutSelect" data-param="midiOutSelect"></select></div>
             <div class="box" style="max-width:60px;"><label>Thru</label><input type="checkbox" id="midiThru" data-param="midiThru"></div>
-            <div class="box"><label>Internal Synth</label><button id="audioStart" class="menu-btn btn-ok audio-toggle"><span class="btn-text">INTERNAL SYNTH</span></button></div>
+            <div class="box"><label>Synth</label><button id="audioStart" class="menu-btn btn-ok audio-toggle"><span class="btn-text">INTERNAL SYNTH</span></button></div>
             <div class="box"><label>Mode</label><select id="wtMode"></select></div>
-            <div class="box"><label>WT Type</label><select id="wtSelect"></select></div>
-            <div class="box" id="wtMixBox"><label>WT Mix</label><input type="range" id="wtMix" min="0" max="1" step="0.01" value="0.35"></div>
+            <div class="box"><label>Sampler Set</label><select id="sampleSetSelectMini"></select></div>
+            <div class="box" id="wtMixBox"><label>Mix</label><input type="range" id="wtMix" min="0" max="1" step="0.01" value="0.35"></div>
+            <div class="box"><label>SYNTH wave</label><select id="wtSelect"></select></div>
         </div>
     </div>
 
@@ -359,7 +360,7 @@
         <button class="perf-btn" id="octUpBtn" title="Oct +">&gt;</button>
     </div>
     <button id="groupShiftBtn" class="perf-btn toggle-btn" title="Group Shift">GROUP</button>
-    <button id="overlayToggle" class="perf-btn toggle-btn" title="Gesture Overlay">LAYER</button>
+    <button id="overlayToggle" class="perf-btn toggle-btn" title="Gesture Overlay">MIX</button>
     <!-- Chord Knob - visible in compact mode -->
     <div id="chordWheel" class="perf-knob compact-essential" title="Rotate to change chord">Off</div>
     <!-- Chord Select - visible in compact mode -->
@@ -432,7 +433,7 @@
 
 <div id="gestureOverlay" class="gesture-overlay hidden" data-side="right" aria-hidden="true">
     <div class="overlay-header">
-        <span class="overlay-title">GESTURE</span>
+        <span class="overlay-title">MIX Faders</span>
         <button id="overlayModeToggle" class="overlay-mode" data-mode="fm" title="AM/FM">FM</button>
     </div>
     <div class="overlay-faders">
@@ -440,24 +441,95 @@
             <div class="fader-track"></div>
             <div class="fader-fill"></div>
             <div class="fader-handle" data-handle="wtmix"></div>
-            <div class="fader-label">WT MIX</div>
+            <div class="fader-marks">
+                <span class="fader-mark" data-pos="0" title="Trumpet">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <g transform="rotate(-25 12 12)">
+                            <path d="M3 12h7l2-2h4l5-2v8l-5-2h-4l-2-2H3z"></path>
+                            <line x1="8" y1="10" x2="8" y2="14"></line>
+                            <line x1="10" y1="9" x2="10" y2="15"></line>
+                            <line x1="12" y1="9" x2="12" y2="15"></line>
+                            <circle cx="4" cy="12" r="1.5"></circle>
+                        </g>
+                    </svg>
+                </span>
+                <span class="fader-mark" data-pos="1" title="Synth">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 16h6v-6h4v6h6"></path>
+                    </svg>
+                </span>
+            </div>
+            <div class="fader-label">MIX</div>
         </div>
         <div class="overlay-fader" data-fader="morph">
             <div class="fader-track"></div>
             <div class="fader-fill"></div>
             <div class="fader-handle" data-handle="morph"></div>
+            <div class="fader-marks">
+                <span class="fader-mark" data-pos="0" title="Saw">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 16l5-8v8l5-8v8"></path>
+                    </svg>
+                </span>
+                <span class="fader-mark" data-pos="0.25" title="Square">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 16V8h7v8h7"></path>
+                    </svg>
+                </span>
+                <span class="fader-mark" data-pos="0.5" title="Triangle">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 16l7-8 7 8"></path>
+                    </svg>
+                </span>
+                <span class="fader-mark" data-pos="0.75" title="PWM">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 16V8h4v8h10"></path>
+                    </svg>
+                </span>
+                <span class="fader-mark" data-pos="1" title="Formant">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 14c2-4 6-4 8 0s6 4 8 0"></path>
+                    </svg>
+                </span>
+            </div>
             <div class="fader-label">MORPH</div>
         </div>
         <div class="overlay-fader" data-fader="depth">
             <div class="fader-track"></div>
             <div class="fader-fill"></div>
             <div class="fader-handle" data-handle="depth"></div>
+            <div class="fader-marks">
+                <span class="fader-mark" data-pos="0" title="Dry">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                </span>
+                <span class="fader-mark" data-pos="1" title="Modulated">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M4 12c2-4 6-4 8 0s6 4 8 0"></path>
+                    </svg>
+                </span>
+            </div>
             <div class="fader-label">MOD</div>
         </div>
         <div class="overlay-fader" data-fader="texture">
             <div class="fader-track"></div>
             <div class="fader-fill"></div>
             <div class="fader-handle" data-handle="texture"></div>
+            <div class="fader-marks">
+                <span class="fader-mark" data-pos="0" title="Dry">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 12h14"></path>
+                    </svg>
+                </span>
+                <span class="fader-mark" data-pos="1" title="Space">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M6 16c2-6 10-6 12 0"></path>
+                        <path d="M4 10c3-4 13-4 16 0"></path>
+                    </svg>
+                </span>
+            </div>
             <div class="fader-label">SPACE</div>
         </div>
     </div>

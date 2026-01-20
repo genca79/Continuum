@@ -844,7 +844,7 @@ body.note-dragging .rec-controls-bar {
     position: fixed;
     right: 16px;
     bottom: calc(var(--perf-h) + 16px);
-    width: 300px;
+    width: 360px;
     padding: 10px 12px 14px;
     border-radius: 16px;
     background: rgba(12, 14, 20, 0.55);
@@ -865,7 +865,9 @@ body.note-dragging .rec-controls-bar {
     margin-bottom: 8px;
     position: relative;
     z-index: 2;
+    cursor: grab;
 }
+.overlay-header:active { cursor: grabbing; }
 .overlay-title {
     font-size: 11px;
     letter-spacing: 1px;
@@ -890,15 +892,23 @@ body.note-dragging .rec-controls-bar {
     gap: 6px;
     position: relative;
     z-index: 2;
+    padding: 6px 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.15);
 }
 .overlay-fader {
     position: relative;
     width: 64px;
-    height: 230px;
-    --track-h: 170px;
+    height: 260px;
+    --track-h: 200px;
     --track-bottom: 38px;
     --handle-s: 30px;
     --fader-value: 0.5;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.12);
+    padding: 8px 6px 10px;
 }
 .fader-track {
     position: absolute;
@@ -943,6 +953,49 @@ body.note-dragging .rec-controls-bar {
     color: rgba(255,255,255,0.65);
     letter-spacing: 0.6px;
 }
+.fader-marks {
+    position: absolute;
+    right: calc(50% + 6px);
+    bottom: var(--track-bottom);
+    height: var(--track-h);
+    width: 26px;
+    transform: translateX(0);
+    pointer-events: none;
+}
+.fader-mark {
+    position: absolute;
+    left: 0;
+    transform: translateY(50%);
+    color: #ffffff;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.fader-mark.icon-stack {
+    flex-direction: column;
+    gap: 2px;
+    height: 38px;
+}
+.fader-mark.icon-stack svg {
+    width: 22px;
+    height: 22px;
+}
+.fader-mark svg {
+    width: 26px;
+    height: 26px;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    fill: rgba(255, 255, 255, 0.12);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.fader-mark[data-pos="1"] { bottom: calc(var(--track-h) * 1); }
+.fader-mark[data-pos="0.75"] { bottom: calc(var(--track-h) * 0.75); }
+.fader-mark[data-pos="0.5"] { bottom: calc(var(--track-h) * 0.5); }
+.fader-mark[data-pos="0.25"] { bottom: calc(var(--track-h) * 0.25); }
+.fader-mark[data-pos="0"] { bottom: 0; }
 .overlay-gesture-zone {
     position: absolute;
     inset: 0;
