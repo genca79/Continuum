@@ -108,6 +108,9 @@ const els = {
     fxPresetSelect: document.getElementById('fxPresetSelect'),
     fxPresetApply: document.getElementById('fxPresetApply'),
     fxPresetQuick: document.getElementById('fxPresetQuick'),
+    fxPresetName: document.getElementById('fxPresetName'),
+    fxPresetSave: document.getElementById('fxPresetSave'),
+    fxPresetDel: document.getElementById('fxPresetDel'),
     sampleFile1: document.getElementById('sampleFile1'),
     sampleFile2: document.getElementById('sampleFile2'),
     sampleFile3: document.getElementById('sampleFile3'),
@@ -360,6 +363,7 @@ const SAMPLE_SETS_KEY = 'genca_sample_sets_v1';
 const SAMPLE_ACTIVE_SET_KEY = 'genca_sample_active_set_v1';
 const SAMPLE_DB_NAME = 'genca_sample_db_v1';
 const SAMPLE_DB_STORE = 'samples';
+const FX_USER_PRESETS_KEY = 'genca_fx_presets_v1';
 const DEFAULT_SAMPLE_GAINS = [1, 1, 1, 1, 1, 1, 1];
 const DEFAULT_SAMPLER_GAIN = 1;
 const DEFAULT_FX = {
@@ -462,6 +466,24 @@ const FX_PRESETS = {
         reverbDecay: 6.5,
         reverbWet: 0.45,
         fxMix: 0.6
+    },
+    'Ghost Reverse': {
+        ...DEFAULT_FX,
+        attack: 0.4,
+        decay: 0.8,
+        sustain: 0.85,
+        release: 2.0,
+        filterCutoff: 5000,
+        filterEnv: 0.2,
+        delayTime: 0.8,
+        delayFeedback: 0.7,
+        delayDry: 0.35,
+        delayWet: 0.55,
+        delayReverseMix: 0.85,
+        reverbDecay: 7.5,
+        reverbDry: 0.7,
+        reverbWet: 0.4,
+        fxMix: 0.8
     }
 };
 const LOCAL_SUPPRESS_MS = 30;
@@ -480,6 +502,7 @@ const state = {
     presets: {},
     mpePresets: {},
     customScales: {},
+    fxUserPresets: {},
     scaleNotes: { notes: [], root: 0, scale: '' },
     gridCache: null,
     groupShiftEnabled: false,
@@ -1776,17 +1799,17 @@ function updateAudioStatus() {
 }
 
 function refreshFxPresetSelects() {
-    const names = Object.keys(FX_PRESETS);
+    const names = [...Object.keys(FX_PRESETS), ...Object.keys(state.fxUserPresets || {})];
     [els.fxPresetSelect, els.fxPresetQuick].forEach(select => {
         if (!select) return;
         clearChildren(select);
         names.forEach(name => appendOption(select, name, name));
-        select.value = 'Init';
+        select.value = names.includes(select.value) ? select.value : 'Init';
     });
 }
 
 function applyFxPreset(name) {
-    const preset = FX_PRESETS[name] || FX_PRESETS.Init;
+    const preset = (state.fxUserPresets && state.fxUserPresets[name]) || FX_PRESETS[name] || FX_PRESETS.Init;
     state.audio.fx = { ...DEFAULT_FX, ...preset };
     applyFxToUI();
     readFxFromUI();
@@ -1796,7 +1819,9 @@ function applyFxPreset(name) {
     updateFxValueDisplays();
     if (els.fxPresetSelect) els.fxPresetSelect.value = name;
     if (els.fxPresetQuick) els.fxPresetQuick.value = name;
-    
+    if (els.fxPresetName && state.fxUserPresets && state.fxUserPresets[name]) {
+        els.fxPresetName.value = name;
+    }
 }
 
 function updateFxToggleButtons() {
@@ -3588,6 +3613,20 @@ function loadCustomScales() {
 
 function saveCustomScales(scales) {
     localStorage.setItem(CUSTOM_SCALE_KEY, JSON.stringify(scales));
+}
+
+function loadUserFxPresets() {
+    const raw = localStorage.getItem(FX_USER_PRESETS_KEY);
+    const parsed = safeParseJson(raw, {});
+    const cleaned = {};
+    Object.keys(parsed || {}).forEach(name => {
+        if (!FX_PRESETS[name]) cleaned[name] = parsed[name];
+    });
+    return cleaned;
+}
+
+function saveUserFxPresets(presets) {
+    localStorage.setItem(FX_USER_PRESETS_KEY, JSON.stringify(presets));
 }
 
 function parseCentsList(input) {
@@ -5914,6 +5953,7 @@ function findArpHoldAt(x, y) {
 state.presets = loadPresets();
 state.mpePresets = loadMpePresets();
 state.customScales = loadCustomScales();
+state.fxUserPresets = loadUserFxPresets();
 if (!Object.keys(state.presets).length) {
     const base = getPresetState();
     state.presets = {
@@ -6486,6 +6526,28 @@ function bindUI() {
         els.fxPresetApply.onclick = () => {
             const name = els.fxPresetSelect ? els.fxPresetSelect.value : 'Init';
             applyFxPreset(name);
+        };
+    }
+    if (els.fxPresetSave) {
+        els.fxPresetSave.onclick = () => {
+            const typed = (els.fxPresetName && els.fxPresetName.value.trim()) || '';
+            const selected = (els.fxPresetSelect && els.fxPresetSelect.value) || '';
+            const name = typed || selected;
+            if (!name) return;
+            state.fxUserPresets[name] = { ...state.audio.fx };
+            saveUserFxPresets(state.fxUserPresets);
+            refreshFxPresetSelects();
+            applyFxPreset(name);
+        };
+    }
+    if (els.fxPresetDel) {
+        els.fxPresetDel.onclick = () => {
+            const name = els.fxPresetSelect ? els.fxPresetSelect.value : '';
+            if (!name || !state.fxUserPresets[name]) return;
+            delete state.fxUserPresets[name];
+            saveUserFxPresets(state.fxUserPresets);
+            refreshFxPresetSelects();
+            applyFxPreset('Init');
         };
     }
     // Applica preset quando si cambia selezione nel pannello FX
