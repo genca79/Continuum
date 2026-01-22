@@ -5013,8 +5013,23 @@ async function loadMagenta() {
         }
         if (!window.mm) throw new Error('Magenta not available');
         if (!magentaModel) {
-            magentaModel = new window.mm.OnsetsAndFrames('https://cdn.jsdelivr.net/gh/magenta/magenta-js@1.23.1/music/checkpoints/transcription/onsets_frames');
-            await magentaModel.initialize();
+            const checkpoints = [
+                'https://storage.googleapis.com/magentadata/js/checkpoints/transcription/onsets_frames_uni_q2',
+                'https://storage.googleapis.com/magentadata/js/checkpoints/transcription/onsets_frames_uni'
+            ];
+            let lastError = null;
+            for (const checkpoint of checkpoints) {
+                try {
+                    magentaModel = new window.mm.OnsetsAndFrames(checkpoint);
+                    await magentaModel.initialize();
+                    lastError = null;
+                    break;
+                } catch (err) {
+                    lastError = err;
+                    magentaModel = null;
+                }
+            }
+            if (lastError) throw lastError;
         }
         return magentaModel;
     })();
