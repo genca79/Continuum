@@ -168,6 +168,42 @@ const els = {
     matrixSceneDesc: document.getElementById('matrixSceneDesc'),
     amTone: document.getElementById('amTone'),
     amBias: document.getElementById('amBias'),
+    melodyToggle: document.getElementById('melodyToggle'),
+    melodyPerfToggle: document.getElementById('melodyPerfToggle'),
+    melodyStyle: document.getElementById('melodyStyle'),
+    melodyLength: document.getElementById('melodyLength'),
+    melodyRate: document.getElementById('melodyRate'),
+    melodyDensity: document.getElementById('melodyDensity'),
+    melodyRange: document.getElementById('melodyRange'),
+    melodySeed: document.getElementById('melodySeed'),
+    melodyCadence: document.getElementById('melodyCadence'),
+    melodyGenerate: document.getElementById('melodyGenerate'),
+    melodyPreview: document.getElementById('melodyPreview'),
+    melodyRuleStep: document.getElementById('melodyRuleStep'),
+    melodyRuleMotif: document.getElementById('melodyRuleMotif'),
+    melodyRuleRhythm: document.getElementById('melodyRuleRhythm'),
+    melodyRuleLeaps: document.getElementById('melodyRuleLeaps'),
+    melodyHumanTiming: document.getElementById('melodyHumanTiming'),
+    melodyHumanVelocity: document.getElementById('melodyHumanVelocity'),
+    melodyHumanSwing: document.getElementById('melodyHumanSwing'),
+    melodyHumanLegato: document.getElementById('melodyHumanLegato'),
+    melodyHumanOrnament: document.getElementById('melodyHumanOrnament'),
+    melodyHumanPress: document.getElementById('melodyHumanPress'),
+    melodyHumanTimbre: document.getElementById('melodyHumanTimbre'),
+    melodyHumanPitch: document.getElementById('melodyHumanPitch'),
+    melodyMpePerNote: document.getElementById('melodyMpePerNote'),
+    melodyLayerToggle: document.getElementById('melodyLayerToggle'),
+    melodyLayerMode: document.getElementById('melodyLayerMode'),
+    melodyLayerLevel: document.getElementById('melodyLayerLevel'),
+    melodySeqEditor: document.getElementById('melodySeqEditor'),
+    melodyRollCanvas: document.getElementById('melodyRollCanvas'),
+    melodyRollZoomH: document.getElementById('melodyRollZoomH'),
+    melodyRollZoom: document.getElementById('melodyRollZoom'),
+    melodyRollScroll: document.getElementById('melodyRollScroll'),
+    melodyRollScrollWrap: document.getElementById('melodyRollScrollWrap'),
+    melodySaveName: document.getElementById('melodySaveName'),
+    melodySaveBtn: document.getElementById('melodySaveBtn'),
+    melodySaveSelect: document.getElementById('melodySaveSelect'),
     // Audio Recorder elements
     recStartBtn: document.getElementById('recStartBtn'),
     recStopBtn: document.getElementById('recStopBtn'),
@@ -241,7 +277,7 @@ if (setToggleBtn) {
 
 // === TAB SYSTEM FOR TOP UI PANEL ===
 (function initTabSystem() {
-    // Main tabs (MIDI, SCALE, ADVANCED)
+    // Main tabs (MIDI, SAMPLER, SCALE, MELODY, ADVANCED)
     const mainTabs = document.querySelectorAll('#mainTabsRow .ui-tab');
     const mainContents = document.querySelectorAll('#ui > .ui-tab-content');
     
@@ -255,6 +291,7 @@ if (setToggleBtn) {
             tab.classList.add('active');
             const content = document.querySelector(`[data-tab-content="${target}"]`);
             if (content) content.classList.add('active');
+            if (target === 'melody') resizeMelodyRollCanvas();
         });
     });
 
@@ -304,6 +341,7 @@ function triggerBow(voiceObj, attackTime = 0.05) {
 }
 const PRESET_KEY = 'genca_presets_v1';
 const MPE_PRESET_KEY = 'genca_mpe_presets_v1';
+const MELODY_SAVE_KEY = 'genca_melody_saves_v1';
 const CUSTOM_SCALE_KEY = 'genca_custom_scales_v1';
 const MICROTONAL_SCALES = {
     'Balinese Slendro': { cents: [0, 240, 480, 720, 960] },
@@ -515,9 +553,63 @@ const state = {
     drawRaf: null,
     scaleUpdateRaf: null,
     fadeTimer: null,
+    pointerIds: new Set(),
     heldVoices: [],
     arpHoldTouches: [],
     arpColorIndex: 0,
+    melody: {
+        enabled: false,
+        running: false,
+        timer: null,
+        offTimer: null,
+        stepIndex: 0,
+        currentStep: 0,
+        notes: [],
+        lastNote: null,
+        lastNotes: [],
+        seed: 1,
+        style: 'balanced',
+        length: 16,
+        rate: '1/16',
+        density: 0.8,
+        range: 14,
+        cadence: 'tonic',
+        chan: 1,
+        mpePerNote: false,
+        lastVoices: [],
+        layer: {
+            enabled: false,
+            mode: 'triad',
+            level: 70
+        },
+        edit: {
+            enabled: true,
+            step: 0
+        },
+        rules: {
+            stepwise: false,
+            motif: false,
+            rhythm: false,
+            leaps: false
+        },
+        roll: {
+            zoom: 1,
+            offset: 0,
+            stepPx: 20
+        },
+        humanize: {
+            timing: 8,
+            velocity: 20,
+            swing: 10,
+            legato: 70,
+            ornament: 10,
+            press: 12,
+            timbre: 20,
+            pitch: 10
+        },
+        pendingTimers: [],
+        saves: {}
+    },
     holdGroupSeq: 1,
     audio: {
         enabled: true,
@@ -567,6 +659,7 @@ const state = {
         voices: new Map(),
         channelPb: new Map(),
         channelPress: new Map(),
+        channelTimbre: new Map(),
         bowMode: false,
         fx: { ...DEFAULT_FX },
         fxActiveGroup: 'filter',
@@ -2606,12 +2699,34 @@ const MATRIX_DESTS = {
 function updateActiveFilters() {
     const fx = state.audio.fx;
     const filterActive = state.audio.fxEnabled && fx.filterOn;
-    const cutoff = filterActive ? Math.max(60, Math.min(20000, fx.filterCutoff)) : 20000;
+    const baseCutoff = filterActive ? Math.max(60, Math.min(20000, fx.filterCutoff)) : 20000;
     const q = filterActive ? Math.max(0.1, Math.min(20, fx.filterQ)) : 0.1;
     if (!state.audio.ctx) return;
     state.audio.voices.forEach(v => {
         if (!v.filter) return;
-        v.filter.frequency.setTargetAtTime(cutoff, state.audio.ctx.currentTime, 0.02);
+        const adj = getTimbreAdjustedCutoff(v.chan, baseCutoff);
+        v.filter.frequency.setTargetAtTime(adj, state.audio.ctx.currentTime, 0.02);
+        v.filter.Q.setTargetAtTime(q, state.audio.ctx.currentTime, 0.02);
+    });
+}
+
+function getTimbreAdjustedCutoff(chan, baseCutoff) {
+    const timbre = state.audio.channelTimbre.get(chan);
+    const norm = (Number.isFinite(timbre) ? timbre : 64) / 127;
+    const curve = Math.pow(2, (norm - 0.5));
+    return Math.max(60, Math.min(20000, baseCutoff * curve));
+}
+
+function updateChannelTimbre(chan) {
+    const fx = state.audio.fx;
+    const filterActive = state.audio.fxEnabled && fx.filterOn;
+    const cutoff = filterActive ? Math.max(60, Math.min(20000, fx.filterCutoff)) : 20000;
+    const q = filterActive ? Math.max(0.1, Math.min(20, fx.filterQ)) : 0.1;
+    if (!state.audio.ctx) return;
+    state.audio.voices.forEach(v => {
+        if (v.chan !== chan || !v.filter) return;
+        const adj = getTimbreAdjustedCutoff(chan, cutoff);
+        v.filter.frequency.setTargetAtTime(adj, state.audio.ctx.currentTime, 0.02);
         v.filter.Q.setTargetAtTime(q, state.audio.ctx.currentTime, 0.02);
     });
 }
@@ -3015,11 +3130,11 @@ function stopVoiceInternal(key) {
     state.audio.voices.delete(key);
 }
 
-function releaseVoiceInternal(key) {
+function releaseVoiceInternal(key, minRelease = 0) {
     const voice = state.audio.voices.get(key);
     if (!voice || !state.audio.ctx) return;
     const now = state.audio.ctx.currentTime;
-    const release = Math.max(0, getEffectiveRelease());
+    const release = Math.max(0, getEffectiveRelease(), minRelease);
     try {
         voice.gain.gain.cancelScheduledValues(now);
         voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
@@ -3083,7 +3198,8 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
     filter.type = 'lowpass';
     filter.Q.value = fx.filterQ;
     const filterActive = state.audio.fxEnabled && fx.filterOn;
-    const cutoff = filterActive ? Math.max(60, Math.min(20000, fx.filterCutoff)) : 20000;
+    const baseCutoff = filterActive ? Math.max(60, Math.min(20000, fx.filterCutoff)) : 20000;
+    const cutoff = getTimbreAdjustedCutoff(chan, baseCutoff);
     const envAmt = filterActive ? Math.max(0, fx.filterEnv) : 0;
     const envTarget = Math.min(20000, cutoff * (1 + envAmt));
     filter.frequency.cancelScheduledValues(now);
@@ -3213,8 +3329,8 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
     }
 }
 
-function noteOffInternal(note, chan) {
-    releaseVoiceInternal(`${chan}:${note}`);
+function noteOffInternal(note, chan, minRelease = 0) {
+    releaseVoiceInternal(`${chan}:${note}`, minRelease);
 }
 
 function updateChannelPitch(chan) {
@@ -3279,6 +3395,12 @@ function handleInternalMidi(data) {
         const press = data[1];
         state.audio.channelPress.set(chan, press);
         updateChannelPress(chan);
+        return;
+    }
+    if (status === 0xB0 && data[1] === 74) {
+        const timbre = data[2];
+        state.audio.channelTimbre.set(chan, timbre);
+        updateChannelTimbre(chan);
         return;
     }
     if (status === 0xB0 && (data[1] === 120 || data[1] === 123)) {
@@ -3513,6 +3635,7 @@ function releaseHeldNotes() {
 }
 
 function allNotesOff() {
+    stopMelodyGenerator();
     if (!state.midi.output) return;
     for (let ch = 0; ch < 16; ch++) {
         state.midi.output.send([0xB0 + ch, 123, 0]);
@@ -3525,6 +3648,7 @@ function allNotesOff() {
     state.arpHoldTouches = [];
     state.arp.notes = [];
     stopAllArpNotes();
+    stopMelodyGenerator();
 }
 
 function applyChordVoicing(notes, inversion, spread) {
@@ -4135,6 +4259,10 @@ function setCurrentOctave(next, options = {}) {
     if (options.retune && delta !== 0) {
         retuneActiveNotes(delta * 12);
     }
+    if (state.melody.enabled) {
+        updateMelodyFromUI(true);
+        if (state.melody.running) restartMelodyGenerator();
+    }
     requestDraw();
 }
 
@@ -4247,11 +4375,13 @@ function setupMIDI() {
             const inputs = Array.from(access.inputs.values());
             
             clearChildren(els.midiOutSelect);
+            appendOption(els.midiOutSelect, '', 'Scegli Output...');
             outputs.forEach(o => appendOption(els.midiOutSelect, o.id, o.name || o.id || 'MIDI OUT'));
-            state.midi.hardwareOutput = outputs[0] || null;
+            state.midi.hardwareOutput = null;
+            els.midiOutSelect.value = '';
             updateActiveOutput();
             els.midiOutSelect.onchange = () => {
-                state.midi.hardwareOutput = access.outputs.get(els.midiOutSelect.value);
+                state.midi.hardwareOutput = access.outputs.get(els.midiOutSelect.value) || null;
                 updateActiveOutput();
                 setPitchBendRange(parseInt(els.pbRange.value, 10));
             };
@@ -4261,12 +4391,8 @@ function setupMIDI() {
             clearChildren(els.midiInSelect);
             appendOption(els.midiInSelect, '', 'Scegli Input...');
             inputs.forEach(i => appendOption(els.midiInSelect, i.id, i.name || i.id || 'MIDI IN'));
-            if (inputs[0]) {
-                els.midiInSelect.value = inputs[0].id;
-                state.midi.input = inputs[0];
-                state.midi.input.onmidimessage = handleExternalMIDI;
-                els.midiStatus.innerText = 'MIDI IN READY';
-            }
+            els.midiInSelect.value = '';
+            state.midi.input = null;
             els.midiInSelect.onchange = () => {
                 if (state.midi.input) state.midi.input.onmidimessage = null;
                 state.midi.input = access.inputs.get(els.midiInSelect.value);
@@ -4457,6 +4583,10 @@ function sendMidi(data) {
     state.midi.output.send(data);
 }
 
+function sendMidiHardware(data) {
+    if (state.midi.hardwareOutput) state.midi.hardwareOutput.send(data);
+}
+
 
 
 
@@ -4479,6 +4609,880 @@ function getStepMs() {
     const factor = getRateFactor(state.arp.rate);
     return (60 / Math.max(40, state.arp.bpm)) * 1000 * factor;
 }
+
+function createSeededRng(seed) {
+    let s = Math.floor(seed) % 2147483647;
+    if (s <= 0) s += 2147483646;
+    return () => {
+        s = (s * 16807) % 2147483647;
+        return (s - 1) / 2147483646;
+    };
+}
+
+function getMelodyStepMs() {
+    const bpm = parseInt(els.arpBpm?.value, 10) || 120;
+    const factor = getRateFactor(state.melody.rate || '1/16');
+    return (60 / Math.max(40, bpm)) * 1000 * factor;
+}
+
+function chooseWeighted(rng, options) {
+    const total = options.reduce((sum, opt) => sum + opt.weight, 0);
+    let roll = rng() * total;
+    for (const opt of options) {
+        roll -= opt.weight;
+        if (roll <= 0) return opt.value;
+    }
+    return options[options.length - 1].value;
+}
+
+function adjustWeightsForRules(weights, rules) {
+    const adjusted = weights.map(opt => ({ ...opt }));
+    if (rules.stepwise) {
+        adjusted.forEach(opt => {
+            const step = Math.abs(opt.value);
+            if (step <= 1) opt.weight *= 1.8;
+            else if (step === 2) opt.weight *= 1.2;
+            else if (step >= 4) opt.weight *= 0.6;
+        });
+    }
+    if (rules.leaps) {
+        adjusted.forEach(opt => {
+            const step = Math.abs(opt.value);
+            if (step >= 4) opt.weight *= 1.6;
+            if (step <= 1) opt.weight *= 0.7;
+        });
+    }
+    return adjusted;
+}
+
+function buildRhythmMask(rng, length) {
+    const mask = new Array(length).fill(true);
+    const patterns = [
+        { name: 'syncop', seq: [true, false, true, true, false, true, true, false] },
+        { name: 'regular', seq: [true, false, true, false] },
+        { name: 'sparse', seq: [true, false, false, true, false, true, false, false] }
+    ];
+    const chosen = patterns[Math.floor(rng() * patterns.length)].seq;
+    for (let i = 0; i < length; i++) mask[i] = chosen[i % chosen.length];
+    return mask;
+}
+
+function getNoteColor(note) {
+    const hue = Math.round((note * 7) % 360);
+    return `hsl(${hue}, 80%, 55%)`;
+}
+
+function getMelodyNotesForRoot(rootNote) {
+    const layerNotes = getLayerNotes(rootNote);
+    return [rootNote, ...layerNotes].filter((n, idx, arr) => arr.indexOf(n) === idx);
+}
+
+function setSyntheticTouch(key, notes, label, voicesOverride = null) {
+    if (!notes || !notes.length) {
+        if (state.activeTouches.has(key)) {
+            state.activeTouches.delete(key);
+            requestDraw();
+        }
+        return;
+    }
+    updateGridCache();
+    const height = Math.floor(state.canvasRect.height || canvas.getBoundingClientRect().height || 0);
+    const y = label === 'DRONE' ? height * 0.82 : height * 0.62;
+    const xs = notes.map(n => getNearestNoteX(n)).filter(v => v != null);
+    const x = xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : (state.canvasRect.width / 2);
+    const press = 90;
+    const voices = voicesOverride
+        ? voicesOverride.map(v => ({
+            chan: v.chan,
+            note: v.note,
+            basePb: v.basePb ?? 0,
+            color: getNoteColor(v.note)
+        }))
+        : notes.map(n => ({
+            chan: state.melody.chan,
+            note: n,
+            basePb: 0,
+            color: getNoteColor(n)
+        }));
+    const entry = state.activeTouches.get(key) || {
+        phase: 0,
+        vibratoSpeed: 0
+    };
+    entry.voices = voices;
+    entry.lastM = { x, y, press, slide: 0, pbValue: 8192, exact: notes[0] };
+    entry.color = getNoteColor(notes[0]);
+    entry.label = label;
+    entry.isSynthetic = true;
+    state.activeTouches.set(key, entry);
+    requestDraw();
+}
+
+function getScaleIndexForNote(note) {
+    const snapped = mapMidiNoteToScale(note);
+    let idx = state.scaleNotes.notes.indexOf(snapped);
+    if (idx >= 0) return idx;
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < state.scaleNotes.notes.length; i++) {
+        const dist = Math.abs(state.scaleNotes.notes[i] - snapped);
+        if (dist < bestDist) {
+            bestDist = dist;
+            bestIdx = i;
+        }
+    }
+    return bestIdx;
+}
+
+function getLayerNotes(baseNote) {
+    if (!state.melody.layer.enabled) return [];
+    const def = getScaleDefinition();
+    const scaleKey = `${def.mode}:${def.name}`;
+    if (!state.scaleNotes.notes.length || state.scaleNotes.root !== def.root || state.scaleNotes.scale !== scaleKey) {
+        updateScaleNotes();
+    }
+    const mode = state.melody.layer.mode || 'triad';
+    const steps = mode === 'third'
+        ? [2]
+        : (mode === 'fifth' ? [4] : (mode === 'octave' ? [7] : [2, 4]));
+    const idx = getScaleIndexForNote(baseNote);
+    const result = [];
+    steps.forEach(step => {
+        const target = state.scaleNotes.notes[idx + step];
+        if (Number.isFinite(target)) result.push(target);
+    });
+    return result;
+}
+
+function getMelodyScalePool(range) {
+    const def = getScaleDefinition();
+    const scaleKey = `${def.mode}:${def.name}`;
+    if (!state.scaleNotes.notes.length || state.scaleNotes.root !== def.root || state.scaleNotes.scale !== scaleKey) {
+        updateScaleNotes();
+    }
+    const span = Math.max(5, Math.min(36, range));
+    const base = 60 + def.root + (state.currentOctave * 12);
+    const half = Math.floor(span / 2);
+    const min = base - half;
+    const max = base + (span - half);
+    const pool = state.scaleNotes.notes.filter(n => n >= min && n <= max);
+    return pool.length ? pool : state.scaleNotes.notes.slice();
+}
+
+function findNearestIndex(pool, note) {
+    if (!pool.length) return 0;
+    let bestIdx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < pool.length; i++) {
+        const dist = Math.abs(pool[i] - note);
+        if (dist < bestDist) {
+            bestDist = dist;
+            bestIdx = i;
+        }
+    }
+    return bestIdx;
+}
+
+function getCadenceNote(pool, pitchClass, baseNote) {
+    const candidates = pool.filter(n => (n % 12) === pitchClass);
+    if (!candidates.length) return pool[pool.length - 1];
+    let best = candidates[0];
+    let bestDist = Math.abs(best - baseNote);
+    for (let i = 1; i < candidates.length; i++) {
+        const dist = Math.abs(candidates[i] - baseNote);
+        if (dist < bestDist) {
+            bestDist = dist;
+            best = candidates[i];
+        }
+    }
+    return best;
+}
+
+function buildMelodySequence() {
+    if (!els.melodyStyle) return [];
+    const seed = parseInt(els.melodySeed.value, 10) || 1;
+    const length = Math.max(4, Math.min(64, parseInt(els.melodyLength.value, 10) || 16));
+    const range = Math.max(5, Math.min(36, parseInt(els.melodyRange.value, 10) || 14));
+    const density = Math.max(0.2, Math.min(1, (parseInt(els.melodyDensity.value, 10) || 80) / 100));
+    const style = els.melodyStyle.value || 'balanced';
+    const cadence = els.melodyCadence.value || 'tonic';
+    const rate = els.melodyRate.value || '1/16';
+    const rules = {
+        stepwise: !!els.melodyRuleStep?.checked,
+        motif: !!els.melodyRuleMotif?.checked,
+        rhythm: !!els.melodyRuleRhythm?.checked,
+        leaps: !!els.melodyRuleLeaps?.checked
+    };
+    const def = getScaleDefinition();
+    const pool = getMelodyScalePool(range);
+    if (!pool.length) return [];
+
+    state.melody.seed = seed;
+    state.melody.length = length;
+    state.melody.range = range;
+    state.melody.density = density;
+    state.melody.style = style;
+    state.melody.cadence = cadence;
+    state.melody.rate = rate;
+    state.melody.rules = { ...rules };
+
+    const rng = createSeededRng(seed);
+    const base = 60 + def.root + (state.currentOctave * 12);
+    const styleWeights = {
+        smooth: [
+            { value: -2, weight: 1 }, { value: -1, weight: 3 }, { value: 0, weight: 2 },
+            { value: 1, weight: 3 }, { value: 2, weight: 1 }, { value: -3, weight: 0.4 }, { value: 3, weight: 0.4 }
+        ],
+        balanced: [
+            { value: -4, weight: 0.6 }, { value: -3, weight: 0.9 }, { value: -2, weight: 1.4 },
+            { value: -1, weight: 2.2 }, { value: 0, weight: 2.4 }, { value: 1, weight: 2.2 },
+            { value: 2, weight: 1.4 }, { value: 3, weight: 0.9 }, { value: 4, weight: 0.6 }
+        ],
+        leaps: [
+            { value: -6, weight: 1.2 }, { value: -5, weight: 1.1 }, { value: -4, weight: 1.0 },
+            { value: -3, weight: 0.8 }, { value: -2, weight: 0.5 }, { value: -1, weight: 0.3 },
+            { value: 1, weight: 0.3 }, { value: 2, weight: 0.5 }, { value: 3, weight: 0.8 },
+            { value: 4, weight: 1.0 }, { value: 5, weight: 1.1 }, { value: 6, weight: 1.2 }
+        ]
+    };
+
+    const rootPc = def.root % 12;
+    const thirdOffset = def.degrees[2] ?? 4;
+    const fifthOffset = def.degrees[4] ?? 7;
+    const chordPcs = [
+        rootPc,
+        (rootPc + thirdOffset) % 12,
+        (rootPc + fifthOffset) % 12
+    ];
+    const chordPool = pool.filter(n => chordPcs.includes(n % 12));
+
+    const notes = [];
+    let lastNote = null;
+    let lastInterval = 0;
+    const rhythmMask = rules.rhythm ? buildRhythmMask(rng, length) : null;
+    const motifLen = rules.motif ? (2 + Math.floor(rng() * 3)) : 0;
+    const motif = rules.motif ? [] : null;
+
+    function pickNote(activeStyle) {
+        if (!pool.length) return null;
+        if (activeStyle === 'arpeggio') {
+            const src = chordPool.length ? chordPool : pool;
+            return src[Math.floor(rng() * src.length)];
+        }
+        if (lastNote == null) return pool[Math.floor(rng() * pool.length)];
+        const baseWeights = styleWeights[activeStyle] || styleWeights.balanced;
+        const weights = adjustWeightsForRules(baseWeights, rules);
+        let step = chooseWeighted(rng, weights);
+        if (rules.leaps && Math.abs(lastInterval) >= 4 && rng() < 0.85) {
+            step = -Math.sign(lastInterval || 1) * (rng() < 0.7 ? 1 : 2);
+        } else if (Math.abs(lastInterval) >= 3 && rng() < 0.7) {
+            step = -Math.sign(lastInterval || 1) * (rng() < 0.6 ? 1 : 2);
+        }
+        let idx = findNearestIndex(pool, lastNote) + step;
+        idx = Math.max(0, Math.min(pool.length - 1, idx));
+        return pool[idx];
+    }
+
+    const callLen = Math.ceil(length / 2);
+    for (let i = 0; i < length; i++) {
+        if (rhythmMask && !rhythmMask[i]) {
+            notes.push(null);
+            continue;
+        }
+        if (rng() > density) {
+            notes.push(null);
+            continue;
+        }
+        let note = null;
+        if (rules.motif && motif && i < motifLen) {
+            note = pickNote(style === 'call' ? 'smooth' : style);
+            motif.push(note);
+        } else if (rules.motif && motif && i >= motifLen) {
+            note = motif[i % motifLen];
+        } else if (style === 'call' && i >= callLen) {
+            const anchor = notes[i - callLen];
+            if (anchor != null) {
+                const anchorIdx = findNearestIndex(pool, anchor);
+                const shift = chooseWeighted(rng, [
+                    { value: -1, weight: 1.5 }, { value: 0, weight: 2.5 }, { value: 1, weight: 1.5 }
+                ]);
+                const idx = Math.max(0, Math.min(pool.length - 1, anchorIdx + shift));
+                note = pool[idx];
+            } else {
+                note = pickNote('smooth');
+            }
+        } else {
+            const activeStyle = style === 'call' ? 'smooth' : style;
+            note = pickNote(activeStyle);
+        }
+        if (rules.stepwise && note != null && lastNote != null && note === lastNote && rng() < 0.8) {
+            note = pickNote('smooth');
+        }
+        notes.push(note);
+        if (note != null && lastNote != null) lastInterval = note - lastNote;
+        if (note != null) lastNote = note;
+    }
+
+    if (notes.length && cadence !== 'none') {
+        const cadencePc = cadence === 'dominant' ? (rootPc + 7) % 12 : rootPc;
+        notes[notes.length - 1] = getCadenceNote(pool, cadencePc, base);
+    }
+
+    return notes;
+}
+
+const MELODY_MIN_RELEASE = 0.06;
+
+function melodyNotesMatch(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
+}
+
+function clearMelodyPendingTimers() {
+    if (!state.melody.pendingTimers?.length) return;
+    state.melody.pendingTimers.forEach(t => clearTimeout(t));
+    state.melody.pendingTimers = [];
+}
+
+function randomCurve(scale, curve = 1.6) {
+    if (!scale) return 0;
+    const r = Math.random() * 2 - 1;
+    const shaped = Math.sign(r) * Math.pow(Math.abs(r), curve);
+    return shaped * scale;
+}
+
+function applyMelodyMpe(chan, press, slide, pbValue) {
+    const ch = Math.max(1, Math.min(16, chan));
+    const sendOut = state.midi.hardwareOutput ? sendMidiHardware : sendMidi;
+    if (Number.isFinite(press)) {
+        const p = Math.max(0, Math.min(127, Math.round(press)));
+        state.audio.channelPress.set(ch, p);
+        updateChannelPress(ch);
+        sendOut([0xD0 + ch - 1, p]);
+    }
+    if (Number.isFinite(slide)) {
+        const s = Math.max(0, Math.min(127, Math.round(slide)));
+        state.audio.channelTimbre.set(ch, s);
+        updateChannelTimbre(ch);
+        sendOut([0xB0 + ch - 1, 74, s]);
+    }
+    if (Number.isFinite(pbValue)) {
+        const pb = Math.max(0, Math.min(16383, Math.round(pbValue)));
+        state.audio.channelPb.set(ch, pb);
+        updateChannelPitch(ch);
+        sendOut([0xE0 + ch - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+    }
+}
+
+function releaseMelodyVoices(minRelease = 0) {
+    const voices = state.melody.lastVoices || [];
+    if (!voices.length) return;
+    voices.forEach(v => {
+        noteOffInternal(v.note, v.chan, minRelease);
+        sendMidiHardware([0x80 + v.chan - 1, v.note, 0]);
+        if (state.melody.mpePerNote && v.chan > 1 && v.chan <= 16) {
+            state.mpeChannels.push(v.chan);
+        }
+    });
+    if (state.melody.mpePerNote) {
+        state.mpeChannels.sort((a, b) => a - b);
+    }
+    state.melody.lastVoices = [];
+}
+
+function allocateMelodyVoices(notesToPlay) {
+    if (!notesToPlay.length) return [];
+    if (!state.melody.mpePerNote) {
+        return notesToPlay.map(n => ({ chan: state.melody.chan, note: n, basePb: 0 }));
+    }
+    if (state.mpeChannels.length < notesToPlay.length) {
+        els.midiStatus.innerText = 'MPE CHANNELS FULL';
+        return notesToPlay.map(n => ({ chan: state.melody.chan, note: n, basePb: 0 }));
+    }
+    return notesToPlay.map(n => {
+        const chan = state.mpeChannels.shift();
+        return { chan, note: n, basePb: 0 };
+    });
+}
+
+function applyMelodyMpeToVoices(voices, press, slide, pbValue) {
+    if (!voices?.length) return;
+    const seen = new Set();
+    voices.forEach(v => {
+        if (seen.has(v.chan)) return;
+        seen.add(v.chan);
+        applyMelodyMpe(v.chan, press, slide, pbValue);
+    });
+}
+
+function getScaleNeighbor(note, dir) {
+    const root = parseInt(els.rootNote.value, 10);
+    const def = getScaleDefinition();
+    const scaleKey = `${def.mode}:${def.name}`;
+    if (!state.scaleNotes.notes.length || state.scaleNotes.root !== root || state.scaleNotes.scale !== scaleKey) {
+        updateScaleNotes();
+    }
+    const notes = state.scaleNotes.notes || [];
+    if (!notes.length) return note;
+    let idx = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < notes.length; i++) {
+        const dist = Math.abs(notes[i] - note);
+        if (dist < bestDist) {
+            bestDist = dist;
+            idx = i;
+        }
+    }
+    const next = idx + (dir >= 0 ? 1 : -1);
+    if (next >= 0 && next < notes.length) return notes[next];
+    return note;
+}
+
+function loadMelodySaves() {
+    try {
+        const raw = localStorage.getItem(MELODY_SAVE_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch (err) {
+        return {};
+    }
+}
+
+function saveMelodySaves(saves) {
+    try {
+        localStorage.setItem(MELODY_SAVE_KEY, JSON.stringify(saves || {}));
+    } catch (err) {
+        // Ignore storage errors.
+    }
+}
+
+function refreshMelodySaveSelect(saves, selected) {
+    if (!els.melodySaveSelect) return;
+    const names = Object.keys(saves || {}).sort();
+    fillSelectFromNames(els.melodySaveSelect, names, 'Saved melodies');
+    if (selected && names.includes(selected)) els.melodySaveSelect.value = selected;
+}
+
+function updateMelodyPreview() {
+    if (!els.melodyPreview) return;
+    const preview = state.melody.notes.map(n => (n == null ? '.' : midiToNoteName(n))).join(' ');
+    els.melodyPreview.textContent = preview || ' ';
+    renderMelodyEditor();
+    resizeMelodyRollCanvas();
+}
+
+function stopMelodyGenerator() {
+    state.melody.running = false;
+    if (state.melody.timer) clearInterval(state.melody.timer);
+    if (state.melody.offTimer) clearTimeout(state.melody.offTimer);
+    state.melody.timer = null;
+    state.melody.offTimer = null;
+    clearMelodyPendingTimers();
+    if (state.melody.lastNotes?.length) releaseMelodyVoices();
+    state.melody.lastNotes = [];
+    state.melody.lastNote = null;
+    state.melody.lastVoices = [];
+    setSyntheticTouch('melody', [], 'MELODY');
+}
+
+function melodyStep() {
+    if (!state.melody.enabled || !state.melody.running) return;
+    if (!state.melody.notes.length) {
+        state.melody.notes = buildMelodySequence();
+        updateMelodyPreview();
+        if (!state.melody.notes.length) return;
+    }
+    const stepIdx = state.melody.stepIndex % state.melody.notes.length;
+    const note = state.melody.notes[stepIdx];
+    state.melody.currentStep = stepIdx;
+    state.melody.stepIndex += 1;
+    if (state.melody.offTimer) clearTimeout(state.melody.offTimer);
+    clearMelodyPendingTimers();
+    if (note != null) {
+        const stepMs = getMelodyStepMs();
+        const human = state.melody.humanize || {};
+        const timingMs = Math.max(0, human.timing || 0);
+        const velJitter = Math.max(0, human.velocity || 0) * 1.5;
+        const swingPct = Math.max(0, Math.min(60, human.swing || 0));
+        const legatoPct = Math.max(0, Math.min(100, human.legato ?? 70));
+        const ornamentPct = Math.max(0, Math.min(40, human.ornament || 0));
+        const pressRange = Math.max(0, Math.min(40, human.press || 0));
+        const timbreRange = Math.max(0, Math.min(80, human.timbre || 0)) * 1.5;
+        const pitchRange = Math.max(0, Math.min(40, human.pitch || 0));
+        const jitter = timingMs ? (Math.random() * 2 - 1) * timingMs : 0;
+        const swingMs = (stepIdx % 2 === 1) ? (stepMs * 0.5 * (swingPct / 100)) : 0;
+        const delayMs = Math.max(0, Math.min(stepMs * 0.6, swingMs + jitter));
+        const gate = 0.5 + (legatoPct / 100) * 0.7;
+        const gateMs = Math.max(30, Math.min(stepMs * 1.2, stepMs * gate));
+        const pressBase = 90;
+        const timbreBase = 64;
+        const curve = 1.7;
+        const press = pressBase + randomCurve(pressRange, curve);
+        const slide = timbreBase + randomCurve(timbreRange, curve);
+        let pbValue = 8192;
+        if (pitchRange > 0) {
+            const pbSemis = parseInt(els.pbRange?.value, 10) || 12;
+            const maxSemis = (pitchRange / 40) * 0.5;
+            const offset = randomCurve(1, curve) * (8192 * (maxSemis / pbSemis));
+            pbValue = 8192 + offset;
+        }
+        const notesToPlay = updateMelodyLiveNotes(note, {
+            minRelease: MELODY_MIN_RELEASE,
+            holdSame: true,
+            delayMs,
+            velocityJitter: velJitter,
+            press,
+            slide,
+            pbValue,
+            jitterCurve: curve
+        });
+        if (ornamentPct > 0 && Math.random() < (ornamentPct / 100)) {
+            const dir = Math.random() < 0.5 ? -1 : 1;
+            const graceNote = getScaleNeighbor(note, dir);
+            if (graceNote !== note) {
+                const graceLead = 30;
+                const graceDelay = Math.max(0, delayMs - graceLead);
+                const graceOn = setTimeout(() => {
+                    const graceVel = Math.max(20, 90 - velJitter);
+                    let graceChan = state.melody.chan;
+                    if (state.melody.mpePerNote) {
+                        graceChan = state.mpeChannels.shift() || state.melody.chan;
+                        applyMelodyMpe(graceChan, press, slide, pbValue);
+                    }
+                    void noteOnInternal(graceNote, graceVel, graceChan);
+                    sendMidiHardware([0x90 + graceChan - 1, graceNote, Math.max(1, Math.min(127, Math.round(graceVel)))]);
+                    const graceOff = setTimeout(() => {
+                        stopVoiceInternal(`${graceChan}:${graceNote}`);
+                        sendMidiHardware([0x80 + graceChan - 1, graceNote, 0]);
+                        if (state.melody.mpePerNote && graceChan > 1 && graceChan <= 16) {
+                            state.mpeChannels.push(graceChan);
+                            state.mpeChannels.sort((a, b) => a - b);
+                        }
+                    }, 80);
+                    state.melody.pendingTimers.push(graceOff);
+                }, graceDelay);
+                state.melody.pendingTimers.push(graceOn);
+            }
+        }
+        state.melody.offTimer = setTimeout(() => {
+            if (state.melody.lastNotes === notesToPlay) {
+                releaseMelodyVoices(MELODY_MIN_RELEASE);
+                state.melody.lastNotes = [];
+                if (state.melody.lastNote === note) state.melody.lastNote = null;
+                setSyntheticTouch('melody', [], 'MELODY');
+            }
+        }, Math.max(30, delayMs + gateMs));
+    } else {
+        if (state.melody.lastNotes?.length) {
+            releaseMelodyVoices(MELODY_MIN_RELEASE);
+            state.melody.lastNotes = [];
+            state.melody.lastNote = null;
+        }
+        state.melody.lastVoices = [];
+        setSyntheticTouch('melody', [], 'MELODY');
+    }
+    drawMelodyPianoRoll();
+}
+
+function startMelodyGenerator() {
+    if (state.melody.running) return;
+    state.melody.running = true;
+    state.melody.stepIndex = 0;
+    const stepMs = getMelodyStepMs();
+    state.melody.timer = setInterval(melodyStep, stepMs);
+    melodyStep();
+}
+
+function restartMelodyGenerator() {
+    if (!state.melody.running) return;
+    stopMelodyGenerator();
+    startMelodyGenerator();
+}
+
+function updateMelodyToggleUI() {
+    if (!els.melodyToggle) return;
+    const isOn = !!state.melody.enabled;
+    els.melodyToggle.classList.toggle('toggle-on', isOn);
+    els.melodyToggle.classList.toggle('toggle-off', !isOn);
+    els.melodyToggle.textContent = isOn ? 'MELODY ON' : 'MELODY OFF';
+    if (els.melodyPerfToggle) {
+        els.melodyPerfToggle.classList.toggle('toggle-on', isOn);
+        els.melodyPerfToggle.classList.toggle('toggle-off', !isOn);
+        els.melodyPerfToggle.textContent = isOn ? 'MELODY ON' : 'MELODY OFF';
+    }
+}
+
+function updateLayerToggleUI() {
+    if (!els.melodyLayerToggle) return;
+    const isOn = !!state.melody.layer.enabled;
+    els.melodyLayerToggle.classList.toggle('toggle-on', isOn);
+    els.melodyLayerToggle.classList.toggle('toggle-off', !isOn);
+    els.melodyLayerToggle.textContent = isOn ? 'LAYER ON' : 'LAYER OFF';
+}
+
+function setMelodyEditStep(stepIdx) {
+    const max = Math.max(1, state.melody.notes.length || 1);
+    const clamped = Math.max(0, Math.min(max - 1, stepIdx));
+    state.melody.edit.step = clamped;
+    renderMelodyEditor();
+    drawMelodyPianoRoll();
+}
+
+function renderMelodyEditor() {
+    if (!els.melodySeqEditor) return;
+    const notes = state.melody.notes || [];
+    els.melodySeqEditor.innerHTML = '';
+    const max = Math.max(1, notes.length || 1);
+    notes.forEach((n, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.step = String(idx);
+        btn.textContent = n == null ? '.' : midiToNoteName(n);
+        btn.style.padding = '2px 6px';
+        btn.style.fontSize = '10px';
+        btn.style.minWidth = '24px';
+        btn.style.borderRadius = '4px';
+        btn.style.border = '1px solid #444';
+        btn.style.background = idx === state.melody.edit.step ? '#2c3e2c' : '#15181d';
+        btn.style.color = '#cfd6dd';
+        btn.style.cursor = 'pointer';
+        els.melodySeqEditor.appendChild(btn);
+    });
+}
+
+function getMelodyRollStepWidth() {
+    return Math.max(10, Math.min(80, state.melody.roll?.stepPx || 20));
+}
+
+function getMelodyRollLength() {
+    return Math.max(1, state.melody.notes.length || state.melody.length || 1);
+}
+
+function getMelodyRollRange() {
+    const def = getScaleDefinition();
+    const baseRange = Math.max(5, Math.min(36, parseInt(els.melodyRange?.value, 10) || 14));
+    const base = 60 + def.root + (state.currentOctave * 12);
+    const zoom = Math.max(0.6, Math.min(2.5, state.melody.roll?.zoom || 1));
+    const visibleRange = Math.max(5, Math.round(baseRange / zoom));
+    const half = Math.floor(visibleRange / 2);
+    let min = base - half;
+    let max = base + (visibleRange - half);
+    const offset = Math.round(state.melody.roll?.offset || 0);
+    min += offset;
+    max += offset;
+    if (min < 0) {
+        max += -min;
+        min = 0;
+    }
+    if (max > 127) {
+        min -= (max - 127);
+        max = 127;
+    }
+    min = Math.max(0, Math.min(126, min));
+    max = Math.max(min + 1, Math.min(127, max));
+    return { min, max, visibleRange, baseRange };
+}
+
+function drawMelodyPianoRoll() {
+    if (!els.melodyRollCanvas) return;
+    const canvas = els.melodyRollCanvas;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    if (width <= 0 || height <= 0) return;
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#0f1217';
+    ctx.fillRect(0, 0, width, height);
+
+    const notes = state.melody.notes || [];
+    if (!notes.length) {
+        ctx.fillStyle = '#667';
+        ctx.font = '11px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('No sequence', width * 0.5, height * 0.5);
+        return;
+    }
+
+    const { min, max } = getMelodyRollRange();
+    const span = Math.max(1, max - min);
+    const stepW = width / getMelodyRollLength();
+    const scalePcs = new Set(getScaleDefinition().degrees.map(d => (d + 12) % 12));
+
+    for (let n = min; n <= max; n++) {
+        const y = ((max - n) / span) * height;
+        const isScale = scalePcs.has(n % 12);
+        ctx.strokeStyle = isScale ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)';
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+    }
+
+    const rowH = height / span;
+    const noteH = Math.max(12, Math.min(32, rowH * 0.9));
+    for (let i = 0; i < notes.length; i++) {
+        const note = notes[i];
+        if (note == null) continue;
+        const x = i * stepW;
+        const y = ((max - note) / span) * height;
+        ctx.fillStyle = getNoteColor(note);
+        const noteW = Math.max(6, Math.min(stepW * 0.6, 26));
+        const rx = x + ((stepW - noteW) * 0.5);
+        const ry = y - (noteH * 0.5);
+        const radius = Math.min(6, noteH * 0.4, noteW * 0.2);
+        ctx.beginPath();
+        ctx.moveTo(rx + radius, ry);
+        ctx.arcTo(rx + noteW, ry, rx + noteW, ry + noteH, radius);
+        ctx.arcTo(rx + noteW, ry + noteH, rx, ry + noteH, radius);
+        ctx.arcTo(rx, ry + noteH, rx, ry, radius);
+        ctx.arcTo(rx, ry, rx + noteW, ry, radius);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    if (Number.isFinite(state.melody.currentStep)) {
+        const x = (state.melody.currentStep + 0.5) * stepW;
+        ctx.strokeStyle = 'rgba(0,255,160,0.6)';
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+    }
+
+    if (Number.isFinite(state.melody.edit.step)) {
+        const x = (state.melody.edit.step + 0.5) * stepW;
+        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+    }
+}
+
+function resizeMelodyRollCanvas() {
+    if (!els.melodyRollCanvas) return;
+    const canvas = els.melodyRollCanvas;
+    const len = getMelodyRollLength();
+    const stepW = getMelodyRollStepWidth();
+    const cssWidth = Math.max(1, len * stepW);
+    canvas.style.width = `${cssWidth}px`;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const width = Math.max(1, Math.floor(rect.width * dpr));
+    const height = Math.max(1, Math.floor(rect.height * dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+    }
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawMelodyPianoRoll();
+}
+
+function updateMelodyLiveNotes(rootNote, options = {}) {
+    const notesToPlay = getMelodyNotesForRoot(rootNote);
+    const holdSame = !!options.holdSame;
+    const sameNotes = holdSame && melodyNotesMatch(state.melody.lastNotes, notesToPlay);
+    const delayMs = Math.max(0, options.delayMs || 0);
+    const velocityJitter = Math.max(0, options.velocityJitter || 0);
+    const press = options.press;
+    const slide = options.slide;
+    const pbValue = options.pbValue;
+    const jitterCurve = Number.isFinite(options.jitterCurve) ? options.jitterCurve : 1.6;
+    if (!sameNotes) {
+        if (state.melody.lastNotes?.length) {
+            releaseMelodyVoices(options.minRelease || 0);
+        }
+        const fireNotes = () => {
+            const voices = allocateMelodyVoices(notesToPlay);
+            state.melody.lastVoices = voices;
+            if (Number.isFinite(press) || Number.isFinite(slide) || Number.isFinite(pbValue)) {
+                if (state.melody.mpePerNote) applyMelodyMpeToVoices(voices, press, slide, pbValue);
+                else applyMelodyMpe(state.melody.chan, press, slide, pbValue);
+            }
+            voices.forEach((v, idx) => {
+                const base = idx === 0 ? 90 : Math.max(20, Math.min(110, state.melody.layer.level));
+                const jitter = velocityJitter ? Math.round(randomCurve(velocityJitter, jitterCurve)) : 0;
+                const velocity = Math.max(1, Math.min(127, base + jitter));
+                void noteOnInternal(v.note, velocity, v.chan);
+                sendMidiHardware([0x90 + v.chan - 1, v.note, velocity]);
+            });
+            setSyntheticTouch('melody', notesToPlay, 'MELODY', voices);
+        };
+        if (delayMs > 0) {
+            const t = setTimeout(fireNotes, delayMs);
+            state.melody.pendingTimers.push(t);
+        } else {
+            fireNotes();
+        }
+    }
+    state.melody.lastNote = rootNote;
+    state.melody.lastNotes = notesToPlay;
+    if (sameNotes) {
+        if (Number.isFinite(press) || Number.isFinite(slide) || Number.isFinite(pbValue)) {
+            if (state.melody.mpePerNote) applyMelodyMpeToVoices(state.melody.lastVoices, press, slide, pbValue);
+            else applyMelodyMpe(state.melody.chan, press, slide, pbValue);
+        }
+        setSyntheticTouch('melody', notesToPlay, 'MELODY', state.melody.lastVoices);
+    }
+    return notesToPlay;
+}
+
+function applyMelodyEdit(stepIdx, rootNote, options = {}) {
+    if (!Number.isFinite(rootNote) || !state.melody.notes.length) return;
+    const clamped = Math.max(0, Math.min(state.melody.notes.length - 1, stepIdx));
+    state.melody.notes[clamped] = rootNote;
+    if (options.live) {
+        setSyntheticTouch('melody', getMelodyNotesForRoot(rootNote), 'MELODY');
+        if (state.melody.running && clamped === state.melody.currentStep) {
+            updateMelodyLiveNotes(rootNote, { minRelease: MELODY_MIN_RELEASE, holdSame: true });
+        }
+    }
+    if (options.finalize) updateMelodyPreview();
+    else drawMelodyPianoRoll();
+}
+
+function updateMelodyFromUI(regenerate = false) {
+    if (!els.melodyStyle) return;
+    state.melody.seed = parseInt(els.melodySeed.value, 10) || 1;
+    state.melody.length = Math.max(4, Math.min(64, parseInt(els.melodyLength.value, 10) || 16));
+    state.melody.range = Math.max(5, Math.min(36, parseInt(els.melodyRange.value, 10) || 14));
+    state.melody.density = Math.max(0.2, Math.min(1, (parseInt(els.melodyDensity.value, 10) || 80) / 100));
+    state.melody.style = els.melodyStyle.value || 'balanced';
+    state.melody.cadence = els.melodyCadence.value || 'tonic';
+    state.melody.rate = els.melodyRate.value || '1/16';
+    state.melody.layer = {
+        enabled: !!els.melodyLayerToggle?.classList.contains('toggle-on'),
+        mode: els.melodyLayerMode?.value || 'triad',
+        level: parseInt(els.melodyLayerLevel?.value, 10) || 70
+    };
+    state.melody.mpePerNote = !!els.melodyMpePerNote?.checked;
+    state.melody.humanize = {
+        timing: parseInt(els.melodyHumanTiming?.value, 10) || 0,
+        velocity: parseInt(els.melodyHumanVelocity?.value, 10) || 0,
+        swing: parseInt(els.melodyHumanSwing?.value, 10) || 0,
+        legato: parseInt(els.melodyHumanLegato?.value, 10) || 0,
+        ornament: parseInt(els.melodyHumanOrnament?.value, 10) || 0,
+        press: parseInt(els.melodyHumanPress?.value, 10) || 0,
+        timbre: parseInt(els.melodyHumanTimbre?.value, 10) || 0,
+        pitch: parseInt(els.melodyHumanPitch?.value, 10) || 0
+    };
+    state.melody.rules = {
+        stepwise: !!els.melodyRuleStep?.checked,
+        motif: !!els.melodyRuleMotif?.checked,
+        rhythm: !!els.melodyRuleRhythm?.checked,
+        leaps: !!els.melodyRuleLeaps?.checked
+    };
+    if (regenerate) {
+        state.melody.notes = buildMelodySequence();
+        state.melody.stepIndex = 0;
+        updateMelodyPreview();
+        setMelodyEditStep(state.melody.edit.step || 0);
+    }
+}
+
 
 function stopAllArpNotes() {
     if (!state.midi.output) return;
@@ -5502,6 +6506,7 @@ canvas.addEventListener('pointerdown', e => {
     e.preventDefault();
     try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
     requestDraw();
+    state.pointerIds.add(e.pointerId);
     // Add note-dragging class to prevent UI button interference
     document.body.classList.add('note-dragging');
     if (state.audio.enabled) resumeAudioContext().then(updateAudioStatus);
@@ -5509,6 +6514,7 @@ canvas.addEventListener('pointerdown', e => {
     const inUi = els.ui.contains(e.target);
     if (!state.midi.output || (els.ui.classList.contains('active') && e.clientY < (uiRect.height + 5)) || inUi) {
         if (!state.midi.output) els.midiStatus.innerText = 'NESSUN MIDI OUT';
+        state.pointerIds.delete(e.pointerId);
         document.body.classList.remove('note-dragging');
         return;
     }
@@ -5948,8 +6954,9 @@ canvas.addEventListener('pointerup', e => {
         state.activeTouches.delete(e.pointerId);
         cleanupGroupDrag(groupKey);
     }
-    // Remove note-dragging class when no more active touches
-    if (state.activeTouches.size === 0) {
+    state.pointerIds.delete(e.pointerId);
+    // Remove note-dragging class when no more active pointers
+    if (state.pointerIds.size === 0) {
         document.body.classList.remove('note-dragging');
     }
     if (state.audio.enabled && state.audio.wavetable.mode !== 'sampler' && state.activeTouches.size === 0 && !els.holdNotes.checked) {
@@ -5959,8 +6966,14 @@ canvas.addEventListener('pointerup', e => {
 
 function cancelActivePointer(pointerId) {
     try { canvas.releasePointerCapture(pointerId); } catch (err) {}
+    state.pointerIds.delete(pointerId);
     const t = state.activeTouches.get(pointerId);
-    if (!t) return;
+    if (!t) {
+        if (state.pointerIds.size === 0) {
+            document.body.classList.remove('note-dragging');
+        }
+        return;
+    }
     const groupKey = t.groupDragKey;
     if (t.isArp) {
         const keep = els.holdNotes.checked;
@@ -5981,8 +6994,8 @@ function cancelActivePointer(pointerId) {
     state.mpeChannels.sort((a,b)=>a-b);
     state.activeTouches.delete(pointerId);
     cleanupGroupDrag(groupKey);
-    // Remove note-dragging class when no more active touches
-    if (state.activeTouches.size === 0) {
+    // Remove note-dragging class when no more active pointers
+    if (state.pointerIds.size === 0) {
         document.body.classList.remove('note-dragging');
     }
     if (state.audio.enabled && state.audio.wavetable.mode !== 'sampler' && state.activeTouches.size === 0 && !els.holdNotes.checked) {
@@ -6337,6 +7350,8 @@ state.presets = loadPresets();
 state.mpePresets = loadMpePresets();
 state.customScales = loadCustomScales();
 state.fxUserPresets = loadUserFxPresets();
+state.melody.saves = loadMelodySaves();
+refreshMelodySaveSelect(state.melody.saves);
 if (!Object.keys(state.presets).length) {
     const base = getPresetState();
     state.presets = {
@@ -6772,6 +7787,11 @@ function bindUI() {
             state.groupShiftEnabled = false;
             updateGroupShiftUI();
         }
+        if (state.melody.enabled) {
+            state.melody.enabled = false;
+            stopMelodyGenerator();
+            updateMelodyToggleUI();
+        }
         allNotesOff();
         els.midiStatus.innerText = 'STOP';
     };
@@ -6793,8 +7813,226 @@ function bindUI() {
     }
     els.arpGate.onchange = syncArpFromUI;
     els.arpSync.onchange = syncArpFromUI;
-    els.arpBpm.onchange = syncArpFromUI;
+    els.arpBpm.onchange = () => {
+        syncArpFromUI();
+        restartMelodyGenerator();
+    };
     els.arpLatch.onchange = syncArpFromUI;
+    const toggleMelody = () => {
+        state.melody.enabled = !state.melody.enabled;
+        updateMelodyToggleUI();
+        if (state.melody.enabled) {
+            state.melody.notes = buildMelodySequence();
+            updateMelodyPreview();
+            startMelodyGenerator();
+        } else {
+            stopMelodyGenerator();
+        }
+    };
+    if (els.melodyToggle) {
+        updateMelodyToggleUI();
+        els.melodyToggle.onclick = toggleMelody;
+    }
+    if (els.melodyPerfToggle) {
+        updateMelodyToggleUI();
+        els.melodyPerfToggle.onclick = toggleMelody;
+    }
+    if (els.melodyLayerToggle) {
+        updateLayerToggleUI();
+        els.melodyLayerToggle.onclick = () => {
+            state.melody.layer.enabled = !state.melody.layer.enabled;
+            updateLayerToggleUI();
+            updateMelodyFromUI(true);
+            restartMelodyGenerator();
+        };
+    }
+    if (els.melodySeqEditor) {
+        els.melodySeqEditor.onclick = e => {
+            const btn = e.target?.closest('button[data-step]');
+            if (!btn) return;
+            const idx = parseInt(btn.dataset.step, 10);
+            if (Number.isFinite(idx)) setMelodyEditStep(idx);
+        };
+    }
+    document.querySelectorAll('.melody-acc-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const item = btn.closest('.melody-acc-item');
+            if (!item) return;
+            item.classList.toggle('open');
+            setTimeout(resizeMelodyRollCanvas, 0);
+        });
+    });
+    if (els.melodyRollCanvas) {
+        const roll = els.melodyRollCanvas;
+        const drag = { active: false, id: null, lastTapTime: 0, lastStep: null };
+        const updateFromEvent = (e, finalize) => {
+            if (!state.melody.notes.length) {
+                state.melody.notes = buildMelodySequence();
+                updateMelodyPreview();
+            }
+            const rect = roll.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const len = getMelodyRollLength();
+            const fullWidth = Math.max(1, roll.clientWidth || rect.width);
+            const stepIdx = Math.max(0, Math.min(len - 1, Math.floor((x / fullWidth) * len)));
+            const { min, max } = getMelodyRollRange();
+            const span = Math.max(1, max - min);
+            const noteFloat = max - ((y / Math.max(1, rect.height)) * span);
+            const rootNote = getNearestScaleNote(noteFloat);
+            setMelodyEditStep(stepIdx);
+            applyMelodyEdit(stepIdx, rootNote, { live: true, finalize });
+        };
+        roll.addEventListener('pointerdown', e => {
+            e.preventDefault();
+            const rect = roll.getBoundingClientRect();
+            const len = getMelodyRollLength();
+            const fullWidth = Math.max(1, roll.clientWidth || rect.width);
+            const x = e.clientX - rect.left;
+            const stepIdx = Math.max(0, Math.min(len - 1, Math.floor((x / fullWidth) * len)));
+            const now = performance.now();
+            if (drag.lastStep === stepIdx && (now - drag.lastTapTime) < 300) {
+                if (!state.melody.notes.length) {
+                    state.melody.notes = buildMelodySequence();
+                    updateMelodyPreview();
+                }
+                state.melody.notes[stepIdx] = null;
+                updateMelodyPreview();
+                drawMelodyPianoRoll();
+                drag.lastTapTime = 0;
+                drag.lastStep = null;
+                return;
+            }
+            drag.lastTapTime = now;
+            drag.lastStep = stepIdx;
+            drag.active = true;
+            drag.id = e.pointerId;
+            roll.setPointerCapture(e.pointerId);
+            updateFromEvent(e, false);
+        });
+        roll.addEventListener('pointermove', e => {
+            if (!drag.active || drag.id !== e.pointerId) return;
+            updateFromEvent(e, false);
+        });
+        roll.addEventListener('pointerup', e => {
+            if (drag.id !== e.pointerId) return;
+            drag.active = false;
+            drag.id = null;
+            updateFromEvent(e, true);
+            try { roll.releasePointerCapture(e.pointerId); } catch (err) {}
+        });
+        roll.addEventListener('pointercancel', e => {
+            if (drag.id !== e.pointerId) return;
+            drag.active = false;
+            drag.id = null;
+            try { roll.releasePointerCapture(e.pointerId); } catch (err) {}
+        });
+        roll.addEventListener('dblclick', e => {
+            if (!state.melody.notes.length) return;
+            const rect = roll.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const len = getMelodyRollLength();
+            const fullWidth = Math.max(1, roll.clientWidth || rect.width);
+            const stepIdx = Math.max(0, Math.min(len - 1, Math.floor((x / fullWidth) * len)));
+            setMelodyEditStep(stepIdx);
+            state.melody.notes[stepIdx] = null;
+            updateMelodyPreview();
+            drawMelodyPianoRoll();
+        });
+    }
+    if (els.melodyRollZoomH) {
+        els.melodyRollZoomH.value = state.melody.roll.stepPx;
+        els.melodyRollZoomH.oninput = e => {
+            state.melody.roll.stepPx = parseInt(e.target.value, 10) || 20;
+            resizeMelodyRollCanvas();
+        };
+    }
+    if (els.melodyRollZoom) {
+        els.melodyRollZoom.oninput = e => {
+            state.melody.roll.zoom = parseFloat(e.target.value) || 1;
+            resizeMelodyRollCanvas();
+        };
+    }
+    if (els.melodyRollScroll) {
+        els.melodyRollScroll.oninput = e => {
+            state.melody.roll.offset = parseInt(e.target.value, 10) || 0;
+            drawMelodyPianoRoll();
+        };
+    }
+    if (els.melodySaveBtn) {
+        els.melodySaveBtn.onclick = () => {
+            const name = (els.melodySaveName?.value || '').trim();
+            if (!name) return;
+            if (!state.melody.notes.length) {
+                state.melody.notes = buildMelodySequence();
+                updateMelodyPreview();
+            }
+            state.melody.saves[name] = {
+                notes: [...state.melody.notes],
+                length: state.melody.notes.length,
+                rate: state.melody.rate,
+                range: state.melody.range
+            };
+            saveMelodySaves(state.melody.saves);
+            refreshMelodySaveSelect(state.melody.saves, name);
+            if (els.melodySaveName) els.melodySaveName.value = '';
+        };
+    }
+    if (els.melodySaveSelect) {
+        els.melodySaveSelect.onchange = e => {
+            const name = e.target.value;
+            const saved = state.melody.saves?.[name];
+            if (!saved || !Array.isArray(saved.notes)) return;
+            state.melody.notes = [...saved.notes];
+            state.melody.stepIndex = 0;
+            if (els.melodyLength) els.melodyLength.value = saved.length || state.melody.notes.length || 16;
+            if (els.melodyRate && saved.rate) els.melodyRate.value = saved.rate;
+            if (els.melodyRange && saved.range) els.melodyRange.value = saved.range;
+            updateMelodyFromUI(false);
+            updateMelodyPreview();
+            setMelodyEditStep(0);
+            if (state.melody.running) restartMelodyGenerator();
+        };
+    }
+    if (els.melodyGenerate) {
+        els.melodyGenerate.onclick = () => {
+            state.melody.notes = buildMelodySequence();
+            state.melody.stepIndex = 0;
+            updateMelodyPreview();
+            setMelodyEditStep(state.melody.edit.step || 0);
+            restartMelodyGenerator();
+        };
+    }
+    [
+        els.melodyStyle,
+        els.melodyLength,
+        els.melodyRate,
+        els.melodyDensity,
+        els.melodyRange,
+        els.melodySeed,
+        els.melodyCadence,
+        els.melodyRuleStep,
+        els.melodyRuleMotif,
+        els.melodyRuleRhythm,
+        els.melodyRuleLeaps,
+        els.melodyHumanTiming,
+        els.melodyHumanVelocity,
+        els.melodyHumanSwing,
+        els.melodyHumanLegato,
+        els.melodyHumanOrnament,
+        els.melodyHumanPress,
+        els.melodyHumanTimbre,
+        els.melodyHumanPitch,
+        els.melodyMpePerNote,
+        els.melodyLayerMode,
+        els.melodyLayerLevel
+    ].forEach(input => {
+        if (!input) return;
+        input.onchange = () => {
+            updateMelodyFromUI(true);
+            restartMelodyGenerator();
+        };
+    });
     if (els.arpParamsToggle && els.arpParamsPanel) {
         els.arpParamsToggle.onclick = () => {
             els.arpParamsPanel.classList.toggle('hidden');
@@ -7253,6 +8491,7 @@ bindUI();
 initGestureOverlay();
 setupChordKnob();
 setupArpKnob();
+updateMelodyFromUI(true);
 // setupBowButton();
 
 // Applica Init all'avvio DOPO che bindUI() ha inizializzato tutto
@@ -7281,6 +8520,10 @@ function updateScaleNotes() {
     }
     notes.sort((a, b) => a - b);
     state.scaleNotes = { notes, root: def.root, scale: `${def.mode}:${def.name}` };
+    if (state.melody.enabled) {
+        updateMelodyFromUI(true);
+        if (state.melody.running) restartMelodyGenerator();
+    }
     requestDraw();
 }
 
@@ -7614,9 +8857,11 @@ function drawActiveTouches(fadeMul, fadeDrop, height) {
         if (visual.wt || visual.layer) {
             drawWaveformLine(t.lastM.x, y, radius, t.color, t.phase, t.vibratoSpeed);
         }
-        const label = t.isGrab
-            ? "GRAB"
-            : (t.isGroupDrag ? "GROUP" : (t.isArpHoldGrab ? "ARP HOLD" : (t.isArp ? "ARP" : `CH${t.voices[0].chan}`)));
+        const label = t.label
+            ? t.label
+            : (t.isGrab
+                ? "GRAB"
+                : (t.isGroupDrag ? "GROUP" : (t.isArpHoldGrab ? "ARP HOLD" : (t.isArp ? "ARP" : `CH${t.voices[0].chan}`))));
         drawNoteBubble(t.lastM.x, y, radius, t.color, label);
         if (t.isArp && t.arpNotes) {
             t.arpNotes.forEach(n => {
@@ -7628,7 +8873,7 @@ function drawActiveTouches(fadeMul, fadeDrop, height) {
             t.voices.forEach(v => {
                 const noteFloat = getVoiceNoteFloat(v);
                 const nx = getNearestNoteX(noteFloat) ?? t.lastM.x;
-                drawNoteBubble(nx, y, Math.max(8, radius * 0.7), t.color, null);
+                drawNoteBubble(nx, y, Math.max(8, radius * 0.7), v.color || t.color, null);
             });
         }
         ctx.globalAlpha = 1;
@@ -7748,6 +8993,7 @@ function refreshLayout() {
     updateLayoutVars();
     resizeCanvas();
     updateToggleLabels();
+    resizeMelodyRollCanvas();
     requestDraw();
 }
 

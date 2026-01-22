@@ -29,6 +29,7 @@
         <button class="ui-tab active" data-tab="midi">MIDI & SYNTH</button>
         <button class="ui-tab" data-tab="sampler">SAMPLER</button>
         <button class="ui-tab" data-tab="scale">SCALE</button>
+        <button class="ui-tab" data-tab="melody">MELODY</button>
         <button class="ui-tab" data-tab="advanced">ADVANCED</button>
     </div>
 
@@ -242,6 +243,198 @@
         </div>
     </div>
 
+    <!-- === TAB CONTENT: MELODY === -->
+    <div class="ui-tab-content" id="tabMelody" data-tab-content="melody">
+        <div class="melody-accordion">
+            <div class="melody-acc-item open">
+                <button class="melody-acc-toggle" type="button">General</button>
+                <div class="melody-acc-panel">
+                    <div class="ui-group-inline">
+                        <div class="box" style="max-width:120px;">
+                            <label>Generator</label>
+                            <button id="melodyToggle" class="menu-btn toggle-off">MELODY OFF</button>
+                        </div>
+                        <div class="box" style="max-width:120px;">
+                            <label>Layer</label>
+                            <button id="melodyLayerToggle" class="menu-btn toggle-off">LAYER OFF</button>
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Pattern</label>
+                            <select id="melodyStyle">
+                                <option value="smooth">Smooth</option>
+                                <option value="balanced" selected>Balanced</option>
+                                <option value="leaps">Leaps</option>
+                                <option value="arpeggio">Arpeggio</option>
+                                <option value="call">Call/Resp</option>
+                            </select>
+                        </div>
+                        <div class="box" style="max-width:90px;">
+                            <label>Length</label>
+                            <input type="number" id="melodyLength" min="4" max="64" value="16">
+                        </div>
+                        <div class="box" style="max-width:110px;">
+                            <label>Rate</label>
+                            <select id="melodyRate">
+                                <option value="1/4">1/4</option>
+                                <option value="1/8">1/8</option>
+                                <option value="1/8T">1/8T</option>
+                                <option value="1/16" selected>1/16</option>
+                                <option value="1/16T">1/16T</option>
+                                <option value="1/32">1/32</option>
+                            </select>
+                        </div>
+                        <div class="box" style="max-width:130px;">
+                            <label>Density</label>
+                            <input type="range" id="melodyDensity" min="20" max="100" value="80">
+                        </div>
+                    </div>
+                    <div class="ui-group-inline">
+                        <div class="box" style="max-width:130px;">
+                            <label>Range (st)</label>
+                            <input type="number" id="melodyRange" min="5" max="36" value="14">
+                        </div>
+                        <div class="box" style="max-width:120px;">
+                            <label>Seed</label>
+                            <input type="number" id="melodySeed" min="1" max="9999" value="1">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Cadence</label>
+                            <select id="melodyCadence">
+                                <option value="tonic" selected>Tonic</option>
+                                <option value="dominant">Dominant</option>
+                                <option value="none">None</option>
+                            </select>
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Actions</label>
+                            <button id="melodyGenerate" class="menu-btn btn-accent">GENERATE</button>
+                        </div>
+                        <div class="box" style="max-width:150px;">
+                            <label>Layer Mode</label>
+                            <select id="melodyLayerMode">
+                                <option value="third">Third</option>
+                                <option value="fifth">Fifth</option>
+                                <option value="octave">Octave</option>
+                                <option value="triad" selected>Triad</option>
+                            </select>
+                        </div>
+                        <div class="box" style="max-width:120px;">
+                            <label>Layer Level</label>
+                            <input type="range" id="melodyLayerLevel" min="30" max="110" value="70">
+                        </div>
+                    </div>
+                    <div class="ui-group-inline">
+                        <div class="box" style="min-width:220px;">
+                            <label>Phrase</label>
+                            <div id="melodyPreview" style="font-size:11px; color:#9aa; max-width:520px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">&nbsp;</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="melody-acc-item">
+                <button class="melody-acc-toggle" type="button">Rules</button>
+                <div class="melody-acc-panel">
+                    <div class="ui-group-inline">
+                        <div class="box melody-rules">
+                            <label>Rules</label>
+                            <label><input type="checkbox" id="melodyRuleStep"> piu note congiunte e poche ripetizioni</label>
+                            <label><input type="checkbox" id="melodyRuleMotif"> piu ripetizioni e motivi brevi</label>
+                            <label><input type="checkbox" id="melodyRuleRhythm"> pattern ritmici (es. sincopi/pausa regolare)</label>
+                            <label><input type="checkbox" id="melodyRuleLeaps"> salti piu ampi con rientro</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="melody-acc-item">
+                <button class="melody-acc-toggle" type="button">Humanize</button>
+                <div class="melody-acc-panel">
+                    <div class="ui-group-inline">
+                        <div class="box" style="max-width:140px;">
+                            <label>Timing (ms)</label>
+                            <input type="range" id="melodyHumanTiming" min="0" max="30" step="1" value="8">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Velocity</label>
+                            <input type="range" id="melodyHumanVelocity" min="0" max="60" step="1" value="20">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Swing (%)</label>
+                            <input type="range" id="melodyHumanSwing" min="0" max="60" step="1" value="10">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Legato (%)</label>
+                            <input type="range" id="melodyHumanLegato" min="0" max="100" step="1" value="70">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Ornamenti (%)</label>
+                            <input type="range" id="melodyHumanOrnament" min="0" max="40" step="1" value="10">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>MPE Press</label>
+                            <input type="range" id="melodyHumanPress" min="0" max="40" step="1" value="12">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>MPE Timbre</label>
+                            <input type="range" id="melodyHumanTimbre" min="0" max="80" step="1" value="20">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Pitch Bend</label>
+                            <input type="range" id="melodyHumanPitch" min="0" max="40" step="1" value="10">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>MPE per nota</label>
+                            <input type="checkbox" id="melodyMpePerNote">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="melody-acc-item">
+                <button class="melody-acc-toggle" type="button">Edit & Sequence</button>
+                <div class="melody-acc-panel">
+                    <div class="ui-group-inline melody-roll-tools">
+                        <div class="box" style="max-width:140px;">
+                            <label>Zoom H</label>
+                            <input type="range" id="melodyRollZoomH" min="8" max="80" step="1" value="20">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Zoom V</label>
+                            <input type="range" id="melodyRollZoom" min="0.6" max="2.5" step="0.1" value="1">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Scroll</label>
+                            <input type="range" id="melodyRollScroll" min="-24" max="24" step="1" value="0">
+                        </div>
+                        <div class="box" style="min-width:240px; max-width:none; flex:2 1 240px;">
+                            <label>Save Melody</label>
+                            <div class="melody-save-inline">
+                                <input type="text" id="melodySaveName" placeholder="Nome">
+                                <button id="melodySaveBtn" class="menu-btn btn-accent">SAVE</button>
+                            </div>
+                        </div>
+                        <div class="box" style="min-width:200px; max-width:none; flex:1 1 200px;">
+                            <label>Load Melody</label>
+                            <select id="melodySaveSelect"></select>
+                        </div>
+                    </div>
+                    <div class="ui-group-inline">
+                        <div class="box melody-roll-box">
+                            <label>Piano Roll</label>
+                            <div id="melodyRollScrollWrap" class="melody-roll-scroll">
+                                <canvas id="melodyRollCanvas" class="melody-roll" height="520"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ui-group-inline">
+                        <div class="box" style="min-width:260px;">
+                            <label>Sequence</label>
+                            <div id="melodySeqEditor" style="display:flex; flex-wrap:wrap; gap:4px; max-width:520px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- === TAB CONTENT: ADVANCED (just the tab button triggers row 2) === -->
     <div class="ui-tab-content" id="tabAdvanced" data-tab-content="advanced">
         <!-- Row 2: Sub-tabs for advanced sections -->
@@ -348,6 +541,70 @@
                 </div>
             </div>
         </div>
+        <!-- OLD MELODY BLOCK REMOVED
+
+                    <label><input type="checkbox" id="melodyRuleStep"> più note congiunte e poche ripetizioni</label>
+                    <label><input type="checkbox" id="melodyRuleMotif"> più ripetizioni e motivi brevi</label>
+                    <label><input type="checkbox" id="melodyRuleRhythm"> pattern ritmici (es. sincopi/pausa regolare)</label>
+                    <label><input type="checkbox" id="melodyRuleLeaps"> salti più ampi con rientro</label>
+                </div>
+            </div>
+                </div>
+            </div>
+            <div class="melody-acc-item">
+                <button class="melody-acc-toggle" type="button">Layers & Drone</button>
+                <div class="melody-acc-panel">
+            <div class="ui-group-inline">
+                <div class="box" style="max-width:120px;">
+                    <label>Layer</label>
+                    <button id="melodyLayerToggle" class="menu-btn toggle-off">LAYER OFF</button>
+                </div>
+                <div class="box" style="max-width:150px;">
+                    <label>Layer Mode</label>
+                    <select id="melodyLayerMode">
+                        <option value="third">Third</option>
+                        <option value="fifth">Fifth</option>
+                        <option value="octave">Octave</option>
+                        <option value="triad" selected>Triad</option>
+                    </select>
+                </div>
+                <div class="box" style="max-width:120px;">
+                    <label>Layer Level</label>
+                    <input type="range" id="melodyLayerLevel" min="30" max="110" value="70">
+                </div>
+            </div>
+                </div>
+            </div>
+            <div class="melody-acc-item">
+                <button class="melody-acc-toggle" type="button">Edit & Sequence</button>
+                <div class="melody-acc-panel">
+            <div class="ui-group-inline">
+                <div class="box" style="max-width:140px;">
+                    <label>Edit</label>
+                    <button id="melodyEditToggle" class="menu-btn toggle-off">EDIT OFF</button>
+                </div>
+                <div class="box" style="max-width:110px;">
+                    <label>Step</label>
+                    <input type="number" id="melodyEditStep" min="1" max="64" value="1">
+                </div>
+            </div>
+            <div class="ui-group-inline">
+                <div class="box melody-roll-box">
+                    <label>Piano Roll</label>
+                    <canvas id="melodyRollCanvas" class="melody-roll" height="120"></canvas>
+                </div>
+            </div>
+            <div class="ui-group-inline">
+                <div class="box" style="min-width:260px;">
+                    <label>Sequence</label>
+                    <div id="melodySeqEditor" style="display:flex; flex-wrap:wrap; gap:4px; max-width:520px;"></div>
+                </div>
+            </div>
+                </div>
+            </div>
+        </div>
+        </div>
+        -->
     </div><!-- end #tabAdvanced -->
 </div><!-- end #ui -->
 
@@ -362,6 +619,7 @@
     </div>
     <button id="groupShiftBtn" class="perf-btn toggle-btn" title="Group Shift">GROUP</button>
     <button id="overlayToggle" class="perf-btn toggle-btn" title="Gesture Overlay">MIX</button>
+    <button id="melodyPerfToggle" class="perf-btn toggle-btn" title="Melody Generator">MELODY</button>
     <!-- Chord Knob - visible in compact mode -->
     <div id="chordWheel" class="perf-knob compact-essential" title="Rotate to change chord">Off</div>
     <!-- Chord Select - visible in compact mode -->
