@@ -204,6 +204,24 @@ body {
     display: block;
     margin-top: 4px;
 }
+.melody-legend {
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 12px;
+    color: #b7c1cc;
+}
+.legend-inline {
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 12px;
+    color: #b7c1cc;
+}
 .melody-roll-box {
     min-width: 0;
     max-width: none;

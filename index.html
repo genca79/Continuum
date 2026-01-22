@@ -11,26 +11,26 @@
 <body>
 
 <!-- uiToggle removed: replaced by gear settings button (#setToggle) -->
-<button id="perfToggle" class="menu-btn btn-accent" title="Toggle Performance"><span class="btn-icon">▶</span></button>
-<button id="setToggle" class="menu-btn" title="Settings" aria-label="Settings"></button>
-<button id="fsBtn" class="menu-btn" title="Full Screen" aria-label="Full Screen"><span class="btn-icon">⛶</span></button>
-<a id="guideBtn" class="menu-btn btn-accent" href="Guide.html" target="_blank" rel="noopener" title="Manuale Utente"><span class="btn-text">?</span></a>
+<button id="perfToggle" class="menu-btn btn-accent" title="Toggle Performance" data-legend="Toggle the performance bar (bottom controls)." data-legend-group="top"><span class="btn-icon">▶</span></button>
+<button id="setToggle" class="menu-btn" title="Settings" aria-label="Settings" data-legend="Open or close the settings panel." data-legend-group="top"></button>
+<button id="fsBtn" class="menu-btn" title="Full Screen" aria-label="Full Screen" data-legend="Toggle fullscreen mode." data-legend-group="top"><span class="btn-icon">⛶</span></button>
+<a id="guideBtn" class="menu-btn btn-accent" href="Guide.html" target="_blank" rel="noopener" title="User Guide" data-legend="Open the user guide in a new tab." data-legend-group="top"><span class="btn-text">?</span></a>
 
 <!-- Audio Recorder Controls -->
 <div id="recControls" class="rec-controls-bar">
-    <button id="recStartBtn" class="menu-btn btn-rec" title="Start Recording"><span class="btn-icon">●</span></button>
-    <button id="recStopBtn" class="menu-btn btn-stop" title="Stop & Save" disabled><span class="btn-icon">■</span></button>
+    <button id="recStartBtn" class="menu-btn btn-rec" title="Start Recording" data-legend="Start recording the internal audio." data-legend-group="top"><span class="btn-icon">●</span></button>
+    <button id="recStopBtn" class="menu-btn btn-stop" title="Stop & Save" disabled data-legend="Stop recording and save the take." data-legend-group="top"><span class="btn-icon">■</span></button>
     <span id="recTimer" class="rec-timer">00:00</span>
 </div>
 
 <div id="ui">
     <!-- === ROW 1: MAIN TABS (always visible when ui is open) === -->
     <div class="ui-tabs-row" id="mainTabsRow">
-        <button class="ui-tab active" data-tab="midi">MIDI & SYNTH</button>
-        <button class="ui-tab" data-tab="sampler">SAMPLER</button>
-        <button class="ui-tab" data-tab="scale">SCALE</button>
-        <button class="ui-tab" data-tab="melody">MELODY</button>
-        <button class="ui-tab" data-tab="advanced">ADVANCED</button>
+        <button class="ui-tab active" data-tab="midi" data-legend="MIDI & SYNTH: routing, internal synth settings, and input/output." data-legend-group="tabs">MIDI & SYNTH</button>
+        <button class="ui-tab" data-tab="sampler" data-legend="SAMPLER: load samples, sets, and sampler options." data-legend-group="tabs">SAMPLER</button>
+        <button class="ui-tab" data-tab="scale" data-legend="SCALE: tuning, scale selection, and microtonal settings." data-legend-group="tabs">SCALE</button>
+        <button class="ui-tab" data-tab="melody" data-legend="MELODY: generator, humanize, and sequence tools." data-legend-group="tabs">MELODY</button>
+        <button class="ui-tab" data-tab="advanced" data-legend="ADVANCED: MPE presets, sampler tools, and extra settings." data-legend-group="tabs">ADVANCED</button>
     </div>
 
     <!-- === TAB CONTENT: MIDI === -->
@@ -329,6 +329,7 @@
                             <div id="melodyPreview" style="font-size:11px; color:#9aa; max-width:520px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">&nbsp;</div>
                         </div>
                     </div>
+                    <div id="melodyHumanLegend" class="melody-legend">Tap a control to see its description.</div>
                 </div>
             </div>
             <div class="melody-acc-item">
@@ -380,6 +381,14 @@
                         <div class="box" style="max-width:140px;">
                             <label>Pitch Bend</label>
                             <input type="range" id="melodyHumanPitch" min="0" max="40" step="1" value="10">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Y virtual motion</label>
+                            <input type="range" id="melodyHumanYMotion" min="0" max="100" step="1" value="35">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Y motion on</label>
+                            <input type="checkbox" id="melodyHumanYMotionToggle" checked>
                         </div>
                         <div class="box" style="max-width:140px;">
                             <label>MPE per nota</label>
@@ -613,17 +622,17 @@
 <div id="performance">
     <div class="perf-group">
         <span class="perf-label">Transpose</span>
-        <button class="perf-btn" id="octDownBtn" title="Oct -">&lt;</button>
+        <button class="perf-btn" id="octDownBtn" title="Oct -" data-legend="Transpose one octave down." data-legend-group="perf">&lt;</button>
         <span class="perf-value" id="octVal">0</span>
-        <button class="perf-btn" id="octUpBtn" title="Oct +">&gt;</button>
+        <button class="perf-btn" id="octUpBtn" title="Oct +" data-legend="Transpose one octave up." data-legend-group="perf">&gt;</button>
     </div>
-    <button id="groupShiftBtn" class="perf-btn toggle-btn" title="Group Shift">GROUP</button>
-    <button id="overlayToggle" class="perf-btn toggle-btn" title="Gesture Overlay">MIX</button>
-    <button id="melodyPerfToggle" class="perf-btn toggle-btn" title="Melody Generator">MELODY</button>
+    <button id="groupShiftBtn" class="perf-btn toggle-btn" title="Group Shift" data-legend="Enable group shift drag for held notes." data-legend-group="perf">GROUP</button>
+    <button id="overlayToggle" class="perf-btn toggle-btn" title="Gesture Overlay" data-legend="Toggle the MIX overlay faders." data-legend-group="perf">MIX</button>
+    <button id="melodyPerfToggle" class="perf-btn toggle-btn" title="Melody Generator" data-legend="Toggle the melody generator." data-legend-group="perf">MELODY</button>
     <!-- Chord Knob - visible in compact mode -->
-    <div id="chordWheel" class="perf-knob compact-essential" title="Rotate to change chord">Off</div>
+    <div id="chordWheel" class="perf-knob compact-essential" title="Rotate to change chord" data-legend="Rotate to change chord type." data-legend-group="perf">Off</div>
     <!-- Chord Select - visible in compact mode -->
-    <select id="chordMode" class="compact-essential" title="Chords" data-param="chordMode">
+    <select id="chordMode" class="compact-essential" title="Chords" data-param="chordMode" data-legend="Select chord mode." data-legend-group="perf">
         <option value="off">Off</option>
         <option value="auto">Auto (Diatonic)</option>
         <option value="auto7">Auto (Diatonic 7th)</option>
@@ -647,18 +656,18 @@
         <option value="eleventh">11th</option>
         <option value="thirteenth">13th</option>
     </select>
-    <button id="holdBtn" class="perf-btn toggle-btn has-led compact-essential" title="Hold"><span class="led"></span>HOLD</button>
+    <button id="holdBtn" class="perf-btn toggle-btn has-led compact-essential" title="Hold" data-legend="Hold notes so they keep playing." data-legend-group="perf"><span class="led"></span>HOLD</button>
     <input type="checkbox" id="holdNotes" style="display:none" data-param="holdNotes">
-    <button id="panicBtn" class="perf-btn btn-danger compact-essential" title="Stop">STOP</button>
+    <button id="panicBtn" class="perf-btn btn-danger compact-essential" title="Stop" data-legend="Stop all notes immediately." data-legend-group="perf">STOP</button>
     <div class="perf-group">
-        <button id="fadeBtn" class="perf-btn toggle-btn" title="Fade Out">⇣ FADE</button>
-        <input type="number" id="fadeSeconds" min="1" max="20" value="4">
+        <button id="fadeBtn" class="perf-btn toggle-btn" title="Fade Out" data-legend="Fade out all active notes." data-legend-group="perf">⇣ FADE</button>
+        <input type="number" id="fadeSeconds" min="1" max="20" value="4" data-legend="Set fade duration in seconds." data-legend-group="perf">
         <span class="perf-label">sec</span>
     </div>
     <!-- ARP Knob - visible in compact mode -->
-    <div id="arpWheel" class="perf-knob compact-essential" title="Rotate to change rate">Off</div>
+    <div id="arpWheel" class="perf-knob compact-essential" title="Rotate to change rate" data-legend="Rotate to change ARP rate." data-legend-group="perf">Off</div>
     <!-- ARP Rate Select - visible in compact mode -->
-    <select id="arpRateSelect" class="perf-select compact-essential" title="ARP Rate">
+    <select id="arpRateSelect" class="perf-select compact-essential" title="ARP Rate" data-legend="Select ARP rate." data-legend-group="perf">
         <option value="1/4">1/4</option>
         <option value="1/8">1/8</option>
         <option value="1/8T">1/8T</option>
@@ -667,8 +676,8 @@
         <option value="1/32">1/32</option>
     </select>
     <div class="perf-group">
-        <button id="fxToggle" class="perf-btn" title="FX Panel">FX</button>
-        <select id="fxPresetQuick"></select>
+        <button id="fxToggle" class="perf-btn" title="FX Panel" data-legend="Open the FX panel." data-legend-group="perf">FX</button>
+        <select id="fxPresetQuick" data-legend="Quick FX preset selection." data-legend-group="perf"></select>
     </div>
     <input type="checkbox" id="arpEnabled" data-param="arpEnabled" style="display:none">
     <input type="checkbox" id="arpLatch" data-param="arpLatch" style="display:none">

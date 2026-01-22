@@ -191,6 +191,8 @@ const els = {
     melodyHumanPress: document.getElementById('melodyHumanPress'),
     melodyHumanTimbre: document.getElementById('melodyHumanTimbre'),
     melodyHumanPitch: document.getElementById('melodyHumanPitch'),
+    melodyHumanYMotion: document.getElementById('melodyHumanYMotion'),
+    melodyHumanYMotionToggle: document.getElementById('melodyHumanYMotionToggle'),
     melodyMpePerNote: document.getElementById('melodyMpePerNote'),
     melodyLayerToggle: document.getElementById('melodyLayerToggle'),
     melodyLayerMode: document.getElementById('melodyLayerMode'),
@@ -577,6 +579,8 @@ const state = {
         chan: 1,
         mpePerNote: false,
         lastVoices: [],
+        virtualPhase: null,
+        lastVirtualY: null,
         layer: {
             enabled: false,
             mode: 'triad',
@@ -605,7 +609,9 @@ const state = {
             ornament: 10,
             press: 12,
             timbre: 20,
-            pitch: 10
+            pitch: 10,
+            yMotion: 35,
+            yMotionEnabled: true
         },
         pendingTimers: [],
         saves: {}
@@ -4677,7 +4683,7 @@ function getMelodyNotesForRoot(rootNote) {
     return [rootNote, ...layerNotes].filter((n, idx, arr) => arr.indexOf(n) === idx);
 }
 
-function setSyntheticTouch(key, notes, label, voicesOverride = null) {
+function setSyntheticTouch(key, notes, label, voicesOverride = null, yOverride = null) {
     if (!notes || !notes.length) {
         if (state.activeTouches.has(key)) {
             state.activeTouches.delete(key);
@@ -4687,10 +4693,17 @@ function setSyntheticTouch(key, notes, label, voicesOverride = null) {
     }
     updateGridCache();
     const height = Math.floor(state.canvasRect.height || canvas.getBoundingClientRect().height || 0);
-    const y = label === 'DRONE' ? height * 0.82 : height * 0.62;
+    let y = label === 'DRONE' ? height * 0.82 : height * 0.62;
+    let press = 90;
+    let slide = 0;
+    if (Number.isFinite(yOverride)) {
+        const yNorm = Math.max(0, Math.min(1, yOverride));
+        y = height * (1 - yNorm);
+        press = Math.round(yNorm * 127);
+        slide = press;
+    }
     const xs = notes.map(n => getNearestNoteX(n)).filter(v => v != null);
     const x = xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : (state.canvasRect.width / 2);
-    const press = 90;
     const voices = voicesOverride
         ? voicesOverride.map(v => ({
             chan: v.chan,
@@ -4709,7 +4722,7 @@ function setSyntheticTouch(key, notes, label, voicesOverride = null) {
         vibratoSpeed: 0
     };
     entry.voices = voices;
-    entry.lastM = { x, y, press, slide: 0, pbValue: 8192, exact: notes[0] };
+    entry.lastM = { x, y, press, slide, pbValue: 8192, exact: notes[0] };
     entry.color = getNoteColor(notes[0]);
     entry.label = label;
     entry.isSynthetic = true;
@@ -4953,6 +4966,27 @@ function randomCurve(scale, curve = 1.6) {
     return shaped * scale;
 }
 
+function getMelodyVirtualY() {
+    if (!Number.isFinite(state.melody.virtualPhase)) {
+        state.melody.virtualPhase = (state.melody.seed || 1) * 0.37;
+    }
+    const timing = Math.max(0, state.melody.humanize?.timing || 0);
+    const yMotion = Math.max(0, Math.min(100, state.melody.humanize?.yMotion ?? 35));
+    if (!state.melody.humanize?.yMotionEnabled || yMotion === 0) {
+        state.melody.lastVirtualY = 0.5;
+        return 0.5;
+    }
+    const speed = 0.2 + (Math.min(30, timing) / 30) * (0.1 + (yMotion / 100) * 0.4);
+    state.melody.virtualPhase += speed;
+    const amp = 0.25 + (yMotion / 100) * 0.6;
+    const wobbleA = Math.sin(state.melody.virtualPhase);
+    const wobbleB = Math.sin(state.melody.virtualPhase * 0.5 + 1.7) * 0.35;
+    const wobble = (wobbleA + wobbleB) * 0.5;
+    const yNorm = Math.max(0, Math.min(1, 0.5 + wobble * amp));
+    state.melody.lastVirtualY = yNorm;
+    return yNorm;
+}
+
 function applyMelodyMpe(chan, press, slide, pbValue) {
     const ch = Math.max(1, Math.min(16, chan));
     const sendOut = state.midi.hardwareOutput ? sendMidiHardware : sendMidi;
@@ -5083,6 +5117,8 @@ function stopMelodyGenerator() {
     state.melody.lastNotes = [];
     state.melody.lastNote = null;
     state.melody.lastVoices = [];
+    state.melody.virtualPhase = null;
+    state.melody.lastVirtualY = null;
     setSyntheticTouch('melody', [], 'MELODY');
 }
 
@@ -5118,8 +5154,11 @@ function melodyStep() {
         const pressBase = 90;
         const timbreBase = 64;
         const curve = 1.7;
-        const press = pressBase + randomCurve(pressRange, curve);
-        const slide = timbreBase + randomCurve(timbreRange, curve);
+        const virtualY = getMelodyVirtualY();
+        const pressJitter = pressRange ? randomCurve(pressRange * 0.15, curve) : 0;
+        const timbreJitter = timbreRange ? randomCurve(timbreRange * 0.12, curve) : 0;
+        const press = pressBase + ((virtualY - 0.5) * (pressRange * 2)) + pressJitter;
+        const slide = timbreBase + ((virtualY - 0.5) * (timbreRange * 2)) + timbreJitter;
         let pbValue = 8192;
         if (pitchRange > 0) {
             const pbSemis = parseInt(els.pbRange?.value, 10) || 12;
@@ -5127,6 +5166,7 @@ function melodyStep() {
             const offset = randomCurve(1, curve) * (8192 * (maxSemis / pbSemis));
             pbValue = 8192 + offset;
         }
+        const virtualYNorm = Math.max(0, Math.min(1, slide / 127));
         const notesToPlay = updateMelodyLiveNotes(note, {
             minRelease: MELODY_MIN_RELEASE,
             holdSame: true,
@@ -5135,7 +5175,8 @@ function melodyStep() {
             press,
             slide,
             pbValue,
-            jitterCurve: curve
+            jitterCurve: curve,
+            virtualY: virtualYNorm
         });
         if (ornamentPct > 0 && Math.random() < (ornamentPct / 100)) {
             const dir = Math.random() < 0.5 ? -1 : 1;
@@ -5390,6 +5431,7 @@ function updateMelodyLiveNotes(rootNote, options = {}) {
     const press = options.press;
     const slide = options.slide;
     const pbValue = options.pbValue;
+    const virtualY = Number.isFinite(options.virtualY) ? options.virtualY : null;
     const jitterCurve = Number.isFinite(options.jitterCurve) ? options.jitterCurve : 1.6;
     if (!sameNotes) {
         if (state.melody.lastNotes?.length) {
@@ -5405,11 +5447,13 @@ function updateMelodyLiveNotes(rootNote, options = {}) {
             voices.forEach((v, idx) => {
                 const base = idx === 0 ? 90 : Math.max(20, Math.min(110, state.melody.layer.level));
                 const jitter = velocityJitter ? Math.round(randomCurve(velocityJitter, jitterCurve)) : 0;
-                const velocity = Math.max(1, Math.min(127, base + jitter));
+                const yVel = Number.isFinite(virtualY) ? Math.round((virtualY - 0.5) * 2 * velocityJitter) : 0;
+                const velocity = Math.max(1, Math.min(127, base + jitter + yVel));
                 void noteOnInternal(v.note, velocity, v.chan);
                 sendMidiHardware([0x90 + v.chan - 1, v.note, velocity]);
             });
-            setSyntheticTouch('melody', notesToPlay, 'MELODY', voices);
+            state.melody.lastVirtualY = virtualY ?? state.melody.lastVirtualY;
+            setSyntheticTouch('melody', notesToPlay, 'MELODY', voices, state.melody.lastVirtualY);
         };
         if (delayMs > 0) {
             const t = setTimeout(fireNotes, delayMs);
@@ -5425,7 +5469,8 @@ function updateMelodyLiveNotes(rootNote, options = {}) {
             if (state.melody.mpePerNote) applyMelodyMpeToVoices(state.melody.lastVoices, press, slide, pbValue);
             else applyMelodyMpe(state.melody.chan, press, slide, pbValue);
         }
-        setSyntheticTouch('melody', notesToPlay, 'MELODY', state.melody.lastVoices);
+        state.melody.lastVirtualY = virtualY ?? state.melody.lastVirtualY;
+        setSyntheticTouch('melody', notesToPlay, 'MELODY', state.melody.lastVoices, state.melody.lastVirtualY);
     }
     return notesToPlay;
 }
@@ -5467,7 +5512,9 @@ function updateMelodyFromUI(regenerate = false) {
         ornament: parseInt(els.melodyHumanOrnament?.value, 10) || 0,
         press: parseInt(els.melodyHumanPress?.value, 10) || 0,
         timbre: parseInt(els.melodyHumanTimbre?.value, 10) || 0,
-        pitch: parseInt(els.melodyHumanPitch?.value, 10) || 0
+        pitch: parseInt(els.melodyHumanPitch?.value, 10) || 0,
+        yMotion: parseInt(els.melodyHumanYMotion?.value, 10) || 0,
+        yMotionEnabled: !!els.melodyHumanYMotionToggle?.checked
     };
     state.melody.rules = {
         stepwise: !!els.melodyRuleStep?.checked,
@@ -8003,6 +8050,55 @@ function bindUI() {
             restartMelodyGenerator();
         };
     }
+    const melodyLegend = document.getElementById('melodyHumanLegend');
+    const melodyLegendMap = new Map([
+        [els.melodyToggle, 'Melody on/off: start or stop the generator.'],
+        [els.melodyGenerate, 'Generate: create a new melody using the current settings.'],
+        [els.melodyStyle, 'Style: changes step tendencies (smooth, balanced, leaps, call).'],
+        [els.melodyLength, 'Length: number of steps in the melody sequence.'],
+        [els.melodyRate, 'Rate: step speed of the melody.'],
+        [els.melodyDensity, 'Density: probability that a step produces a note.'],
+        [els.melodyRange, 'Range: pitch span around the current octave/root.'],
+        [els.melodySeed, 'Seed: random seed for repeatable melodies.'],
+        [els.melodyCadence, 'Cadence: forces the ending note (tonic/dominant/none).'],
+        [els.melodyRuleStep, 'Rule: prefer stepwise motion, fewer repeats.'],
+        [els.melodyRuleMotif, 'Rule: repeat short motifs more often.'],
+        [els.melodyRuleRhythm, 'Rule: apply rhythmic masks/syncopation.'],
+        [els.melodyRuleLeaps, 'Rule: allow larger leaps with return motion.'],
+        [els.melodyLayerToggle, 'Layer on/off: add extra harmony notes.'],
+        [els.melodyLayerMode, 'Layer mode: chord shape for added notes.'],
+        [els.melodyLayerLevel, 'Layer level: velocity of harmony notes.'],
+        [els.melodyHumanTiming, 'Timing: shifts note timing forward/backward in milliseconds.'],
+        [els.melodyHumanVelocity, 'Velocity: dynamic variation of note intensity.'],
+        [els.melodyHumanSwing, 'Swing: offsets even steps for a more human feel.'],
+        [els.melodyHumanLegato, 'Legato: lengthens or shortens note duration.'],
+        [els.melodyHumanOrnament, 'Ornaments: adds grace/neighbor notes.'],
+        [els.melodyHumanPress, 'MPE Press: aftertouch pressure for timbre/volume.'],
+        [els.melodyHumanTimbre, 'MPE Timbre: CC74 (Y axis) timbre control.'],
+        [els.melodyHumanPitch, 'Pitch Bend: micro pitch variation.'],
+        [els.melodyHumanYMotion, 'Y virtual motion: amount of virtual Y movement.'],
+        [els.melodyHumanYMotionToggle, 'Y motion on: enable/disable virtual Y movement.'],
+        [els.melodyMpePerNote, 'MPE per note: one channel per note (per-note expression).']
+    ]);
+    const showMelodyLegend = el => {
+        if (!melodyLegend || !el || !melodyLegendMap.has(el)) return;
+        melodyLegend.textContent = melodyLegendMap.get(el);
+    };
+    melodyLegendMap.forEach((_, el) => {
+        if (!el) return;
+        el.addEventListener('pointerdown', () => showMelodyLegend(el));
+        el.addEventListener('focus', () => showMelodyLegend(el));
+        el.addEventListener('input', () => showMelodyLegend(el));
+    });
+    const syncMelodyYMotionToggle = () => {
+        if (!els.melodyHumanYMotion || !els.melodyHumanYMotionToggle) return;
+        const enabled = !!els.melodyHumanYMotionToggle.checked;
+        els.melodyHumanYMotion.disabled = !enabled;
+    };
+    if (els.melodyHumanYMotionToggle) {
+        els.melodyHumanYMotionToggle.addEventListener('change', syncMelodyYMotionToggle);
+    }
+    syncMelodyYMotionToggle();
     [
         els.melodyStyle,
         els.melodyLength,
@@ -8023,6 +8119,8 @@ function bindUI() {
         els.melodyHumanPress,
         els.melodyHumanTimbre,
         els.melodyHumanPitch,
+        els.melodyHumanYMotion,
+        els.melodyHumanYMotionToggle,
         els.melodyMpePerNote,
         els.melodyLayerMode,
         els.melodyLayerLevel
