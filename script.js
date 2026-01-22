@@ -199,6 +199,10 @@ const els = {
     melodyImportStatus: document.getElementById('melodyImportStatus'),
     melodyImportAdvancedBtn: document.getElementById('melodyImportAdvancedBtn'),
     melodyImportAdvancedStatus: document.getElementById('melodyImportAdvancedStatus'),
+    melodyContinueBtn: document.getElementById('melodyContinueBtn'),
+    melodyContinueSteps: document.getElementById('melodyContinueSteps'),
+    melodyContinueTemp: document.getElementById('melodyContinueTemp'),
+    melodyContinueStatus: document.getElementById('melodyContinueStatus'),
     melodyLayerToggle: document.getElementById('melodyLayerToggle'),
     melodyLayerMode: document.getElementById('melodyLayerMode'),
     melodyLayerLevel: document.getElementById('melodyLayerLevel'),
@@ -4965,6 +4969,8 @@ const MELODY_MIN_RELEASE = 0.06;
 let essentiaInstance = null;
 let magentaModel = null;
 let magentaLoadPromise = null;
+let musicRnnModel = null;
+let musicRnnLoadPromise = null;
 
 function melodyNotesMatch(a, b) {
     if (!a || !b || a.length !== b.length) return false;
@@ -5004,14 +5010,32 @@ function loadScriptOnce(src) {
     });
 }
 
+async function ensureMagentaScripts() {
+    if (!window.mm) {
+        await loadScriptOnce('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.7.0/dist/tf.min.js');
+        await loadScriptOnce('https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/dist/magentamusic.min.js');
+    }
+    if (!window.mm) throw new Error('Magenta not available');
+    if (window.tf?.ready) {
+        await window.tf.ready();
+    }
+    if (window.tf?.setBackend && window.tf?.getBackend) {
+        const currentBackend = window.tf.getBackend();
+        if (!currentBackend || currentBackend === 'cpu') {
+            try {
+                await window.tf.setBackend('webgl');
+                await window.tf.ready();
+            } catch (err) {
+                console.warn('TFJS backend switch failed', err);
+            }
+        }
+    }
+}
+
 async function loadMagenta() {
     if (magentaLoadPromise) return magentaLoadPromise;
     magentaLoadPromise = (async () => {
-        if (!window.mm) {
-            await loadScriptOnce('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js');
-            await loadScriptOnce('https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/dist/magentamusic.min.js');
-        }
-        if (!window.mm) throw new Error('Magenta not available');
+        await ensureMagentaScripts();
         if (!magentaModel) {
             const checkpoints = [
                 'https://storage.googleapis.com/magentadata/js/checkpoints/transcription/onsets_frames_uni_q2',
@@ -5034,6 +5058,64 @@ async function loadMagenta() {
         return magentaModel;
     })();
     return magentaLoadPromise;
+}
+
+async function loadMusicRnn() {
+    if (musicRnnLoadPromise) return musicRnnLoadPromise;
+    musicRnnLoadPromise = (async () => {
+        await ensureMagentaScripts();
+        if (!musicRnnModel) {
+            const checkpoint = 'https://storage.googleapis.com/magentadata/js/checkpoints/music_rnn/basic_rnn';
+            musicRnnModel = new window.mm.MusicRNN(checkpoint);
+            await musicRnnModel.initialize();
+        }
+        return musicRnnModel;
+    })();
+    return musicRnnLoadPromise;
+}
+
+function buildQuantizedSeedFromMelody(seedSteps) {
+    const notes = Array.isArray(state.melody.notes) ? state.melody.notes : [];
+    if (!notes.length) return null;
+    const steps = Math.max(4, Math.min(seedSteps || notes.length, notes.length));
+    const startIndex = Math.max(0, notes.length - steps);
+    const seqNotes = [];
+    for (let i = startIndex; i < notes.length; i += 1) {
+        const pitch = notes[i];
+        if (pitch == null || Number.isNaN(pitch)) continue;
+        const quantizedStartStep = i - startIndex;
+        seqNotes.push({
+            pitch: Math.max(0, Math.min(127, Math.round(pitch))),
+            quantizedStartStep,
+            quantizedEndStep: quantizedStartStep + 1,
+            velocity: 90
+        });
+    }
+    return {
+        notes: seqNotes,
+        totalQuantizedSteps: steps,
+        quantizationInfo: { stepsPerQuarter: 4 },
+        tempos: [{ qpm: 120 }]
+    };
+}
+
+function appendQuantizedSequenceToMelody(seq, maxSteps) {
+    if (!seq?.notes?.length) return 0;
+    const stepsToAdd = Math.max(4, Math.min(maxSteps || 16, seq.totalQuantizedSteps || maxSteps || 16));
+    const baseLen = state.melody.notes.length || 0;
+    if (!Array.isArray(state.melody.notes)) state.melody.notes = [];
+    for (let i = 0; i < stepsToAdd; i += 1) {
+        state.melody.notes.push(null);
+    }
+    seq.notes.forEach(n => {
+        const step = Number.isFinite(n.quantizedStartStep) ? n.quantizedStartStep : 0;
+        if (step < 0 || step >= stepsToAdd) return;
+        const pitch = Number.isFinite(n.pitch) ? n.pitch : 60;
+        state.melody.notes[baseLen + step] = Math.max(0, Math.min(127, Math.round(pitch)));
+    });
+    state.melody.length = state.melody.notes.length;
+    if (els.melodyLength) els.melodyLength.value = state.melody.length;
+    return stepsToAdd;
 }
 
 function buildNotesFromNoteSequence(seq) {
@@ -8437,11 +8519,23 @@ function bindUI() {
             if (els.melodyImportAdvancedStatus) els.melodyImportAdvancedStatus.textContent = 'Loading Magenta...';
             try {
                 const model = await loadMagenta();
+                if (!model?.transcribeFromAudioBuffer) {
+                    throw new Error('Magenta model not ready');
+                }
                 if (els.melodyImportAdvancedStatus) els.melodyImportAdvancedStatus.textContent = 'Analyzing...';
                 const arrayBuf = await file.arrayBuffer();
                 const ctx = state.audio.ctx || new (window.AudioContext || window.webkitAudioContext)();
+                if (ctx.state === 'suspended') {
+                    await ctx.resume();
+                }
                 const audioBuf = await ctx.decodeAudioData(arrayBuf.slice(0));
-                const seq = await model.transcribeFromAudioBuffer(audioBuf);
+                let seq = null;
+                try {
+                    seq = await model.transcribeFromAudioBuffer(audioBuf);
+                } catch (err) {
+                    console.warn('transcribeFromAudioBuffer failed, trying transcribeFromAudioFile', err);
+                    seq = await model.transcribeFromAudioFile(file);
+                }
                 const result = buildNotesFromNoteSequence(seq);
                 const notes = result?.notes || [];
                 if (!notes.length) {
@@ -8459,7 +8553,56 @@ function bindUI() {
                 if (state.melody.running) restartMelodyGenerator();
                 if (els.melodyImportAdvancedStatus) els.melodyImportAdvancedStatus.textContent = `Imported ${notes.length} steps.`;
             } catch (err) {
-                if (els.melodyImportAdvancedStatus) els.melodyImportAdvancedStatus.textContent = 'Advanced import failed.';
+                console.error('Advanced import failed', err);
+                magentaModel = null;
+                magentaLoadPromise = null;
+                const msg = err?.message || String(err || 'Unknown error');
+                const tfVersion = window.tf?.version?.tfjs;
+                const tfBackend = window.tf?.getBackend?.();
+                if (els.melodyImportAdvancedStatus) {
+                    const debug = [msg, tfVersion && `tfjs ${tfVersion}`, tfBackend && `backend ${tfBackend}`]
+                        .filter(Boolean)
+                        .join(' | ');
+                    els.melodyImportAdvancedStatus.textContent = `Advanced import failed: ${debug}`;
+                }
+            }
+        };
+    }
+
+    if (els.melodyContinueBtn) {
+        els.melodyContinueBtn.onclick = async () => {
+            const steps = Math.max(4, Math.min(64, parseInt(els.melodyContinueSteps?.value, 10) || 16));
+            const temperature = Math.max(0.4, Math.min(2, parseFloat(els.melodyContinueTemp?.value) || 1));
+            if (!state.melody.notes?.length) {
+                if (els.melodyContinueStatus) els.melodyContinueStatus.textContent = 'No melody to continue.';
+                return;
+            }
+            if (els.melodyContinueStatus) els.melodyContinueStatus.textContent = 'Loading Magenta...';
+            try {
+                const model = await loadMusicRnn();
+                if (els.melodyContinueStatus) els.melodyContinueStatus.textContent = 'Generating...';
+                const seed = buildQuantizedSeedFromMelody(Math.min(16, state.melody.notes.length));
+                if (!seed?.notes?.length) {
+                    if (els.melodyContinueStatus) els.melodyContinueStatus.textContent = 'Seed too short.';
+                    return;
+                }
+                const continuation = await model.continueSequence(seed, steps, temperature);
+                const added = appendQuantizedSequenceToMelody(continuation, steps);
+                state.melody.imported = true;
+                state.melody.importedFeatures = null;
+                state.melody.stepIndex = 0;
+                updateMelodyPreview();
+                setMelodyEditStep(0);
+                if (state.melody.running) restartMelodyGenerator();
+                if (els.melodyContinueStatus) {
+                    els.melodyContinueStatus.textContent = `Added ${added} steps.`;
+                }
+            } catch (err) {
+                console.error('Continue melody failed', err);
+                musicRnnModel = null;
+                musicRnnLoadPromise = null;
+                const msg = err?.message || String(err || 'Unknown error');
+                if (els.melodyContinueStatus) els.melodyContinueStatus.textContent = `Continue failed: ${msg}`;
             }
         };
     }
@@ -8522,7 +8665,12 @@ function bindUI() {
         [els.melodyHumanPitch, 'Pitch Bend: micro pitch variation.'],
         [els.melodyHumanYMotion, 'Y virtual motion: amount of virtual Y movement.'],
         [els.melodyHumanYMotionToggle, 'Y motion on: enable/disable virtual Y movement.'],
-        [els.melodyMpePerNote, 'MPE per note: one channel per note (per-note expression).']
+        [els.melodyMpePerNote, 'MPE per note: one channel per note (per-note expression).'],
+        [els.melodyImportBtn, 'Import: detect a melody from the WAV using fast analysis.'],
+        [els.melodyImportAdvancedBtn, 'Advanced import: Magenta transcription for better pitch accuracy.'],
+        [els.melodyContinueBtn, 'Continue: Magenta generates the next steps from the current melody.'],
+        [els.melodyContinueSteps, 'Continue steps: how many new steps to add.'],
+        [els.melodyContinueTemp, 'Temperature: randomness of the continuation (lower = safer).']
     ]);
     const showMelodyLegend = el => {
         if (!melodyLegend || !el || !melodyLegendMap.has(el)) return;
