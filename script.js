@@ -5013,7 +5013,7 @@ async function loadMagenta() {
         }
         if (!window.mm) throw new Error('Magenta not available');
         if (!magentaModel) {
-            magentaModel = new window.mm.OnsetsAndFrames('https://storage.googleapis.com/magentadata/js/checkpoints/transcription/onsets_frames');
+            magentaModel = new window.mm.OnsetsAndFrames('https://cdn.jsdelivr.net/gh/magenta/magenta-js@1.23.1/music/checkpoints/transcription/onsets_frames');
             await magentaModel.initialize();
         }
         return magentaModel;
