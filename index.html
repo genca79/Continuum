@@ -1,0 +1,925 @@
+
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GENCA MPE Ultra Continuum: Hybrid Edition</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.web.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js"></script>
+    
+</head>
+<body>
+
+<!-- uiToggle removed: replaced by gear settings button (#setToggle) -->
+<button id="perfToggle" class="menu-btn btn-accent" title="Toggle Performance" data-legend="Toggle the performance bar (bottom controls)." data-legend-group="top"><span class="btn-icon">▶</span></button>
+<button id="setToggle" class="menu-btn" title="Settings" aria-label="Settings" data-legend="Open or close the settings panel." data-legend-group="top"></button>
+<button id="fsBtn" class="menu-btn" title="Full Screen" aria-label="Full Screen" data-legend="Toggle fullscreen mode." data-legend-group="top"><span class="btn-icon">⛶</span></button>
+<a id="guideBtn" class="menu-btn btn-accent" href="Guide.html" target="_blank" rel="noopener" title="User Guide" data-legend="Open the user guide in a new tab." data-legend-group="top"><span class="btn-text">?</span></a>
+
+<!-- Audio Recorder Controls -->
+<div id="recControls" class="rec-controls-bar">
+    <button id="recStartBtn" class="menu-btn btn-rec" title="Start Recording" data-legend="Start recording the internal audio." data-legend-group="top"><span class="btn-icon">●</span></button>
+    <button id="recStopBtn" class="menu-btn btn-stop" title="Stop & Save" disabled data-legend="Stop recording and save the take." data-legend-group="top"><span class="btn-icon">■</span></button>
+    <span id="recTimer" class="rec-timer">00:00</span>
+</div>
+
+<div id="ui">
+    <!-- === ROW 1: MAIN TABS (always visible when ui is open) === -->
+    <div class="ui-tabs-row" id="mainTabsRow">
+        <button class="ui-tab active" data-tab="midi" data-legend="MIDI & SYNTH: routing, internal synth settings, and input/output." data-legend-group="tabs">MIDI & SYNTH</button>
+        <button class="ui-tab" data-tab="sampler" data-legend="SAMPLER: load samples, sets, and sampler options." data-legend-group="tabs">SAMPLER</button>
+        <button class="ui-tab" data-tab="scale" data-legend="SCALE: tuning, scale selection, and microtonal settings." data-legend-group="tabs">SCALE</button>
+        <button class="ui-tab" data-tab="melody" data-legend="MELODY: generator, humanize, and sequence tools." data-legend-group="tabs">MELODY</button>
+        <button class="ui-tab" data-tab="advanced" data-legend="ADVANCED: MPE presets, sampler tools, and extra settings." data-legend-group="tabs">ADVANCED</button>
+    </div>
+
+    <!-- === TAB CONTENT: MIDI === -->
+    <div class="ui-tab-content active" id="tabMidi" data-tab-content="midi">
+        <div class="ui-group-inline">
+            <div class="box"><label>MIDI In</label><select id="midiInSelect" data-param="midiInSelect"><option value="">Nessun Input</option></select></div>
+            <div class="box"><label>MIDI Out</label><select id="midiOutSelect" data-param="midiOutSelect"></select></div>
+            <div class="box" style="max-width:60px;"><label>Thru</label><input type="checkbox" id="midiThru" data-param="midiThru"></div>
+            <div class="box" style="max-width:90px;"><label>MPE Out</label><input type="checkbox" id="midiInMpe" data-param="midiInMpe" checked></div>
+            <div class="box"><label>Synth</label><button id="audioStart" class="menu-btn btn-ok audio-toggle"><span class="btn-text">INTERNAL SYNTH</span></button></div>
+            <div class="box"><label>Mode</label><select id="wtMode"></select></div>
+            <div class="box"><label>Sampler Set</label><select id="sampleSetSelectMini"></select></div>
+            <div class="box" id="wtMixBox"><label>Mix</label><input type="range" id="wtMix" min="0" max="1" step="0.01" value="0.35"></div>
+            <div class="box"><label>SYNTH wave</label><select id="wtSelect"></select></div>
+        </div>
+    </div>
+
+    <!-- === TAB CONTENT: SAMPLER === -->
+    <div class="ui-tab-content" id="tabSampler" data-tab-content="sampler">
+        <div class="ui-group-inline sampler-content">
+            <div class="box">
+                <label style="color:#aad; border-bottom:1px solid #444; margin-bottom:4px; padding-bottom:2px;">Factory Library</label>
+                <div class="sample-set-row" style="margin-bottom:8px;">
+                    <select id="factorySelect">
+                        <option value="">-- Seleziona Strumento --</option>
+                    </select>
+                    <button id="factoryLoadBtn" class="menu-btn btn-accent" title="Load Factory"><span class="btn-text">LOAD</span></button>
+                </div>
+            </div>
+            <div class="box">
+                <label>Sampler Set (User)</label>
+                <div class="sample-set-row">
+                    <select id="sampleSetSelect"></select>
+                    <input type="text" id="sampleSetName" placeholder="New name...">
+                    <button id="sampleSetNew" class="menu-btn btn-accent" title="New empty set"><span class="btn-text">NEW</span></button>
+                    <button id="sampleSetSave" class="menu-btn btn-ok" title="Save current set"><span class="btn-text">SAVE</span></button>
+                    <button id="sampleSetDel" class="menu-btn btn-danger" title="Delete set"><span class="btn-text">X</span></button>
+                </div>
+            </div>
+            <div class="box" style="max-width:120px;"><label>Sampler Gain</label><input type="range" id="samplerGain" min="0" max="5" step="0.01" value="1"></div>
+            <div class="box" style="max-width:80px;"><label>Max Voices</label><input type="number" id="samplerMaxVoices" min="1" max="64" step="1" value="24" style="width:100%;"></div>
+            <div class="box" style="max-width:100px;"><label>Loop Mode</label><button id="sampleLoopBtn" class="menu-btn toggle-off" style="width:100%; justify-content:center;">LOOP OFF</button></div>
+        </div>
+        <div class="ui-group-inline sampler-slots">
+            <label style="width:100%; margin-bottom:4px;">Samples (load .wav files)</label>
+            <div class="sample-grid-compact">
+                <!-- Slot 1 -->
+                <div class="sample-slot-compact" id="slotWrap1">
+                    <div class="slot-header" id="sampleName1">Slot 1: vuoto</div>
+                    <div class="slot-controls">
+                        <input type="text" id="sampleRoot1" class="sample-root" value="C2" list="sampleRootHints" title="Root Note">
+                        <input type="number" id="sampleGain1" class="sample-gain" min="0" max="5" step="0.01" value="1" title="Gain">
+                        <label class="load-btn" title="Load Sample">
+                            <input type="file" id="sampleFile1" class="sample-file" accept=".wav,audio/wav">
+                            <span class="btn-text">+</span>
+                        </label>
+                        <button id="sampleClear1" class="clear-btn" title="Clear"><span class="btn-text">X</span></button>
+                    </div>
+                </div>
+                <!-- Slot 2 -->
+                <div class="sample-slot-compact" id="slotWrap2">
+                    <div class="slot-header" id="sampleName2">Slot 2: vuoto</div>
+                    <div class="slot-controls">
+                        <input type="text" id="sampleRoot2" class="sample-root" value="C3" list="sampleRootHints" title="Root Note">
+                        <input type="number" id="sampleGain2" class="sample-gain" min="0" max="5" step="0.01" value="1" title="Gain">
+                        <label class="load-btn" title="Load Sample">
+                            <input type="file" id="sampleFile2" class="sample-file" accept=".wav,audio/wav">
+                            <span class="btn-text">+</span>
+                        </label>
+                        <button id="sampleClear2" class="clear-btn" title="Clear"><span class="btn-text">X</span></button>
+                    </div>
+                </div>
+                <!-- Slot 3 -->
+                <div class="sample-slot-compact" id="slotWrap3">
+                    <div class="slot-header" id="sampleName3">Slot 3: vuoto</div>
+                    <div class="slot-controls">
+                        <input type="text" id="sampleRoot3" class="sample-root" value="C4" list="sampleRootHints" title="Root Note">
+                        <input type="number" id="sampleGain3" class="sample-gain" min="0" max="5" step="0.01" value="1" title="Gain">
+                        <label class="load-btn" title="Load Sample">
+                            <input type="file" id="sampleFile3" class="sample-file" accept=".wav,audio/wav">
+                            <span class="btn-text">+</span>
+                        </label>
+                        <button id="sampleClear3" class="clear-btn" title="Clear"><span class="btn-text">X</span></button>
+                    </div>
+                </div>
+                <!-- Slot 4 -->
+                <div class="sample-slot-compact" id="slotWrap4">
+                    <div class="slot-header" id="sampleName4">Slot 4: vuoto</div>
+                    <div class="slot-controls">
+                        <input type="text" id="sampleRoot4" class="sample-root" value="C5" list="sampleRootHints" title="Root Note">
+                        <input type="number" id="sampleGain4" class="sample-gain" min="0" max="5" step="0.01" value="1" title="Gain">
+                        <label class="load-btn" title="Load Sample">
+                            <input type="file" id="sampleFile4" class="sample-file" accept=".wav,audio/wav">
+                            <span class="btn-text">+</span>
+                        </label>
+                        <button id="sampleClear4" class="clear-btn" title="Clear"><span class="btn-text">X</span></button>
+                    </div>
+                </div>
+                <!-- Slot 5 -->
+                <div class="sample-slot-compact" id="slotWrap5">
+                    <div class="slot-header" id="sampleName5">Slot 5: vuoto</div>
+                    <div class="slot-controls">
+                        <input type="text" id="sampleRoot5" class="sample-root" value="C6" list="sampleRootHints" title="Root Note">
+                        <input type="number" id="sampleGain5" class="sample-gain" min="0" max="5" step="0.01" value="1" title="Gain">
+                        <label class="load-btn" title="Load Sample">
+                            <input type="file" id="sampleFile5" class="sample-file" accept=".wav,audio/wav">
+                            <span class="btn-text">+</span>
+                        </label>
+                        <button id="sampleClear5" class="clear-btn" title="Clear"><span class="btn-text">X</span></button>
+                    </div>
+                </div>
+                <!-- Slot 6 -->
+                <div class="sample-slot-compact" id="slotWrap6">
+                    <div class="slot-header" id="sampleName6">Slot 6: vuoto</div>
+                    <div class="slot-controls">
+                        <input type="text" id="sampleRoot6" class="sample-root" value="C7" list="sampleRootHints" title="Root Note">
+                        <input type="number" id="sampleGain6" class="sample-gain" min="0" max="5" step="0.01" value="1" title="Gain">
+                        <label class="load-btn" title="Load Sample">
+                            <input type="file" id="sampleFile6" class="sample-file" accept=".wav,audio/wav">
+                            <span class="btn-text">+</span>
+                        </label>
+                        <button id="sampleClear6" class="clear-btn" title="Clear"><span class="btn-text">X</span></button>
+                    </div>
+                </div>
+                <!-- Slot 7 -->
+                <div class="sample-slot-compact" id="slotWrap7">
+                    <div class="slot-header" id="sampleName7">Slot 7: vuoto</div>
+                    <div class="slot-controls">
+                        <input type="text" id="sampleRoot7" class="sample-root" value="C8" list="sampleRootHints" title="Root Note">
+                        <input type="number" id="sampleGain7" class="sample-gain" min="0" max="5" step="0.01" value="1" title="Gain">
+                        <label class="load-btn" title="Load Sample">
+                            <input type="file" id="sampleFile7" class="sample-file" accept=".wav,audio/wav">
+                            <span class="btn-text">+</span>
+                        </label>
+                        <button id="sampleClear7" class="clear-btn" title="Clear"><span class="btn-text">X</span></button>
+                    </div>
+                </div>
+                <datalist id="sampleRootHints">
+                    <option value="C2"><option value="C3"><option value="C4"><option value="C5"><option value="C6"><option value="C7">
+                    <option value="D2"><option value="D3"><option value="D4"><option value="D5">
+                    <option value="E2"><option value="E3"><option value="E4"><option value="E5">
+                    <option value="F2"><option value="F3"><option value="F4"><option value="F5">
+                    <option value="G2"><option value="G3"><option value="G4"><option value="G5">
+                    <option value="A2"><option value="A3"><option value="A4"><option value="A5">
+                    <option value="B2"><option value="B3"><option value="B4"><option value="B5">
+                </datalist>
+            </div>
+        </div>
+    </div>
+
+    <!-- === TAB CONTENT: SCALE === -->
+    <div class="ui-tab-content" id="tabScale" data-tab-content="scale">
+        <div class="ui-group-inline scale-row-single">
+            <div class="hidden">
+                <input type="radio" name="scaleMode" value="diatonic" id="scaleModeDiatonic" checked>
+                <input type="radio" name="scaleMode" value="microtonal" id="scaleModeMicro">
+                <input type="radio" name="scaleMode" value="custom" id="scaleModeCustom">
+            </div>
+            <div class="box" id="scaleRootBox">
+                <label>ROOT</label>
+                <select id="rootNote" data-param="rootNote">
+                    <option value="0">C</option><option value="1">C#</option><option value="2">D</option><option value="3">D#</option>
+                    <option value="4">E</option><option value="5">F</option><option value="6">F#</option><option value="7">G</option>
+                    <option value="8">G#</option><option value="9">A</option><option value="10">A#</option><option value="11">B</option>
+                </select>
+            </div>
+            <div class="box"><label>OCTAVES</label>
+                <select id="visibleOctaves" data-param="visibleOctaves">
+                    <option value="1" selected>1 Oct</option>
+                    <option value="2">2 Oct</option>
+                    <option value="3">3 Oct</option>
+                    <option value="4">4 Oct</option>
+                </select>
+            </div>
+            <div class="box scale-menu" id="scaleDiatonicBox" data-scale-choice="diatonic"><label>Diatonic</label>
+                <select id="scaleType" data-param="scaleType">
+                    <option value="chromatic">Chromatic</option>
+                    <option value="major">Major</option><option value="minor">Minor</option>
+                    <option value="dorian">Dorian</option><option value="phrygian">Phrygian</option>
+                    <option value="lydian">Lydian</option><option value="mixolydian">Mixolydian</option>
+                    <option value="locrian">Locrian</option><option value="harmonicMinor">Harmonic Min</option>
+                    <option value="melodicMinor">Melodic Min</option><option value="pentatonicMaj">Pentatonic Maj</option>
+                    <option value="pentatonicMin">Pentatonic Min</option><option value="blues">Blues</option>
+                    <option value="hirajoshi">Hirajoshi</option><option value="bhairav">Bhairav</option>
+                    <option value="arabic">Arabic</option><option value="wholeTone">Whole Tone</option>
+                    <option value="diminished">Diminished</option>
+                </select>
+            </div>
+            <div class="box scale-menu" id="scaleMicroBox" data-scale-choice="microtonal"><label>Microtonal</label>
+                <select id="microScaleSelect"></select>
+                <label class="microtonalize-row" style="font-size:9px; white-space:nowrap;">
+                    <input type="checkbox" id="microtonalizeIn"> MPE Micro
+                </label>
+            </div>
+            <div class="box scale-menu scale-custom-wide" id="scaleCustomBox" data-scale-choice="custom"><label>Custom Scale</label>
+                <div class="custom-scale-row-compact">
+                    <select id="customScaleSaved"><option value="">(saved)</option></select>
+                    <input type="text" id="customScaleName" placeholder="Name" list="customScaleNames">
+                    <button id="customScaleSave" class="menu-btn btn-ok" aria-label="Save"><span class="btn-icon">💾</span></button>
+                    <button id="customScaleDel" class="menu-btn btn-danger" aria-label="Delete"><span class="btn-icon">🗑</span></button>
+                    <span class="custom-mode-toggle">
+                        <label><input type="radio" name="customScaleMode" value="notes" id="customModeNotes" checked> Notes</label>
+                        <label><input type="radio" name="customScaleMode" value="cents" id="customModeCents"> Cents</label>
+                    </span>
+                    <input type="text" id="customScaleNotes" placeholder="C, D#, F, G, A..." class="custom-scale-input-wide">
+                    <input type="text" id="customScaleCents" placeholder="0, 200, 400, 700..." class="custom-scale-input-wide hidden">
+                </div>
+                <datalist id="customScaleNames"></datalist>
+            </div>
+        </div>
+    </div>
+
+    <!-- === TAB CONTENT: MELODY === -->
+    <div class="ui-tab-content" id="tabMelody" data-tab-content="melody">
+        <div class="melody-accordion">
+            <div class="melody-acc-item open">
+                <button class="melody-acc-toggle" type="button">General</button>
+                <div class="melody-acc-panel">
+                    <div class="ui-group-inline">
+                        <div class="box" style="max-width:120px;">
+                            <label>Generator</label>
+                            <button id="melodyToggle" class="menu-btn toggle-off">MELODY OFF</button>
+                        </div>
+                        <div class="box" style="max-width:120px;">
+                            <label>Layer</label>
+                            <button id="melodyLayerToggle" class="menu-btn toggle-off">LAYER OFF</button>
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Pattern</label>
+                            <select id="melodyStyle">
+                                <option value="smooth">Smooth</option>
+                                <option value="balanced" selected>Balanced</option>
+                                <option value="leaps">Leaps</option>
+                                <option value="arpeggio">Arpeggio</option>
+                                <option value="call">Call/Resp</option>
+                            </select>
+                        </div>
+                        <div class="box" style="max-width:90px;">
+                            <label>Length</label>
+                            <input type="number" id="melodyLength" min="4" max="64" value="16">
+                        </div>
+                        <div class="box" style="max-width:110px;">
+                            <label>Rate</label>
+                            <select id="melodyRate">
+                                <option value="1/4">1/4</option>
+                                <option value="1/8">1/8</option>
+                                <option value="1/8T">1/8T</option>
+                                <option value="1/16" selected>1/16</option>
+                                <option value="1/16T">1/16T</option>
+                                <option value="1/32">1/32</option>
+                            </select>
+                        </div>
+                        <div class="box" style="max-width:130px;">
+                            <label>Density</label>
+                            <input type="range" id="melodyDensity" min="20" max="100" value="80">
+                        </div>
+                    </div>
+                    <div class="ui-group-inline">
+                        <div class="box" style="max-width:130px;">
+                            <label>Range (st)</label>
+                            <input type="number" id="melodyRange" min="5" max="36" value="14">
+                        </div>
+                        <div class="box" style="max-width:120px;">
+                            <label>Seed</label>
+                            <input type="number" id="melodySeed" min="1" max="9999" value="1">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Cadence</label>
+                            <select id="melodyCadence">
+                                <option value="tonic" selected>Tonic</option>
+                                <option value="dominant">Dominant</option>
+                                <option value="none">None</option>
+                            </select>
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Actions</label>
+                            <button id="melodyGenerate" class="menu-btn btn-accent">GENERATE</button>
+                        </div>
+                        <div class="box" style="max-width:150px;">
+                            <label>Layer Mode</label>
+                            <select id="melodyLayerMode">
+                                <option value="third">Third</option>
+                                <option value="fifth">Fifth</option>
+                                <option value="octave">Octave</option>
+                                <option value="triad" selected>Triad</option>
+                            </select>
+                        </div>
+                        <div class="box" style="max-width:120px;">
+                            <label>Layer Level</label>
+                            <input type="range" id="melodyLayerLevel" min="30" max="110" value="70">
+                        </div>
+                    </div>
+                    <div class="ui-group-inline">
+                        <div class="box" style="min-width:220px;">
+                            <label>Phrase</label>
+                            <div id="melodyPreview" style="font-size:11px; color:#9aa; max-width:520px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">&nbsp;</div>
+                        </div>
+                    </div>
+                    <div class="ui-group-inline">
+                        <div class="box" style="min-width:240px;">
+                            <label>Import WAV (melody)</label>
+                            <input type="file" id="melodyImportFile" accept=".wav,audio/wav">
+                        </div>
+                        <div class="box" style="max-width:160px;">
+                            <label>Import</label>
+                            <button id="melodyImportBtn" class="menu-btn btn-accent">IMPORT</button>
+                        </div>
+                        <div class="box" style="min-width:220px;">
+                            <label>Status</label>
+                            <div id="melodyImportStatus" style="font-size:11px; color:#9aa;">Idle</div>
+                        </div>
+                    </div>
+                    <div class="ui-group-inline">
+                        <div class="box" style="min-width:240px;">
+                            <label>Advanced Import (Magenta)</label>
+                            <button id="melodyImportAdvancedBtn" class="menu-btn btn-accent">ADV IMPORT</button>
+                        </div>
+                        <div class="box" style="min-width:220px;">
+                            <label>Advanced Status</label>
+                            <div id="melodyImportAdvancedStatus" style="font-size:11px; color:#9aa;">Idle</div>
+                        </div>
+                    </div>
+                    <div id="melodyHumanLegend" class="melody-legend">Tap a control to see its description.</div>
+                </div>
+            </div>
+            <div class="melody-acc-item">
+                <button class="melody-acc-toggle" type="button">Rules</button>
+                <div class="melody-acc-panel">
+                    <div class="ui-group-inline">
+                        <div class="box melody-rules">
+                            <label>Rules</label>
+                            <label><input type="checkbox" id="melodyRuleStep"> piu note congiunte e poche ripetizioni</label>
+                            <label><input type="checkbox" id="melodyRuleMotif"> piu ripetizioni e motivi brevi</label>
+                            <label><input type="checkbox" id="melodyRuleRhythm"> pattern ritmici (es. sincopi/pausa regolare)</label>
+                            <label><input type="checkbox" id="melodyRuleLeaps"> salti piu ampi con rientro</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="melody-acc-item">
+                <button class="melody-acc-toggle" type="button">Humanize</button>
+                <div class="melody-acc-panel">
+                    <div class="ui-group-inline">
+                        <div class="box" style="max-width:140px;">
+                            <label>Timing (ms)</label>
+                            <input type="range" id="melodyHumanTiming" min="0" max="30" step="1" value="8">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Velocity</label>
+                            <input type="range" id="melodyHumanVelocity" min="0" max="60" step="1" value="20">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Swing (%)</label>
+                            <input type="range" id="melodyHumanSwing" min="0" max="60" step="1" value="10">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Legato (%)</label>
+                            <input type="range" id="melodyHumanLegato" min="0" max="100" step="1" value="70">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Ornamenti (%)</label>
+                            <input type="range" id="melodyHumanOrnament" min="0" max="40" step="1" value="10">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>MPE Press</label>
+                            <input type="range" id="melodyHumanPress" min="0" max="40" step="1" value="12">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>MPE Timbre</label>
+                            <input type="range" id="melodyHumanTimbre" min="0" max="80" step="1" value="20">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Pitch Bend</label>
+                            <input type="range" id="melodyHumanPitch" min="0" max="40" step="1" value="10">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Y virtual motion</label>
+                            <input type="range" id="melodyHumanYMotion" min="0" max="100" step="1" value="35">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Y motion on</label>
+                            <input type="checkbox" id="melodyHumanYMotionToggle" checked>
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>MPE per nota</label>
+                            <input type="checkbox" id="melodyMpePerNote">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="melody-acc-item">
+                <button class="melody-acc-toggle" type="button">Edit & Sequence</button>
+                <div class="melody-acc-panel">
+                    <div class="ui-group-inline melody-roll-tools">
+                        <div class="box" style="max-width:140px;">
+                            <label>Zoom H</label>
+                            <input type="range" id="melodyRollZoomH" min="8" max="80" step="1" value="20">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Zoom V</label>
+                            <input type="range" id="melodyRollZoom" min="0.6" max="2.5" step="0.1" value="1">
+                        </div>
+                        <div class="box" style="max-width:140px;">
+                            <label>Scroll</label>
+                            <input type="range" id="melodyRollScroll" min="-24" max="24" step="1" value="0">
+                        </div>
+                        <div class="box" style="min-width:240px; max-width:none; flex:2 1 240px;">
+                            <label>Save Melody</label>
+                            <div class="melody-save-inline">
+                                <input type="text" id="melodySaveName" placeholder="Nome">
+                                <button id="melodySaveBtn" class="menu-btn btn-accent">SAVE</button>
+                            </div>
+                        </div>
+                        <div class="box" style="min-width:200px; max-width:none; flex:1 1 200px;">
+                            <label>Load Melody</label>
+                            <select id="melodySaveSelect"></select>
+                        </div>
+                    </div>
+                    <div class="ui-group-inline">
+                        <div class="box melody-roll-box">
+                            <label>Piano Roll</label>
+                            <div id="melodyRollScrollWrap" class="melody-roll-scroll">
+                                <canvas id="melodyRollCanvas" class="melody-roll" height="520"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="ui-group-inline">
+                        <div class="box" style="min-width:260px;">
+                            <label>Sequence</label>
+                            <div id="melodySeqEditor" style="display:flex; flex-wrap:wrap; gap:4px; max-width:520px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- === TAB CONTENT: ADVANCED (just the tab button triggers row 2) === -->
+    <div class="ui-tab-content" id="tabAdvanced" data-tab-content="advanced">
+        <!-- Row 2: Sub-tabs for advanced sections -->
+        <div class="ui-tabs-row ui-subtabs" id="advSubTabs">
+            <button class="ui-tab" data-subtab="preset">PRESET</button>
+            <button class="ui-tab active" data-subtab="arp">ARP</button>
+            <button class="ui-tab" data-subtab="chord">CHORD</button>
+            <button class="ui-tab" data-subtab="mpe">MPE</button>
+            <button class="ui-tab" data-subtab="matrix">MATRIX</button>
+           
+        </div>
+
+        <!-- Sub-tab: ARP -->
+        <div class="ui-subtab-content active" data-subtab-content="arp">
+            <div class="ui-group-inline">
+                <div class="box" style="max-width:100px;"><label>Gate</label><input type="range" id="arpGate" min="10" max="100" value="60" data-param="arpGate"></div>
+                <div class="box" style="max-width:100px;"><label>Sync</label><select id="arpSync" data-param="arpSync">
+                    <option value="internal" selected>Internal</option>
+                    <option value="midi">MIDI</option>
+                </select></div>
+                <div class="box" style="max-width:100px;"><label>BPM</label><input type="number" id="arpBpm" min="40" max="300" value="120" data-param="arpBpm"></div>
+            </div>
+        </div>
+
+        <!-- Sub-tab: CHORD -->
+        <div class="ui-subtab-content" data-subtab-content="chord">
+            <div class="ui-group-inline">
+                <div class="box" style="max-width:100px;"><label>Inversion</label><select id="chordInversion" data-param="chordInversion">
+                    <option value="0">Root</option><option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option>
+                </select></div>
+                <div class="box" style="max-width:120px;"><label>Spread</label><input type="range" id="chordSpread" min="0" max="12" value="0" data-param="chordSpread"></div>
+            </div>
+        </div>
+
+        <!-- Sub-tab: MPE -->
+        <div class="ui-subtab-content" data-subtab-content="mpe">
+            <div class="ui-group-inline mpe-controls-row">
+                <div class="box mpe-preset-box"><label>MPE Preset</label>
+                    <div style="display:flex; gap:2px;">
+                        <select id="mpePresetSelect" style="min-width:90px;"></select>
+                        <input type="text" id="mpePresetName" placeholder="Name" style="width:70px;">
+                        <button id="mpePresetSave" class="menu-btn btn-ok" aria-label="Save"><span class="btn-icon">💾</span></button>
+                        <button id="mpePresetDel" class="menu-btn btn-danger" aria-label="Delete"><span class="btn-icon">🗑</span></button>
+                    </div>
+                    <div id="mpePresetDesc" style="font-size:8px; color:#888; margin-top:2px;">&nbsp;</div>
+                </div>
+                <div class="box mpe-box-small"><label>PB Range</label><select id="pbRange" data-param="pbRange">
+                    <option value="2">+/-2</option><option value="12">+/-12</option><option value="24">+/-24</option><option value="48" selected>+/-48</option>
+                </select></div>
+                <div class="box mpe-box-slider"><label>Snap Rate</label><input type="range" id="roundRate" min="0" max="80" value="80" data-param="roundRate"></div>
+                <div class="box mpe-box-check"><label>Dead-Cntr</label><input type="checkbox" id="deadCenter" data-param="deadCenter" checked></div>
+                <div class="box mpe-box-slider" id="boxDeadCenterForce"><label>DC Force</label><input type="range" id="deadCenterForce" min="0" max="100" value="100" data-param="deadCenterForce"></div>
+                <div class="box mpe-box-small"><label>Ex. Curve</label>
+                    <select id="curveType" data-param="curveType">
+                        <option value="linear" selected>Linear</option>
+                        <option value="soft">Soft</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+            </div>
+            <div class="ui-group-inline mpe-controls-row">
+                <div class="box mpe-box-slider"><label>Smooth</label><input type="range" id="smoothAmt" min="0" max="100" value="20" data-param="smoothAmt"></div>
+                <div class="box mpe-box-check"><label>Link Y&gt;Press</label><input type="checkbox" id="linkPressToY" checked data-param="linkPressToY"></div>
+                <div class="box mpe-box-check"><label>Link Y&gt;Vel</label><input type="checkbox" id="linkYToVelocity" checked data-param="linkYToVelocity"></div>
+                <div class="box mpe-box-slider" id="boxTouchSens"><label>Area Sens</label><input type="range" id="touchSensitivity" min="10" max="150" value="75" data-param="touchSensitivity"></div>
+                <div class="box mpe-box-slider"><label>Y Deadzone</label><input type="range" id="yDeadzone" min="0" max="30" value="5" data-param="yDeadzone"></div>
+                <div class="box mpe-box-check"><label>Q Release</label><input type="checkbox" id="quantizeRelease" data-param="quantizeRelease" checked></div>
+            </div>
+        </div>
+
+        <!-- Sub-tab: PRESET -->
+        <div class="ui-subtab-content" data-subtab-content="preset">
+            <div class="ui-group-inline">
+                <div class="box"><label>Global Preset</label>
+                    <div style="display:flex; gap:2px;">
+                        <select id="presetSelect" style="min-width:90px;" data-param="presetSelect"></select>
+                        <input type="text" id="presetName" placeholder="Name" style="width:70px;">
+                        <button id="presetSave" class="menu-btn btn-ok" aria-label="Save"><span class="btn-icon">💾</span></button>
+                        <button id="presetDel" class="menu-btn btn-danger" aria-label="Delete"><span class="btn-icon">🗑</span></button>
+                    </div>
+                    <div id="presetDesc" style="font-size:8px; color:#888; margin-top:2px;">&nbsp;</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ui-subtab-content" data-subtab-content="matrix">
+            <div class="ui-group-inline">
+                <div class="box" style="max-width:120px;">
+                    <label>Matrix Mode</label>
+                    <button id="matrixToggle" class="menu-btn toggle-off">MATRIX OFF</button>
+                </div>
+                <div class="box" style="min-width:200px;">
+                    <label>Macro Scene</label>
+                    <select id="matrixSceneSelect"></select>
+                    <div id="matrixSceneDesc" style="font-size:9px; color:#888; margin-top:4px;">&nbsp;</div>
+                </div>
+                <div class="box" style="max-width:140px;">
+                    <label>AM Tone</label>
+                    <input type="range" id="amTone" min="1000" max="8000" step="10" value="5000">
+                </div>
+                <div class="box" style="max-width:120px;">
+                    <label>AM Bias</label>
+                    <input type="range" id="amBias" min="0" max="1" step="0.01" value="0.15">
+                </div>
+            </div>
+        </div>
+        <!-- OLD MELODY BLOCK REMOVED
+
+                    <label><input type="checkbox" id="melodyRuleStep"> più note congiunte e poche ripetizioni</label>
+                    <label><input type="checkbox" id="melodyRuleMotif"> più ripetizioni e motivi brevi</label>
+                    <label><input type="checkbox" id="melodyRuleRhythm"> pattern ritmici (es. sincopi/pausa regolare)</label>
+                    <label><input type="checkbox" id="melodyRuleLeaps"> salti più ampi con rientro</label>
+                </div>
+            </div>
+                </div>
+            </div>
+            <div class="melody-acc-item">
+                <button class="melody-acc-toggle" type="button">Layers & Drone</button>
+                <div class="melody-acc-panel">
+            <div class="ui-group-inline">
+                <div class="box" style="max-width:120px;">
+                    <label>Layer</label>
+                    <button id="melodyLayerToggle" class="menu-btn toggle-off">LAYER OFF</button>
+                </div>
+                <div class="box" style="max-width:150px;">
+                    <label>Layer Mode</label>
+                    <select id="melodyLayerMode">
+                        <option value="third">Third</option>
+                        <option value="fifth">Fifth</option>
+                        <option value="octave">Octave</option>
+                        <option value="triad" selected>Triad</option>
+                    </select>
+                </div>
+                <div class="box" style="max-width:120px;">
+                    <label>Layer Level</label>
+                    <input type="range" id="melodyLayerLevel" min="30" max="110" value="70">
+                </div>
+            </div>
+                </div>
+            </div>
+            <div class="melody-acc-item">
+                <button class="melody-acc-toggle" type="button">Edit & Sequence</button>
+                <div class="melody-acc-panel">
+            <div class="ui-group-inline">
+                <div class="box" style="max-width:140px;">
+                    <label>Edit</label>
+                    <button id="melodyEditToggle" class="menu-btn toggle-off">EDIT OFF</button>
+                </div>
+                <div class="box" style="max-width:110px;">
+                    <label>Step</label>
+                    <input type="number" id="melodyEditStep" min="1" max="64" value="1">
+                </div>
+            </div>
+            <div class="ui-group-inline">
+                <div class="box melody-roll-box">
+                    <label>Piano Roll</label>
+                    <canvas id="melodyRollCanvas" class="melody-roll" height="120"></canvas>
+                </div>
+            </div>
+            <div class="ui-group-inline">
+                <div class="box" style="min-width:260px;">
+                    <label>Sequence</label>
+                    <div id="melodySeqEditor" style="display:flex; flex-wrap:wrap; gap:4px; max-width:520px;"></div>
+                </div>
+            </div>
+                </div>
+            </div>
+        </div>
+        </div>
+        -->
+    </div><!-- end #tabAdvanced -->
+</div><!-- end #ui -->
+
+<!-- compact setPanel removed per user request -->
+
+<div id="performance">
+    <div class="perf-group">
+        <span class="perf-label">Transpose</span>
+        <button class="perf-btn" id="octDownBtn" title="Oct -" data-legend="Transpose one octave down." data-legend-group="perf">&lt;</button>
+        <span class="perf-value" id="octVal">0</span>
+        <button class="perf-btn" id="octUpBtn" title="Oct +" data-legend="Transpose one octave up." data-legend-group="perf">&gt;</button>
+    </div>
+    <button id="groupShiftBtn" class="perf-btn toggle-btn" title="Group Shift" data-legend="Enable group shift drag for held notes." data-legend-group="perf">GROUP</button>
+    <button id="overlayToggle" class="perf-btn toggle-btn" title="Gesture Overlay" data-legend="Toggle the MIX overlay faders." data-legend-group="perf">MIX</button>
+    <button id="melodyPerfToggle" class="perf-btn toggle-btn" title="Melody Generator" data-legend="Toggle the melody generator." data-legend-group="perf">MELODY</button>
+    <!-- Chord Knob - visible in compact mode -->
+    <div id="chordWheel" class="perf-knob compact-essential" title="Rotate to change chord" data-legend="Rotate to change chord type." data-legend-group="perf">Off</div>
+    <!-- Chord Select - visible in compact mode -->
+    <select id="chordMode" class="compact-essential" title="Chords" data-param="chordMode" data-legend="Select chord mode." data-legend-group="perf">
+        <option value="off">Off</option>
+        <option value="auto">Auto (Diatonic)</option>
+        <option value="auto7">Auto (Diatonic 7th)</option>
+        <option value="power">Power 5</option>
+        <option value="triad">Triad (Maj)</option>
+        <option value="minTriad">Triad (Min)</option>
+        <option value="dimTriad">Triad (Dim)</option>
+        <option value="augTriad">Triad (Aug)</option>
+        <option value="sus2">Sus2</option>
+        <option value="sus4">Sus4</option>
+        <option value="add9">Add9</option>
+        <option value="sixth">6th</option>
+        <option value="seventh">7th (Dom)</option>
+        <option value="maj7">Maj7</option>
+        <option value="min7">Min7</option>
+        <option value="halfDim7">7th (Half-Dim)</option>
+        <option value="dim7">7th (Dim)</option>
+        <option value="dom9">Dom9</option>
+        <option value="maj9">Maj9</option>
+        <option value="min9">Min9</option>
+        <option value="eleventh">11th</option>
+        <option value="thirteenth">13th</option>
+    </select>
+    <button id="holdBtn" class="perf-btn toggle-btn has-led compact-essential" title="Hold" data-legend="Hold notes so they keep playing." data-legend-group="perf"><span class="led"></span>HOLD</button>
+    <input type="checkbox" id="holdNotes" style="display:none" data-param="holdNotes">
+    <button id="panicBtn" class="perf-btn btn-danger compact-essential" title="Stop" data-legend="Stop all notes immediately." data-legend-group="perf">STOP</button>
+    <div class="perf-group">
+        <button id="fadeBtn" class="perf-btn toggle-btn" title="Fade Out" data-legend="Fade out all active notes." data-legend-group="perf">⇣ FADE</button>
+        <input type="number" id="fadeSeconds" min="1" max="20" value="4" data-legend="Set fade duration in seconds." data-legend-group="perf">
+        <span class="perf-label">sec</span>
+    </div>
+    <!-- ARP Knob - visible in compact mode -->
+    <div id="arpWheel" class="perf-knob compact-essential" title="Rotate to change rate" data-legend="Rotate to change ARP rate." data-legend-group="perf">Off</div>
+    <!-- ARP Rate Select - visible in compact mode -->
+    <select id="arpRateSelect" class="perf-select compact-essential" title="ARP Rate" data-legend="Select ARP rate." data-legend-group="perf">
+        <option value="1/4">1/4</option>
+        <option value="1/8">1/8</option>
+        <option value="1/8T">1/8T</option>
+        <option value="1/16" selected>1/16</option>
+        <option value="1/16T">1/16T</option>
+        <option value="1/32">1/32</option>
+    </select>
+    <div class="perf-group">
+        <button id="fxToggle" class="perf-btn" title="FX Panel" data-legend="Open the FX panel." data-legend-group="perf">FX</button>
+        <select id="fxPresetQuick" data-legend="Quick FX preset selection." data-legend-group="perf"></select>
+    </div>
+    <input type="checkbox" id="arpEnabled" data-param="arpEnabled" style="display:none">
+    <input type="checkbox" id="arpLatch" data-param="arpLatch" style="display:none">
+    <select id="arpRate" data-param="arpRate" style="display:none">
+        <option value="1/4">1/4</option>
+        <option value="1/8">1/8</option>
+        <option value="1/8T">1/8T</option>
+        <option value="1/16" selected>1/16</option>
+        <option value="1/16T">1/16T</option>
+        <option value="1/32">1/32</option>
+    </select>
+</div>
+
+<div id="playArea">
+    <canvas id="surface"></canvas>
+    <div class="footer">
+        <div id="midiStatus">HYBRID ENGINE READY</div>
+        <div>SPOSTA GIU' PER IL MENU</div>
+    </div>
+</div>
+
+<div id="gestureOverlay" class="gesture-overlay hidden" data-side="right" aria-hidden="true">
+    <div class="overlay-header">
+        <span class="overlay-title">MIX Faders</span>
+        <button id="overlayModeToggle" class="overlay-mode" data-mode="fm" title="AM/FM">FM</button>
+    </div>
+    <div class="overlay-faders">
+        <div class="overlay-fader" data-fader="wtmix">
+            <div class="fader-track"></div>
+            <div class="fader-fill"></div>
+            <div class="fader-handle" data-handle="wtmix"></div>
+            <div class="fader-marks">
+                <span class="fader-mark" data-pos="0" title="Trumpet">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <g transform="rotate(-25 12 12)">
+                            <path d="M3 12h7l2-2h4l5-2v8l-5-2h-4l-2-2H3z"></path>
+                            <line x1="8" y1="10" x2="8" y2="14"></line>
+                            <line x1="10" y1="9" x2="10" y2="15"></line>
+                            <line x1="12" y1="9" x2="12" y2="15"></line>
+                            <circle cx="4" cy="12" r="1.5"></circle>
+                        </g>
+                    </svg>
+                </span>
+                <span class="fader-mark" data-pos="1" title="Synth">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 16h6v-6h4v6h6"></path>
+                    </svg>
+                </span>
+            </div>
+            <div class="fader-label">MIX</div>
+        </div>
+        <div class="overlay-fader" data-fader="morph">
+            <div class="fader-track"></div>
+            <div class="fader-fill"></div>
+            <div class="fader-handle" data-handle="morph"></div>
+            <div class="fader-marks">
+                <span class="fader-mark" data-pos="0" title="Saw">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 16l5-8v8l5-8v8"></path>
+                    </svg>
+                </span>
+                <span class="fader-mark" data-pos="0.25" title="Square">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 16V8h7v8h7"></path>
+                    </svg>
+                </span>
+                <span class="fader-mark" data-pos="0.5" title="Triangle">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 16l7-8 7 8"></path>
+                    </svg>
+                </span>
+                <span class="fader-mark" data-pos="0.75" title="PWM">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 16V8h4v8h10"></path>
+                    </svg>
+                </span>
+                <span class="fader-mark" data-pos="1" title="Formant">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 14c2-4 6-4 8 0s6 4 8 0"></path>
+                    </svg>
+                </span>
+            </div>
+            <div class="fader-label">MORPH</div>
+        </div>
+        <div class="overlay-fader" data-fader="depth">
+            <div class="fader-track"></div>
+            <div class="fader-fill"></div>
+            <div class="fader-handle" data-handle="depth"></div>
+            <div class="fader-marks">
+                <span class="fader-mark" data-pos="0" title="Dry">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                </span>
+                <span class="fader-mark" data-pos="1" title="Modulated">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M4 12c2-4 6-4 8 0s6 4 8 0"></path>
+                    </svg>
+                </span>
+            </div>
+            <div class="fader-label">MOD</div>
+        </div>
+        <div class="overlay-fader" data-fader="texture">
+            <div class="fader-track"></div>
+            <div class="fader-fill"></div>
+            <div class="fader-handle" data-handle="texture"></div>
+            <div class="fader-marks">
+                <span class="fader-mark" data-pos="0" title="Dry">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 12h14"></path>
+                    </svg>
+                </span>
+                <span class="fader-mark" data-pos="1" title="Space">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M6 16c2-6 10-6 12 0"></path>
+                        <path d="M4 10c3-4 13-4 16 0"></path>
+                    </svg>
+                </span>
+            </div>
+            <div class="fader-label">SPACE</div>
+        </div>
+    </div>
+    <div class="overlay-gesture-zone" aria-hidden="true"></div>
+</div>
+
+<div id="fxPanel" class="fx-panel hidden">
+    <div class="fx-card">
+        <div class="fx-head">
+            <div class="fx-title">FX Control</div>
+            <button id="fxClose" class="menu-btn btn-danger"><span class="btn-text">X</span></button>
+        </div>
+        <label>FX Preset</label>
+        <div class="fx-preset-row">
+            <select id="fxPresetSelect"></select>
+            <button id="fxPresetApply" class="menu-btn btn-accent" title="Apply"><span class="btn-text">OK</span></button>
+        </div>
+        <div class="fx-preset-row">
+            <input type="text" id="fxPresetName" placeholder="Custom preset name...">
+            <button id="fxPresetSave" class="menu-btn btn-ok" title="Save"><span class="btn-text">SAVE</span></button>
+            <button id="fxPresetDel" class="menu-btn btn-danger" title="Delete"><span class="btn-text">DEL</span></button>
+        </div>
+        <div class="fx-grid">
+            <div class="fx-group active" data-fx-group="filter">
+                <div class="fx-toggle-cell">
+                    <button id="fxFilterToggle" class="menu-btn fx-toggle toggle-on">FILTER ON/OFF</button>
+                </div>
+                <div class="fx-item"><label>Attack</label><input type="range" id="fxAttack" min="0" max="5000" value="10"><div class="fx-value" data-fx-value="fxAttack"></div></div>
+                <div class="fx-item"><label>Decay</label><input type="range" id="fxDecay" min="0" max="5000" value="200"><div class="fx-value" data-fx-value="fxDecay"></div></div>
+                <div class="fx-item"><label>Sustain</label><input type="range" id="fxSustain" min="0" max="1" step="0.01" value="0.7"><div class="fx-value" data-fx-value="fxSustain"></div></div>
+                <div class="fx-item"><label>Release</label><input type="range" id="fxRelease" min="0" max="5000" value="300"><div class="fx-value" data-fx-value="fxRelease"></div></div>
+                <div class="fx-item"><label>Cutoff</label><input type="range" id="fxCutoff" min="60" max="20000" value="12000"><div class="fx-value" data-fx-value="fxCutoff"></div></div>
+                <div class="fx-item"><label>Res</label><input type="range" id="fxResonance" min="0.1" max="20" step="0.1" value="0.7"><div class="fx-value" data-fx-value="fxResonance"></div></div>
+                <div class="fx-item"><label>F Env</label><input type="range" id="fxFilterEnv" min="0" max="2" step="0.01" value="0"><div class="fx-value" data-fx-value="fxFilterEnv"></div></div>
+            </div>
+            <div class="fx-group" data-fx-group="chorus">
+                <div class="fx-toggle-cell">
+                    <button id="fxChorusToggle" class="menu-btn fx-toggle toggle-on">CHORUS ON/OFF</button>
+                </div>
+                <div class="fx-item"><label>Ch Rate</label><input type="range" id="fxChorusRate" min="0" max="5" step="0.01" value="0.25"><div class="fx-value" data-fx-value="fxChorusRate"></div></div>
+                <div class="fx-item"><label>Ch Depth</label><input type="range" id="fxChorusDepth" min="0" max="20" step="0.1" value="8"><div class="fx-value" data-fx-value="fxChorusDepth"></div></div>
+            </div>
+            <div class="fx-group" data-fx-group="delay">
+                <div class="fx-toggle-cell">
+                    <button id="fxDelayToggle" class="menu-btn fx-toggle toggle-on">DELAY ON/OFF</button>
+                </div>
+                <div class="fx-item"><label>D Time</label><input type="range" id="fxDelayTime" min="1" max="2000" value="300"><div class="fx-value" data-fx-value="fxDelayTime"></div></div>
+                <div class="fx-item"><label>D Fbk</label><input type="range" id="fxDelayFeedback" min="0" max="0.9" step="0.01" value="0.35"><div class="fx-value" data-fx-value="fxDelayFeedback"></div></div>
+                <div class="fx-item"><label>D Dry</label><input type="range" id="fxDelayDry" min="0" max="1" step="0.01" value="1"><div class="fx-value" data-fx-value="fxDelayDry"></div></div>
+                <div class="fx-item"><label>D Wet</label><input type="range" id="fxDelayWet" min="0" max="1" step="0.01" value="0.2"><div class="fx-value" data-fx-value="fxDelayWet"></div></div>
+                <div class="fx-item"><label>D Rev</label><input type="range" id="fxDelayReverse" min="0" max="1" step="0.01" value="0"><div class="fx-value" data-fx-value="fxDelayReverse"></div></div>
+            </div>
+            <div class="fx-group" data-fx-group="reverb">
+                <div class="fx-toggle-cell">
+                    <button id="fxReverbToggle" class="menu-btn fx-toggle toggle-on">REVERB ON/OFF</button>
+                </div>
+                <div class="fx-item"><label>Rev Decay</label><input type="range" id="fxReverbDecay" min="0.2" max="10" step="0.1" value="2.5"><div class="fx-value" data-fx-value="fxReverbDecay"></div></div>
+                <div class="fx-item"><label>Rev Dry</label><input type="range" id="fxReverbDry" min="0" max="1" step="0.01" value="1"><div class="fx-value" data-fx-value="fxReverbDry"></div></div>
+                <div class="fx-item"><label>Rev Wet</label><input type="range" id="fxReverbWet" min="0" max="1" step="0.01" value="0.2"><div class="fx-value" data-fx-value="fxReverbWet"></div></div>
+                <div class="fx-item"><label>FX Mix</label><input type="range" id="fxMix" min="0" max="1" step="0.01" value="0.3"><div class="fx-value" data-fx-value="fxMix"></div></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recording Editor Modal -->
+<div id="recEditorModal" class="rec-editor-modal">
+    <div class="rec-editor-content">
+        <div class="rec-editor-header">
+            <h3>Recording Editor</h3>
+            <button id="recEditorClose" class="rec-editor-close" title="Close">×</button>
+        </div>
+        <div class="rec-editor-waveform">
+            <canvas id="recWaveformCanvas"></canvas>
+            <div id="recSelection" class="rec-selection"></div>
+            <div id="recPlayhead" class="rec-playhead"></div>
+        </div>
+        <div class="rec-editor-info">
+            <span id="recDuration">Duration: 00:00</span>
+            <span id="recSelectionInfo">Selection: Full</span>
+        </div>
+        <div class="rec-editor-controls">
+            <button id="recPlayBtn" class="menu-btn btn-accent" title="Play"><span class="btn-icon">▶</span></button>
+            <button id="recStopPlayBtn" class="menu-btn" title="Stop"><span class="btn-icon">■</span></button>
+            <button id="recClearSelBtn" class="menu-btn" title="Select All">Select All</button>
+            <div class="rec-editor-name">
+                <label>Filename:</label>
+                <input type="text" id="recFileName" placeholder="recording">
+                <span>.wav</span>
+            </div>
+            <button id="recSaveBtn" class="menu-btn btn-ok" title="Save WAV">💾 Save</button>
+            <button id="recDiscardBtn" class="menu-btn btn-danger" title="Discard">🗑 Discard</button>
+        </div>
+    </div>
+</div>
+
+<script src="script.js" defer></script>
+</body>
+</html>
