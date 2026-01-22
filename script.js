@@ -5009,8 +5009,7 @@ async function loadMagenta() {
     magentaLoadPromise = (async () => {
         if (!window.mm) {
             await loadScriptOnce('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js');
-            await loadScriptOnce('https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/es6/core.js');
-            await loadScriptOnce('https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/es6/transcription.js');
+            await loadScriptOnce('https://cdn.jsdelivr.net/npm/@magenta/music@1.23.1/dist/magentamusic.min.js');
         }
         if (!window.mm) throw new Error('Magenta not available');
         if (!magentaModel) {
