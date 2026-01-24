@@ -3404,7 +3404,7 @@ function updateChannelPress(chan) {
         const baseVel = useDynamicVel ? pressNorm : (v.baseGain ?? 0.02);
         // FIX: Allow silence (0) instead of clamping to 0.01
         const nextGain = Math.max(0, baseVel * pressGain * sustain);
-        v.gain.gain.setTargetAtTime(nextGain, state.audio.ctx.currentTime, 0.02);
+        v.gain.gain.setTargetAtTime(nextGain, state.audio.ctx.currentTime, 0.04);
         applyVoiceModRouting(v);
     });
 }
@@ -4640,14 +4640,7 @@ function applySmoothing(touch, m) {
     const mix = 1 - smoothAmt;
     touch.smoothPb = touch.smoothPb == null ? m.pbValue : touch.smoothPb + (m.pbValue - touch.smoothPb) * mix;
     touch.smoothSlide = touch.smoothSlide == null ? m.slide : touch.smoothSlide + (m.slide - touch.smoothSlide) * mix;
-    if (touch.smoothPress == null) {
-        touch.smoothPress = m.press;
-    } else {
-        const rising = m.press > touch.smoothPress;
-        // Heavier smoothing on upward motion to avoid "steppy" rise; faster on release.
-        const pressMix = rising ? mix * 0.45 : Math.min(1, mix * 1.15);
-        touch.smoothPress = touch.smoothPress + (m.press - touch.smoothPress) * pressMix;
-    }
+    touch.smoothPress = touch.smoothPress == null ? m.press : touch.smoothPress + (m.press - touch.smoothPress) * mix;
     return {
         ...m,
         pbValue: Math.round(touch.smoothPb),
@@ -6631,10 +6624,10 @@ function getMPEData(e, voice = null, forceSnap = false) {
     }
     slideNorm = applyCurve(slideNorm);
     const slide = Math.floor(slideNorm * 127);
-    let pressNorm = slideNorm;
+    const useYForVelocity = els.linkPressToY.checked && els.linkYToVelocity.checked;
+    const sens = parseInt(els.touchSensitivity ? els.touchSensitivity.value : 75, 10) || 75;
+    let pressNorm = useYForVelocity ? slideNorm : Math.min(((e.width + e.height) / sens), 1.0);
     pressNorm = applyCurve(pressNorm);
-    // Soften low-end response to avoid "step" at very low values
-    pressNorm = Math.pow(pressNorm, 1.6);
     const press = Math.floor(pressNorm * 127);
     return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: finalExact };
 }
