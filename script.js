@@ -2682,8 +2682,8 @@ function getEffectiveRelease() {
     return (base * (1 + texture * 4.0)) + floor;
 }
 
-const MIN_ENV_ATTACK = 0.004;
-const MIN_ENV_RELEASE = 0.01;
+const MIN_ENV_ATTACK = 0.005;
+const MIN_ENV_RELEASE = 0.02;
 
 const MATRIX_DESTS = {
     wtmix: {
