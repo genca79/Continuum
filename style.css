@@ -88,12 +88,28 @@ body {
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 .ui-tab:hover { background: rgba(255,255,255,0.1); color: #fff; }
 .ui-tab.active {
     background: var(--primary);
     color: #000;
     border-color: var(--primary);
+}
+
+.ui-tab .tab-icon {
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.ui-tab .tab-icon svg {
+    width: 14px;
+    height: 14px;
+    display: block;
 }
 
 /* Tab content panels */
@@ -901,52 +917,160 @@ body.note-dragging .rec-controls-bar {
 }
 #performance::-webkit-scrollbar { display: none; }
 
-/* === COMPACT MODE === */
+/* === PERFORMANCE TOGGLE LAYOUTS === */
+#performance .perf-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+#performance .perf-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 100px;
+    max-width: 140px;
+    text-align: center;
+}
+
+#performance .perf-label-top {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #a9b2bb;
+}
+
+#performance .perf-item select,
+#performance .perf-item input[type="number"] {
+    width: 100%;
+}
+
+#performance .perf-item.perf-transpose {
+    min-width: 140px;
+    max-width: 180px;
+}
+
+#performance .perf-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    justify-content: center;
+}
+
+#performance .perf-inline-compact input[type="number"] {
+    max-width: 56px;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+
+#performance .perf-inline-compact .perf-label {
+    margin-left: 2px;
+}
+
+#performance .perf-btn svg,
+#performance .perf-knob svg {
+    width: 22px;
+    height: 22px;
+    display: block;
+}
+
+#performance .perf-knob {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#performance .perf-fade-compact input[type=\"number\"] {
+    min-width: 70px;
+}
+
 #performance.compact {
     justify-content: center;
     gap: 12px;
 }
-/* Hide non-essential elements in compact mode */
-#performance.compact .perf-group {
-    display: none !important;
+
+#performance .perf-alt {
+    display: none;
 }
-#performance.compact .perf-label,
-#performance.compact #groupShiftBtn,
-#performance.compact #fxToggle,
-#performance.compact #fxPresetQuick,
-#performance.compact #fadeBtn,
-#performance.compact #fadeSeconds {
-    display: none !important;
+
+#performance .perf-alt {
+    justify-content: center;
+    width: 100%;
 }
-/* Show compact-essential elements at root level */
-#performance.compact > .compact-essential {
-    display: inline-flex !important;
+
+#performance .perf-alt #fxToggle {
+    flex: 0 0 auto;
+    width: auto;
 }
-/* Bigger buttons in compact mode */
-#performance.compact .perf-btn.compact-essential {
-    padding: 16px 24px;
-    font-size: 18px;
-    min-height: 56px;
-    min-width: 80px;
+
+#performance.compact .perf-compact {
+    display: flex;
 }
-/* Bigger knobs in compact mode */
-#performance.compact .perf-knob.compact-essential {
+
+#performance.compact .perf-alt {
+    display: none;
+}
+
+#performance:not(.compact) .perf-compact {
+    display: none;
+}
+
+#performance:not(.compact) .perf-alt {
+    display: flex;
+}
+
+#performance.compact .perf-btn,
+#performance:not(.compact) .perf-alt .perf-btn {
+    padding: 10px 12px;
+    font-size: 16px;
+    min-height: 44px;
+    min-width: 68px;
+}
+
+#performance.compact .perf-knob,
+#performance:not(.compact) .perf-alt .perf-knob {
     width: 56px;
     height: 56px;
     font-size: 12px;
 }
-/* Bigger selects in compact mode */
-#performance.compact select.compact-essential {
-    padding: 14px 12px;
-    font-size: 16px;
-    min-height: 56px;
-    min-width: 90px;
+
+#performance.compact select,
+#performance.compact input[type="number"],
+#performance:not(.compact) .perf-alt select,
+#performance:not(.compact) .perf-alt input[type="number"] {
+    padding: 8px 8px;
+    font-size: 14px;
+    min-height: 40px;
+    min-width: 60px;
     background: var(--bg-input);
     border: 1px solid rgba(255,255,255,0.15);
     border-radius: 8px;
     color: var(--btn-text);
 }
-/* === END COMPACT MODE === */
+
+#performance #fxToggle svg {
+    width: 24px;
+    height: 24px;
+    stroke: currentColor;
+}
+
+@media (min-width: 1200px) {
+    #performance .perf-row {
+        flex-wrap: nowrap;
+    }
+}
+
+@media (max-width: 900px) {
+    #performance .perf-item {
+        flex: 1 1 100px;
+        max-width: 140px;
+    }
+}
+/* === END PERFORMANCE TOGGLE LAYOUTS === */
 
 /* --- FLOATING GESTURE OVERLAY --- */
 .gesture-overlay {
@@ -1231,8 +1355,8 @@ body.note-dragging .rec-controls-bar {
     text-align: center;
 }
 
-/* GROUP button specific active state */
-#groupShiftBtn.active {
+/* KEEP button specific active state */
+#keepBtn.active {
     background: var(--primary);
     color: #000;
     border-color: var(--primary);

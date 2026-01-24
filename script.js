@@ -78,7 +78,7 @@ const els = {
     arpWheel: document.getElementById('arpWheel'),
     arpParamsToggle: document.getElementById('arpParamsToggle'),
     arpParamsPanel: document.getElementById('arpParamsPanel'),
-    groupShiftBtn: document.getElementById('groupShiftBtn'),
+    keepBtn: document.getElementById('keepBtn'),
     midiStatus: document.getElementById('midiStatus'),
     audioStart: document.getElementById('audioStart'),
     audioStatus: document.getElementById('audioStatus'),
@@ -556,14 +556,13 @@ const state = {
     mpeChannels: Array.from({length: 15}, (_, i) => i + 2),
     localNoteOnTimes: new Map(),
     externalNoteMap: new Map(),
-    groupDragStates: new Map(),
+    keepEnabled: false,
     presets: {},
     mpePresets: {},
     customScales: {},
     fxUserPresets: {},
     scaleNotes: { notes: [], root: 0, scale: '' },
     gridCache: null,
-    groupShiftEnabled: false,
     overlay: { active: false, side: 'right' },
     fadeState: { active: false, start: 0, durationMs: 0 },
     drawRaf: null,
@@ -591,7 +590,7 @@ const state = {
         range: 14,
         cadence: 'tonic',
         chan: 1,
-        mpePerNote: false,
+        mpePerNote: true,
         lastVoices: [],
         virtualPhase: null,
         lastVirtualY: null,
@@ -619,14 +618,14 @@ const state = {
         },
         humanize: {
             timing: 8,
-            velocity: 20,
-            swing: 10,
-            legato: 70,
+            velocity: 30,
+            swing: 60,
+            legato: 100,
             ornament: 10,
-            press: 12,
-            timbre: 20,
+            press: 40,
+            timbre: 80,
             pitch: 10,
-            yMotion: 35,
+            yMotion: 100,
             yMotionEnabled: true
         },
         pendingTimers: [],
@@ -3584,6 +3583,7 @@ function clearSampleSlot(slotIndex) {
 }
 state.arp = {
     enabled: false,
+    keepHold: false,
     rate: '1/16',
     gate: 0.6,
     sync: 'internal',
@@ -3654,6 +3654,21 @@ function releaseHeldNotes() {
     });
     state.heldVoices = [];
     state.mpeChannels.sort((a,b)=>a-b);
+}
+
+function releaseArpHoldNotes() {
+    if (!state.arpHoldTouches.length) return;
+    state.arpHoldTouches.forEach(t => {
+        if (!t.noteObjs || !t.noteObjs.length) return;
+        stopArpActiveNotes(t.noteObjs);
+        removeArpNotes(t.noteObjs);
+    });
+    state.arpHoldTouches = [];
+}
+
+function releaseHeldCollections() {
+    releaseHeldNotes();
+    releaseArpHoldNotes();
 }
 
 function allNotesOff() {
@@ -4142,7 +4157,12 @@ function updateArpControlsUI() {
     els.arpWheel.classList.toggle('knob-on', isOn);
     els.arpWheel.classList.toggle('knob-off', !isOn);
     const rateValue = els.arpRate ? els.arpRate.value : '1/16';
-    els.arpWheel.innerText = isOn ? rateValue : 'ARP off';
+    const label = isOn ? rateValue : 'off';
+    if (els.arpWheel) {
+        els.arpWheel.setAttribute('aria-label', `ARP ${label}`);
+        els.arpWheel.title = `ARP ${label}`;
+        els.arpWheel.dataset.stateLabel = `ARP ${label}`;
+    }
     // Sync the visible rate select with the hidden one
     if (els.arpRateSelect && els.arpRate) {
         els.arpRateSelect.value = els.arpRate.value;
@@ -4179,8 +4199,16 @@ function updateArpParamsToggleLabel() {
     els.arpParamsToggle.classList.toggle('toggle-off', !isOpen);
 }
 
-function updateGroupShiftUI() {
-    els.groupShiftBtn.classList.toggle('active', state.groupShiftEnabled);
+function updateKeepButtonUI() {
+    if (!els.keepBtn) return;
+    const isOn = !!state.keepEnabled;
+    els.keepBtn.classList.toggle('active', isOn);
+    els.keepBtn.classList.toggle('toggle-on', isOn);
+    els.keepBtn.classList.toggle('toggle-off', !isOn);
+    const label = isOn ? 'KEEP ON' : 'KEEP';
+    els.keepBtn.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+    els.keepBtn.setAttribute('aria-label', label);
+    els.keepBtn.title = label;
 }
 
 function loadCustomScaleByName(name) {
@@ -6044,7 +6072,10 @@ function updateMelodyToggleUI() {
     if (els.melodyPerfToggle) {
         els.melodyPerfToggle.classList.toggle('toggle-on', isOn);
         els.melodyPerfToggle.classList.toggle('toggle-off', !isOn);
-        els.melodyPerfToggle.textContent = isOn ? 'MELODY ON' : 'MELODY OFF';
+        const label = isOn ? 'MELODY ON' : 'MELODY OFF';
+        els.melodyPerfToggle.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+        els.melodyPerfToggle.setAttribute('aria-label', label);
+        els.melodyPerfToggle.title = label;
     }
 }
 
@@ -6433,7 +6464,7 @@ function arpNoteOn(noteObj, stepMs) {
 
 function arpStep(stepMsOverride) {
     if (state.fadeState.active) return;
-    if (!state.arp.enabled || !state.arp.notes.length) return;
+    if ((!state.arp.enabled && !state.arp.keepHold) || !state.arp.notes.length) return;
     const stepMs = stepMsOverride || getStepMs();
     const noteObj = state.arp.notes[state.arp.stepIndex % state.arp.notes.length];
     state.arp.stepIndex++;
@@ -6443,7 +6474,7 @@ function arpStep(stepMsOverride) {
 
 function restartInternalArp() {
     if (state.arp.timer) clearInterval(state.arp.timer);
-    if (!state.arp.enabled || state.arp.sync !== 'internal') return;
+    if ((!state.arp.enabled && !state.arp.keepHold) || state.arp.sync !== 'internal') return;
     const stepMs = getStepMs();
     state.arp.running = true;
     state.arp.timer = setInterval(() => arpStep(stepMs), stepMs);
@@ -6457,6 +6488,7 @@ function stopInternalArp() {
 function syncArpFromUI() {
     const wasEnabled = state.arp.enabled;
     state.arp.enabled = els.arpEnabled.checked;
+    state.arp.keepHold = !state.arp.enabled && state.keepEnabled && state.arpHoldTouches.length > 0;
     state.arp.rate = els.arpRate.value;
     state.arp.gate = parseInt(els.arpGate.value, 10) / 100;
     state.arp.sync = els.arpSync.value;
@@ -6464,7 +6496,7 @@ function syncArpFromUI() {
     state.arp.latch = els.arpLatch.checked;
     updateArpTiming();
     updateArpControlsUI();
-    if (!state.arp.enabled) {
+    if (!state.arp.enabled && !state.arp.keepHold) {
         state.arp.running = false;
         stopInternalArp();
         stopAllArpNotes();
@@ -6746,197 +6778,6 @@ function drawNoteBubble(x, y, radius, color, label) {
     }
 }
 
-function getGroupDragKey(type, id) {
-    return `${type}:${id}`;
-}
-
-function getActiveGroupTouches(key) {
-    const list = [];
-    state.activeTouches.forEach(t => {
-        if (t.isGroupDrag && t.groupDragKey === key) list.push(t);
-    });
-    return list;
-}
-
-function startHoldGroupDrag(groupId) {
-    if (!groupId) return null;
-    const key = getGroupDragKey('hold', groupId);
-    if (state.groupDragStates.has(key)) return state.groupDragStates.get(key);
-    const voices = [];
-    state.heldVoices.forEach(v => { if (v.group === groupId) voices.push(v); });
-    state.activeTouches.forEach(t => {
-        if (t.isHoldGrab && t.holdGroup === groupId && t.voices) {
-            t.voices.forEach(v => voices.push(v));
-        }
-    });
-    const pbRange = parseInt(els.pbRange.value, 10) || 12;
-    const origBasePb = new Map();
-    let sumExact = 0;
-    voices.forEach(v => {
-        origBasePb.set(v, v.basePb || 0);
-        const noteFloat = (v.note || 0) + ((v.basePb || 0) * (pbRange / 8192));
-        sumExact += noteFloat;
-    });
-    const anchorExact = voices.length ? sumExact / voices.length : 0;
-    const dragState = { key, type: 'hold', groupId, voices, origBasePb, anchorExact, lastX: null };
-    state.groupDragStates.set(key, dragState);
-    return dragState;
-}
-
-function startArpGroupDrag(holdIdx) {
-    const key = getGroupDragKey('arp', holdIdx);
-    if (state.groupDragStates.has(key)) return state.groupDragStates.get(key);
-    const hold = state.arpHoldTouches[holdIdx];
-    if (!hold || !hold.noteObjs) return null;
-    const noteObjs = hold.noteObjs.slice(0);
-    let sumExact = 0;
-    noteObjs.forEach(n => { sumExact += (n.noteFloat ?? n.note ?? 0); });
-    const anchorExact = noteObjs.length ? sumExact / noteObjs.length : 0;
-    const origNoteFloat = new Map();
-    noteObjs.forEach(n => origNoteFloat.set(n, n.noteFloat ?? n.note ?? 0));
-    const dragState = { key, type: 'arp', holdIdx, noteObjs, origNoteFloat, anchorExact, lastX: null };
-    state.groupDragStates.set(key, dragState);
-    return dragState;
-}
-
-function handleGroupDrag(t) {
-    const dragState = state.groupDragStates.get(t.groupDragKey);
-    if (!dragState) return;
-    const touches = getActiveGroupTouches(dragState.key);
-    if (!touches.length) return;
-    const avgX = touches.reduce((s, item) => s + (item.lastX ?? 0), 0) / touches.length;
-    const avgY = touches.reduce((s, item) => s + (item.lastM?.y ?? 0), 0) / touches.length;
-    const fakeEvent = { clientX: avgX, clientY: avgY, width: 0, height: 0 };
-    const voiceRef = { initialExact: dragState.anchorExact, lastX: dragState.lastX ?? avgX, vibratoSpeed: 0 };
-    const m = getMPEData(fakeEvent, voiceRef);
-    dragState.lastX = avgX;
-    const pbRange = parseInt(els.pbRange.value, 10) || 12;
-    const deltaExact = m.exact - dragState.anchorExact;
-    const pbDelta = Math.round(deltaExact * (8192 / pbRange));
-    if (dragState.type === 'hold') {
-        dragState.voices.forEach(v => {
-            const basePbOrig = dragState.origBasePb.get(v) || 0;
-            const newBasePb = basePbOrig + pbDelta;
-            v.basePb = newBasePb;
-            v.lastM = { ...m, x: avgX, y: avgY, exact: (v.note || 0) + (newBasePb * (pbRange / 8192)) };
-            const pb = clampPb(8192 + basePbOrig + pbDelta);
-            if (v.chan) {
-                sendMidi([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-                sendMidi([0xB0 + v.chan - 1, 74, m.slide]);
-                sendMidi([0xD0 + v.chan - 1, m.press]);
-            }
-        });
-    } else if (dragState.type === 'arp') {
-        dragState.noteObjs.forEach(n => {
-            const base = dragState.origNoteFloat.get(n) || 0;
-            const noteFloat = base + deltaExact;
-            const voice = makeVoiceFromNote(noteFloat);
-            n.noteFloat = noteFloat;
-            n.note = voice.note;
-            n.basePb = voice.basePb;
-            n.lastM = { ...m, x: avgX, y: avgY, exact: noteFloat };
-        });
-    }
-}
-
-function cleanupGroupDrag(key) {
-    if (!key) return;
-    const stillActive = Array.from(state.activeTouches.values()).some(t => t.isGroupDrag && t.groupDragKey === key);
-    if (!stillActive) state.groupDragStates.delete(key);
-}
-
-function startGroupShiftDrag(e) {
-    const holdHit = findHeldVoiceAt(e.clientX, e.clientY);
-    if (holdHit) {
-        const hv = state.heldVoices[holdHit.idx];
-        const groupId = hv.group || 0;
-        if (!groupId) return false;
-        const key = getGroupDragKey('hold', groupId);
-        startHoldGroupDrag(groupId);
-        const tmpVoice = { initialExact: hv.rootNote ?? hv.note, lastX: e.clientX, vibratoSpeed: 0 };
-        const m = getMPEData(e, tmpVoice);
-        state.activeTouches.set(e.pointerId, {
-            voices: [],
-            isGroupDrag: true,
-            groupDragKey: key,
-            lastX: e.clientX,
-            lastM: m,
-            color: hv.color,
-            phase: hv.phase || 0,
-            initialExact: hv.rootNote ?? hv.note
-        });
-        return true;
-    }
-    const arpNoteHit = findArpHoldNoteAt(e.clientX, e.clientY);
-    const arpHoldHit = arpNoteHit ? null : findArpHoldAt(e.clientX, e.clientY);
-    const holdIdx = arpNoteHit ? arpNoteHit.holdIdx : (arpHoldHit ? arpHoldHit.idx : null);
-    if (holdIdx != null) {
-        const hold = state.arpHoldTouches[holdIdx];
-        if (!hold) return false;
-        const key = getGroupDragKey('arp', holdIdx);
-        startArpGroupDrag(holdIdx);
-        const baseExact = hold.lastM?.exact ?? 0;
-        const tmpVoice = { initialExact: baseExact, lastX: e.clientX, vibratoSpeed: 0 };
-        const m = getMPEData(e, tmpVoice);
-        state.activeTouches.set(e.pointerId, {
-            voices: [],
-            isGroupDrag: true,
-            groupDragKey: key,
-            lastX: e.clientX,
-            lastM: m,
-            color: hold.color || '#ffaa00',
-            phase: hold.phase || 0,
-            initialExact: baseExact
-        });
-        return true;
-    }
-    return false;
-}
-
-function tryStartTwoFingerGroupDrag(e) {
-    if (Array.from(state.activeTouches.values()).some(t => t.isGroupDrag)) return true;
-    if (!state.activeTouches.size) return false;
-    let holdEntry = null;
-    let arpEntry = null;
-    state.activeTouches.forEach((t, id) => {
-        if (!holdEntry && t.isHoldGrab && t.holdGroup) holdEntry = { id, t };
-        if (!arpEntry && t.isArpHoldGrab && Number.isInteger(t.holdIdx)) arpEntry = { id, t };
-    });
-    if (holdEntry) {
-        const groupId = holdEntry.t.holdGroup;
-        const key = getGroupDragKey('hold', groupId);
-        startHoldGroupDrag(groupId);
-        holdEntry.t.isGroupDrag = true;
-        holdEntry.t.groupDragKey = key;
-        state.activeTouches.set(e.pointerId, {
-            voices: [],
-            isGroupDrag: true,
-            groupDragKey: key,
-            lastX: e.clientX,
-            lastM: { x: e.clientX, y: e.clientY, press: 0, slide: 0, pbValue: 8192, exact: holdEntry.t.initialExact ?? 0 },
-            color: holdEntry.t.color,
-            phase: holdEntry.t.phase || 0
-        });
-        return true;
-    }
-    if (arpEntry) {
-        const key = getGroupDragKey('arp', arpEntry.t.holdIdx);
-        startArpGroupDrag(arpEntry.t.holdIdx);
-        arpEntry.t.isGroupDrag = true;
-        arpEntry.t.groupDragKey = key;
-        state.activeTouches.set(e.pointerId, {
-            voices: [],
-            isGroupDrag: true,
-            groupDragKey: key,
-            lastX: e.clientX,
-            lastM: { x: e.clientX, y: e.clientY, press: 0, slide: 0, pbValue: 8192, exact: arpEntry.t.initialExact ?? 0 },
-            color: arpEntry.t.color,
-            phase: arpEntry.t.phase || 0
-        });
-        return true;
-    }
-    return false;
-}
 
 const DROP_DURATION_MS = 1000;
 const DOUBLE_TAP_MS = 280;
@@ -7279,8 +7120,46 @@ function convertHeldToArp() {
     requestDraw();
 }
 
+function keepArpHoldAsHeld() {
+    if (!state.arpHoldTouches.length) return false;
+    stopAllArpNotes();
+    const held = [];
+    state.arpHoldTouches.forEach(t => {
+        const m = t.lastM || { press: 90, slide: 0, pbValue: 8192 };
+        const list = t.noteObjs || [];
+        const groupId = state.holdGroupSeq++;
+        list.forEach(n => {
+            const noteFloat = n.noteFloat ?? n.note ?? 60;
+            const voice = makeVoiceFromNote(noteFloat);
+            const chan = state.mpeChannels.shift();
+            if (!chan) return;
+            const pb = getVoicePb(m, voice);
+            sendMidi([0xB0 + chan - 1, 74, m.slide || 0]);
+            sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+            sendMidi([0xD0 + chan - 1, m.press ?? 90]);
+            sendMidi([0x90 + chan - 1, voice.note, Math.max(1, Math.min(127, Math.round(m.press || 90)))]);
+            held.push({
+                chan,
+                note: voice.note,
+                basePb: voice.basePb,
+                lastM: m,
+                color: n.color || t.color || '#ffaa00',
+                phase: t.phase || 0,
+                group: groupId,
+                rootNote: null
+            });
+        });
+    });
+    state.heldVoices.push(...held);
+    state.arp.notes = [];
+    state.arpHoldTouches = [];
+    requestDraw();
+    return true;
+}
+
 function updateArpChords() {
     // Update ARP notes when chord mode changes
+    if (state.keepEnabled) return;
     if (!state.arp.enabled || !state.arpHoldTouches.length) return;
     
     const chordMode = els.chordMode.value;
@@ -7332,6 +7211,7 @@ function updateArpChords() {
 }
 
 function updateHeldChords() {
+    if (state.keepEnabled) return;
     if (!state.heldVoices.length || !state.midi.output) return;
     const groups = new Map();
     state.heldVoices.forEach(v => {
@@ -7395,12 +7275,6 @@ canvas.addEventListener('pointerdown', e => {
         document.body.classList.remove('note-dragging');
         return;
     }
-    if (state.groupShiftEnabled) {
-        startGroupShiftDrag(e);
-        return;
-    }
-    if (tryStartTwoFingerGroupDrag(e)) return;
-
     // BOW FADER INTERACTION
     // Check if touch is in bottom 60px of canvas (Only if audio enabled/bow visible)
     const canvasY = e.clientY - state.canvasRect.top;
@@ -7469,21 +7343,6 @@ canvas.addEventListener('pointerdown', e => {
             initialExact: voiceNoteFloat, lastX: e.clientX, isGrab: false, isHoldGrab: true, holdGroup: groupId,
             vibratoSpeed: 0, phase: hv.phase || 0, color: hv.color, lastM: m, rootNote: hv.rootNote
         });
-        if (groupId) {
-            const existingEntry = Array.from(state.activeTouches.entries()).find(([id, t]) => t.isHoldGrab && t.holdGroup === groupId && id !== e.pointerId);
-            const existing = existingEntry ? existingEntry[1] : null;
-            if (existing) {
-                const key = getGroupDragKey('hold', groupId);
-                startHoldGroupDrag(groupId);
-                const cur = state.activeTouches.get(e.pointerId);
-                existing.isGroupDrag = true;
-                existing.groupDragKey = key;
-                if (cur) {
-                    cur.isGroupDrag = true;
-                    cur.groupDragKey = key;
-                }
-            }
-        }
         return;
     }
     const arpNoteHit = findArpHoldNoteAt(e.clientX, e.clientY);
@@ -7511,19 +7370,6 @@ canvas.addEventListener('pointerdown', e => {
             color: noteObj.color || hold.color || '#ffaa00',
             lastM: m
         });
-        const existingEntry = Array.from(state.activeTouches.entries()).find(([id, t]) => t.isArpHoldGrab && t.holdIdx === arpNoteHit.holdIdx && id !== e.pointerId);
-        const existing = existingEntry ? existingEntry[1] : null;
-        if (existing) {
-            const key = getGroupDragKey('arp', arpNoteHit.holdIdx);
-            startArpGroupDrag(arpNoteHit.holdIdx);
-            const cur = state.activeTouches.get(e.pointerId);
-            existing.isGroupDrag = true;
-            existing.groupDragKey = key;
-            if (cur) {
-                cur.isGroupDrag = true;
-                cur.groupDragKey = key;
-            }
-        }
         return;
     }
     const arpHoldHit = findArpHoldAt(e.clientX, e.clientY);
@@ -7661,10 +7507,6 @@ canvas.addEventListener('pointermove', e => {
     requestDraw();
     t.lastX = e.clientX;
     t.lastM = t.lastM ? { ...t.lastM, x: e.clientX, y: e.clientY } : { x: e.clientX, y: e.clientY, press: 0, slide: 0, pbValue: 8192, exact: t.initialExact ?? 0 };
-    if (t.isGroupDrag) {
-        handleGroupDrag(t);
-        return;
-    }
     const m = applySmoothing(t, getMPEData(e, t));
     t.lastM = m;
     if (t.isArpHoldGrab) {
@@ -7739,8 +7581,8 @@ canvas.addEventListener('pointerup', e => {
     const t = state.activeTouches.get(e.pointerId);
     if (t) {
         requestDraw();
-        const groupKey = t.groupDragKey;
-        const hold = els.holdNotes.checked;
+        const hold = !!els.holdNotes.checked;
+        const keepHeld = state.keepEnabled;
         if (t.isArpHoldGrab) {
             const item = state.arpHoldTouches[t.holdIdx];
             if (item) {
@@ -7753,7 +7595,6 @@ canvas.addEventListener('pointerup', e => {
                 item.color = item.noteObjs?.[0]?.color || t.color;
             }
             state.activeTouches.delete(e.pointerId);
-            cleanupGroupDrag(groupKey);
             return;
         }
         // FIX: Avoid double-quantization if Hold is active (snapHoldVoicesToScale handles it)
@@ -7777,11 +7618,10 @@ canvas.addEventListener('pointerup', e => {
                 state.arpHoldTouches.push({ lastM: t.lastM, color: holdColor, phase: t.phase || 0, noteObjs: t.arpNotes });
             }
             state.activeTouches.delete(e.pointerId);
-            cleanupGroupDrag(groupKey);
             return;
         }
         if (t.isHoldGrab) {
-            if (hold) {
+            if (hold || keepHeld) {
                 snapHoldVoicesToScale(t);
                 const groupId = t.holdGroup || state.holdGroupSeq++;
                 t.voices.forEach(v => {
@@ -7795,7 +7635,6 @@ canvas.addEventListener('pointerup', e => {
             }
             state.mpeChannels.sort((a,b)=>a-b);
             state.activeTouches.delete(e.pointerId);
-            cleanupGroupDrag(groupKey);
             return;
         }
         if (!t.isGrab && hold) {
@@ -7829,14 +7668,13 @@ canvas.addEventListener('pointerup', e => {
         });
         if (!hold) state.mpeChannels.sort((a,b)=>a-b);
         state.activeTouches.delete(e.pointerId);
-        cleanupGroupDrag(groupKey);
     }
     state.pointerIds.delete(e.pointerId);
     // Remove note-dragging class when no more active pointers
     if (state.pointerIds.size === 0) {
         document.body.classList.remove('note-dragging');
     }
-    if (state.audio.enabled && state.audio.wavetable.mode !== 'sampler' && state.activeTouches.size === 0 && !els.holdNotes.checked) {
+    if (state.audio.enabled && state.audio.wavetable.mode !== 'sampler' && state.activeTouches.size === 0 && !els.holdNotes.checked && !state.keepEnabled) {
         stopAllVoicesInternal();
     }
 });
@@ -7851,17 +7689,14 @@ function cancelActivePointer(pointerId) {
         }
         return;
     }
-    const groupKey = t.groupDragKey;
     if (t.isArp) {
         const keep = els.holdNotes.checked;
         if (!keep) removeArpNotes(t.arpNotes);
         state.activeTouches.delete(pointerId);
-        cleanupGroupDrag(groupKey);
         return;
     }
     if (!state.midi.output) {
         state.activeTouches.delete(pointerId);
-        cleanupGroupDrag(groupKey);
         return;
     }
     t.voices.forEach(v => {
@@ -7870,12 +7705,11 @@ function cancelActivePointer(pointerId) {
     });
     state.mpeChannels.sort((a,b)=>a-b);
     state.activeTouches.delete(pointerId);
-    cleanupGroupDrag(groupKey);
     // Remove note-dragging class when no more active pointers
     if (state.pointerIds.size === 0) {
         document.body.classList.remove('note-dragging');
     }
-    if (state.audio.enabled && state.audio.wavetable.mode !== 'sampler' && state.activeTouches.size === 0 && !els.holdNotes.checked) {
+    if (state.audio.enabled && state.audio.wavetable.mode !== 'sampler' && state.activeTouches.size === 0 && !els.holdNotes.checked && !state.keepEnabled) {
         stopAllVoicesInternal();
     }
 }
@@ -7903,7 +7737,12 @@ function setupChordKnob() {
         select.selectedIndex = currentIndex;
         const isOn = select.value !== 'off';
         if (isOn) lastModeValue = select.value;
-        wheel.innerText = isOn ? options[currentIndex].text : 'CHORD off';
+        const label = isOn ? options[currentIndex].text : 'off';
+        if (wheel) {
+            wheel.setAttribute('aria-label', `CHORD ${label}`);
+            wheel.title = `CHORD ${label}`;
+            wheel.dataset.stateLabel = `CHORD ${label}`;
+        }
         wheel.classList.toggle('knob-on', isOn);
         wheel.classList.toggle('knob-off', !isOn);
     }
@@ -8641,29 +8480,45 @@ function bindUI() {
         hold.checked = !hold.checked;
         updateHoldButtonUI();
         if (!hold.checked) {
-            releaseHeldNotes();
-            if (state.groupShiftEnabled) {
-                state.groupShiftEnabled = false;
-                updateGroupShiftUI();
+            if (!state.keepEnabled) {
+                releaseHeldCollections();
             }
         }
     };
+    if (els.keepBtn) {
+        updateKeepButtonUI();
+        els.keepBtn.onclick = () => {
+            state.keepEnabled = !state.keepEnabled;
+            updateKeepButtonUI();
+            if (!state.keepEnabled) {
+                if (!els.holdNotes.checked) {
+                    releaseHeldCollections();
+                }
+                if (!els.arpEnabled.checked) {
+                    state.arp.keepHold = false;
+                    stopInternalArp();
+                    stopAllArpNotes();
+                    state.arp.notes = [];
+                    state.arpHoldTouches = [];
+                }
+            } else {
+                state.arp.keepHold = !els.arpEnabled.checked && state.arpHoldTouches.length > 0;
+                if (state.arp.keepHold && state.arp.sync === 'internal') {
+                    restartInternalArp();
+                }
+            }
+        };
+    }
     els.pbRange.onchange = e => setPitchBendRange(parseInt(e.target.value, 10));
     els.holdNotes.onchange = e => {
         updateHoldButtonUI();
         if (!e.target.checked) {
-            releaseHeldNotes();
-            if (state.groupShiftEnabled) {
-                state.groupShiftEnabled = false;
-                updateGroupShiftUI();
+            if (!state.keepEnabled) {
+                releaseHeldCollections();
             }
         }
     };
     els.panicBtn.onclick = () => {
-        if (state.groupShiftEnabled) {
-            state.groupShiftEnabled = false;
-            updateGroupShiftUI();
-        }
         if (state.melody.enabled) {
             state.melody.enabled = false;
             stopMelodyGenerator();
@@ -8673,10 +8528,6 @@ function bindUI() {
         els.midiStatus.innerText = 'STOP';
     };
     els.fadeBtn.onclick = () => {
-        if (state.groupShiftEnabled) {
-            state.groupShiftEnabled = false;
-            updateGroupShiftUI();
-        }
         fadeOutAll();
     };
     els.arpEnabled.onchange = syncArpFromUI;
@@ -9128,10 +8979,6 @@ function bindUI() {
             updateArpParamsToggleLabel();
         };
     }
-    els.groupShiftBtn.onclick = () => {
-        state.groupShiftEnabled = !state.groupShiftEnabled;
-        updateGroupShiftUI();
-    };
     els.rootNote.onchange = scheduleScaleUpdate;
     els.scaleType.onchange = () => {
         els.scaleModeDiatonic.checked = true;
@@ -9950,7 +9797,7 @@ function drawActiveTouches(fadeMul, fadeDrop, height) {
             ? t.label
             : (t.isGrab
                 ? "GRAB"
-                : (t.isGroupDrag ? "GROUP" : (t.isArpHoldGrab ? "ARP HOLD" : (t.isArp ? "ARP" : `CH${t.voices[0].chan}`))));
+                : (t.isArpHoldGrab ? "ARP HOLD" : (t.isArp ? "ARP" : `CH${t.voices[0].chan}`)));
         drawNoteBubble(t.lastM.x, y, radius, t.color, label);
         if (t.isArp && t.arpNotes) {
             t.arpNotes.forEach(n => {
@@ -10028,7 +9875,7 @@ function drawBowFaders(height, noteW) {
 
     // 2. Active Touches
     state.activeTouches.forEach(t => {
-        if (t.isGrab || t.isGroupDrag || t.isArpHoldGrab) return; 
+        if (t.isGrab || t.isArpHoldGrab) return; 
         if (!t.voices || !t.voices.length) return;
         t.voices.forEach(v => {
             const noteFloat = getVoiceNoteFloat(v);
@@ -10092,7 +9939,7 @@ document.addEventListener('visibilitychange', () => {
 });
 els.ui.addEventListener('transitionend', refreshLayout);
 els.performance.addEventListener('transitionend', refreshLayout);
-refreshLayout(); updateScaleModeUI(); updateScaleNotes(); syncArpFromUI(); updateHoldButtonUI(); updateArpParamsToggleLabel(); updateGroupShiftUI(); setupMIDI(); draw();
+refreshLayout(); updateScaleModeUI(); updateScaleNotes(); syncArpFromUI(); updateHoldButtonUI(); updateArpParamsToggleLabel(); setupMIDI(); draw();
 
 function updateToggleLabels() {
     const uiLabel = uiToggle ? uiToggle.querySelector('.btn-text') : null;
