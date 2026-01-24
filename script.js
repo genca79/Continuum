@@ -3142,9 +3142,16 @@ function stopVoiceInternal(key) {
     if (!voice || !state.audio.ctx) return;
     const now = state.audio.ctx.currentTime;
     try {
-        voice.gain.gain.cancelScheduledValues(now);
-        voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
-        voice.gain.gain.linearRampToValueAtTime(0, now + 0.03);
+        if (typeof voice.gain.gain.cancelAndHoldAtTime === 'function') {
+            voice.gain.gain.cancelAndHoldAtTime(now);
+        } else {
+            voice.gain.gain.cancelScheduledValues(now);
+            voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+        }
+        const startGain = Math.max(voice.gain.gain.value || 0, 0.0001);
+        voice.gain.gain.setValueAtTime(startGain, now);
+        voice.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+        voice.gain.gain.setValueAtTime(0, now + 0.035);
         if (voice.source) voice.source.stop(now + 0.05);
         if (voice.oscA) voice.oscA.stop(now + 0.05);
         if (voice.oscB) voice.oscB.stop(now + 0.05);
@@ -3160,9 +3167,16 @@ function releaseVoiceInternal(key, minRelease = 0) {
     const now = state.audio.ctx.currentTime;
     const release = Math.max(MIN_ENV_RELEASE, getEffectiveRelease(), minRelease);
     try {
-        voice.gain.gain.cancelScheduledValues(now);
-        voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
-        voice.gain.gain.linearRampToValueAtTime(0, now + release);
+        if (typeof voice.gain.gain.cancelAndHoldAtTime === 'function') {
+            voice.gain.gain.cancelAndHoldAtTime(now);
+        } else {
+            voice.gain.gain.cancelScheduledValues(now);
+            voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+        }
+        const startGain = Math.max(voice.gain.gain.value || 0, 0.0001);
+        voice.gain.gain.setValueAtTime(startGain, now);
+        voice.gain.gain.exponentialRampToValueAtTime(0.0001, now + release);
+        voice.gain.gain.setValueAtTime(0, now + release + 0.005);
         if (voice.source) voice.source.stop(now + release + 0.05);
         if (voice.oscA) voice.oscA.stop(now + release + 0.05);
         if (voice.oscB) voice.oscB.stop(now + release + 0.05);
@@ -3216,8 +3230,8 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
     const attack = Math.max(attackTime, MIN_ENV_ATTACK);
 
     gain.gain.cancelScheduledValues(now);
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(peak, now + attack);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(peak, now + attack);
     gain.gain.linearRampToValueAtTime(peak * sustain, now + attack + fx.decay);
 
     filter.type = 'lowpass';
