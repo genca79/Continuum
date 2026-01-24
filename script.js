@@ -2682,6 +2682,9 @@ function getEffectiveRelease() {
     return (base * (1 + texture * 4.0)) + floor;
 }
 
+const MIN_ENV_ATTACK = 0.004;
+const MIN_ENV_RELEASE = 0.01;
+
 const MATRIX_DESTS = {
     wtmix: {
         min: 0, max: 1,
@@ -3155,7 +3158,7 @@ function releaseVoiceInternal(key, minRelease = 0) {
     const voice = state.audio.voices.get(key);
     if (!voice || !state.audio.ctx) return;
     const now = state.audio.ctx.currentTime;
-    const release = Math.max(0, getEffectiveRelease(), minRelease);
+    const release = Math.max(MIN_ENV_RELEASE, getEffectiveRelease(), minRelease);
     try {
         voice.gain.gain.cancelScheduledValues(now);
         voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
@@ -3210,11 +3213,12 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
     
     // Attack calculation with override
     const attackTime = (tempAttackOverride !== null) ? tempAttackOverride : fx.attack;
+    const attack = Math.max(attackTime, MIN_ENV_ATTACK);
 
     gain.gain.cancelScheduledValues(now);
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(peak, now + attackTime);
-    gain.gain.linearRampToValueAtTime(peak * sustain, now + attackTime + fx.decay);
+    gain.gain.linearRampToValueAtTime(peak, now + attack);
+    gain.gain.linearRampToValueAtTime(peak * sustain, now + attack + fx.decay);
 
     filter.type = 'lowpass';
     filter.Q.value = fx.filterQ;
@@ -3225,8 +3229,8 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
     const envTarget = Math.min(20000, cutoff * (1 + envAmt));
     filter.frequency.cancelScheduledValues(now);
     filter.frequency.setValueAtTime(cutoff, now);
-    filter.frequency.linearRampToValueAtTime(envTarget, now + attackTime);
-    filter.frequency.linearRampToValueAtTime(cutoff, now + attackTime + fx.decay);
+    filter.frequency.linearRampToValueAtTime(envTarget, now + attack);
+    filter.frequency.linearRampToValueAtTime(cutoff, now + attack + fx.decay);
     const modSourceGain = (sample && wtEnabled) ? state.audio.ctx.createGain() : null;
     const modFilterLP = (sample && wtEnabled) ? state.audio.ctx.createBiquadFilter() : null;
     const modFilterHP = (sample && wtEnabled) ? state.audio.ctx.createBiquadFilter() : null;
