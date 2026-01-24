@@ -6633,6 +6633,8 @@ function getMPEData(e, voice = null, forceSnap = false) {
     const slide = Math.floor(slideNorm * 127);
     let pressNorm = slideNorm;
     pressNorm = applyCurve(pressNorm);
+    // Soften low-end response to avoid "step" at very low values
+    pressNorm = Math.pow(pressNorm, 1.6);
     const press = Math.floor(pressNorm * 127);
     return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: finalExact };
 }
