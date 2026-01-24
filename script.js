@@ -6624,9 +6624,7 @@ function getMPEData(e, voice = null, forceSnap = false) {
     }
     slideNorm = applyCurve(slideNorm);
     const slide = Math.floor(slideNorm * 127);
-    const useYForVelocity = els.linkPressToY.checked && els.linkYToVelocity.checked;
-    const sens = parseInt(els.touchSensitivity ? els.touchSensitivity.value : 75, 10) || 75;
-    let pressNorm = useYForVelocity ? slideNorm : Math.min(((e.width + e.height) / sens), 1.0);
+    let pressNorm = slideNorm;
     pressNorm = applyCurve(pressNorm);
     const press = Math.floor(pressNorm * 127);
     return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: finalExact };
@@ -7450,6 +7448,9 @@ canvas.addEventListener('pointerdown', e => {
             color: nextArpColor()
         }));
         state.arp.notes.push(...noteObjs);
+        if (state.arp.sync === 'internal' && !state.arp.timer && !state.fadeState.active) {
+            restartInternalArp();
+        }
         state.activeTouches.set(e.pointerId, {
             voices: noteObjs.map(n => ({ chan: 0, note: n.note, basePb: n.basePb })),
             arpNotes: noteObjs,
