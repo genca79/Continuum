@@ -213,104 +213,129 @@
 </header>
 
 <nav>
-    <a href="#intro">Introduction</a>
-    <a href="#video">Video Demo</a>
-    <a href="#setup">Setup</a>
-    <a href="#engine">Hybrid Engine</a>
-    <a href="#mpe">Expression</a>
-    <a href="#harmonics">Harmonics</a>
-    <a href="#export">Recording</a>
+    <a href="#intro">Overview</a>
+    <a href="#quickstart">Quick Start</a>
+    <a href="#performance">Performance Bar</a>
+    <a href="#midi">MIDI &amp; Synth</a>
+    <a href="#sampler">Sampler</a>
+    <a href="#scale">Scale &amp; Harmony</a>
+    <a href="#melody">Melody Generator</a>
+    <a href="#recording">Recording</a>
+    <a href="#troubleshooting">Troubleshooting</a>
 </nav>
 
 <main>
     <section id="intro">
-        <h2>Introduction</h2>
-        <p>The <strong>GENCA MPE Ultra Continuum</strong> is a professional browser-based instrument that merges <strong>Wavetable Synthesis</strong> with an <strong>Advanced Multi-Sample Engine</strong>. Built for <strong>MPE (MIDI Polyphonic Expression)</strong>, it allows per-note control over pitch and timbre.</p>
-        <p>This manual covers both <strong>Standalone Use</strong> (performing directly in the browser) and <strong>DAW Integration</strong> (using the app as a controller/sound source for Ableton Live, Logic, etc.).</p>
+        <h2>Overview</h2>
+        <p>The <strong>GENCA MPE Ultra Continuum</strong> is a browser-based performance instrument that combines a <strong>Wavetable Synth</strong>, a <strong>Multi-Sampler</strong>, and a full <strong>MPE control system</strong>. It can act as a sound source, a MIDI controller, or both at once.</p>
+        <p>Play directly on the canvas with touch/mouse, or connect external MIDI devices. The app supports <strong>per-note expression</strong> (pitch, press, timbre), scale snapping, chords, arpeggios, and a built-in <strong>melody generator</strong>.</p>
     </section>
 
-    <section id="video">
-        <h2>Interactive Tutorial</h2>
-        <p>Explore the expressive interface and learn how the "Ghost Circles" translate MIDI input into visual sound modulation.</p>
-        <div class="video-wrapper">
-            <div class="video-container">
-               <iframe 
-                    src="https://www.youtube-nocookie.com/embed/Vn9N9vGaoLA" 
-                    title="YouTube video player" 
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                    referrerpolicy="strict-origin-when-cross-origin" 
-                    allowfullscreen>
-               </iframe>
-            </div>
-        </div>
-        <p style="text-align: center; font-size: 0.9rem; color: var(--text-muted);">
-            Trouble viewing? <a href="https://www.youtube.com/watch?v=Vn9N9vGaoLA" target="_blank" style="color: var(--accent-color);">Watch directly on YouTube</a>
-        </p>
-    </section>
-
-    <section id="setup">
-        <h2>1. System Setup & Connectivity</h2>
-        <h3>Operating Modes</h3>
-        <ul>
-            <li><strong>Standalone:</strong> Play instantly using your <span class="highlight"> touch </span> or mouse. Ensure <code>Internal Synth</code> is <strong>ON</strong>.</li>
-            <li><strong>External MIDI:</strong> Connect a controller before launching. The app upgrades standard MIDI into a high-expression MPE signal.</li>
-            <li><strong>DAW Bridge:</strong> Route the MIDI Out to a virtual port (loopMIDI/IAC) to pilot external VSTs with Continuum's scale and chord logic.</li>
-        </ul>
-    </section>
-
-    <section id="engine">
-        <h2>2. Hybrid Sound Architecture</h2>
-        <h3>A. Wavetable Synthesis</h3>
-        <ul>
-            <li><strong>WT Type:</strong> Select the digital core of your sound.</li>
-            <li><strong>WT Mix:</strong> Morph between wavetable and sampler. </li>
-        </ul>
-
-        <h3>B. 7-Slot Multi-Sampler</h3>
-        <p>The sampler is a versatile tool for both realism and sound design:</p>
-        <ul>
-            <li><strong>Pitch Mapping:</strong> Every slot (1-7) has a dedicated <code>Root Note</code>. Assign different samples to different keys to create a <strong>Multi-sampled Instrument</strong> or a <strong>Drum Kit</strong>.</li>
-            <li><strong>Independent Controls:</strong> Each slot features its own Gain, Loop mode, and Start/End points.</li>
-            <li><strong>Layering:</strong> Load multiple samples on the same note to create thick, textured "Stacks".</li>
-        </ul>
-    </section>
-
-    <section id="mpe">
-        <h2>3. Expression: The Ghost Circles</h2>
-        <p>The central performance area transforms notes into <strong> Circles</strong>.</p>
-        <ul>
-            <li><strong>Horizontal (X):</strong> Perform fluid <strong>Pitch Slides</strong> between notes (Fretless mode).</li>
-            <li><strong>Vertical (Y):</strong> Modulate <strong>Filter Cutoff</strong> or <strong>Wavetable Position</strong> per-note.</li>
-            <li><strong>Snap Rate:</strong> Adjust how quickly a slide "snaps" back to the nearest scale degree.</li>
-        </ul>
-        <div class="pro-tip">
-            <strong>Tip:</strong> Even with a standard MIDI keyboard, you can use your touch or mouse to "grab" a circle and slide it while holding the physical key!
-        </div>
-    </section>
-
-    <section id="harmonics">
-        <h2>4. Harmonic & Scale Engine</h2>
-        <h3>Microtonal & Custom Scales</h3>
-        <ul>
-            <li><strong>Microtonality:</strong> Edit notes in <code>Cents</code> for quarter-tone or experimental tunings.</li>
-            <li><strong>Scale Presets:</strong> Over 20 built-in scales (Arabic, Hirajoshi, Minor, etc.).</li>
-        </ul>
-        <h3>Chord Generator (GROUP Menu)</h3>
-        <ul>
-            <li><strong>Auto Diatonic:</strong> Automatically generates chords that stay in key.</li>
-            <li><strong>Inversion & Spread:</strong> Flip and widen chord voicings for cinematic atmospheres.</li>
-        </ul>
-    </section>
-
-    <section id="export">
-        <h2>5. Integrated Recording</h2>
-        <p>Capture your sessions without leaving the browser:</p>
+    <section id="quickstart">
+        <h2>Quick Start</h2>
         <ol>
-            <li>Press <strong>● (Record)</strong> in the transport bar.</li>
-            <li>Once finished, press <strong>■ (Stop)</strong>.</li>
-            <li>Use the <strong>Recording Editor</strong> to trim the waveform.</li>
-            <li>Export as a high-fidelity <strong>.wav</strong> file.</li>
+            <li>Click anywhere once to enable audio (Chrome requires a user gesture).</li>
+            <li>Open <strong>MIDI &amp; SYNTH</strong> and choose <code>MIDI In</code>/<code>MIDI Out</code> if needed.</li>
+            <li>Turn on <strong>Internal Synth</strong> to hear audio without external gear.</li>
+            <li>With <strong>Internal Synth ON</strong> you can play sounds ONLY SYNTH, ONLY SAMPLER, or MIX between them.</li>
+            <li>Play on the canvas or via MIDI. Use <strong>Scale</strong> to snap notes.</li>
         </ol>
+        <div class="pro-tip">
+            <strong>Tip:</strong> If no sound, click the page and toggle <code>Internal Synth</code> off/on.
+        </div>
+    </section>
+
+    <section id="performance">
+        <h2>Performance Bar (Bottom)</h2>
+        <p>The bottom bar has two layouts, toggled by the performance button in the top bar.</p>
+        <h3>Compact Layout</h3>
+        <ul>
+            <li><strong>Transpose:</strong> Shift the octave up/down.</li>
+            <li><strong>KEEP:</strong> Holds what was captured at the moment of activation, even if HOLD is off. Notes remain draggable.</li>
+            <li><strong>HOLD:</strong> Latches current notes or chords.</li>
+            <li><strong>STOP:</strong> Panic stop for all notes.</li>
+            <li><strong>FADE:</strong> Smoothly fades notes (seconds at the right).</li>
+            <li><strong>CHORD:</strong> Chord mode control.</li>
+            <li><strong>ARP:</strong> Arpeggiator on/off and rate.</li>
+        </ul>
+        <h3>Alternate Layout</h3>
+        <ul>
+            <li><strong>MIX:</strong> Opens the overlay faders.</li>
+            <li><strong>MELODY:</strong> Toggles the generator.</li>
+            <li><strong>FX:</strong> Opens the FX panel.</li>
+        </ul>
+    </section>
+
+    <section id="midi">
+        <h2>MIDI &amp; Synth</h2>
+        <ul>
+            <li><strong>MIDI In/Out:</strong> Select hardware or virtual ports. Defaults to "Scegli Input/Output".</li>
+            <li><strong>MPE Out:</strong> Enables per-note MPE output to external synths.</li>
+            <li><strong>Internal Synth:</strong> Use the wavetable engine without external MIDI.</li>
+            <li><strong>Thru:</strong> Pass incoming MIDI to the selected output.</li>
+        </ul>
+    </section>
+
+    <section id="sampler">
+        <h2>Sampler</h2>
+        <ul>
+            <li><strong>Factory &amp; User Sets:</strong> Load a factory set or create your own.</li>
+            <li><strong>Slots:</strong> Each slot has root note and gain for multi-sampled instruments.</li>
+            <li><strong>Layering:</strong> Mix sampler with synth using the MIX controls.</li>
+        </ul>
+    </section>
+
+    <section id="scale">
+        <h2>Scale &amp; Harmony</h2>
+        <ul>
+            <li><strong>Scale Presets:</strong> Choose a tuning or custom scale.</li>
+            <li><strong>Microtonal:</strong> Set cents offsets for precise tuning.</li>
+            <li><strong>Chord Modes:</strong> Auto-diatonic, triads, sevenths, and more.</li>
+            <li><strong>Arp + Chord:</strong> Arpeggiator can keep running with KEEP active.</li>
+        </ul>
+    </section>
+
+    <section id="melody">
+        <h2>Melody Generator</h2>
+        <p>The melody engine can generate, import, and continue phrases.</p>
+        <h3>Base Generator</h3>
+        <ul>
+            <li><strong>Style, Density, Range, Length:</strong> Shape the basic melody.</li>
+            <li><strong>Rules &amp; Rhythm Patterns:</strong> Control stepwise motion and rhythmic masks.</li>
+            <li><strong>Humanize:</strong> Velocity, Swing, Legato, MPE Press, MPE Timbre, Y Virtual Motion.</li>
+            <li><strong>MPE per Note:</strong> One channel per note for full expression.</li>
+        </ul>
+        <h3>Import &amp; Continue</h3>
+        <ul>
+            <li><strong>Import (Fast):</strong> Quick note detection from WAV.</li>
+            <li><strong>Advanced Import:</strong> Magenta transcription for higher pitch accuracy.</li>
+            <li><strong>Continue:</strong> Magenta generates a continuation with adjustable temperature and rhythm similarity.</li>
+            <li><strong>Auto Regenerate:</strong> Updates the continuation when parameters change.</li>
+        </ul>
+        <h3>Save / Load</h3>
+        <ul>
+            <li><strong>Save Melody:</strong> Stores notes, humanize, rules, rhythm pattern, and scale.</li>
+            <li><strong>Load Melody:</strong> Recalls the full configuration.</li>
+        </ul>
+    </section>
+    
+    <section id="recording">
+        <h2>Recording</h2>
+        <p>Use the top recording bar to capture audio:</p>
+        <ol>
+            <li>Press <strong>Record</strong>.</li>
+            <li>Press <strong>Stop</strong> to save.</li>
+            <li>Trim the recording in the editor and export WAV.</li>
+        </ol>
+    </section>
+
+    <section id="troubleshooting">
+        <h2>Troubleshooting</h2>
+        <ul>
+            <li><strong>No sound:</strong> Click once to enable audio, then toggle Internal Synth.</li>
+            <li><strong>MIDI not visible:</strong> Refresh the page after connecting the device.</li>
+            <li><strong>Advanced Import not working:</strong> Ensure the Magenta model loads (internet needed).</li>
+        </ul>
     </section>
 </main>
 
