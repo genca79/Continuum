@@ -4640,7 +4640,14 @@ function applySmoothing(touch, m) {
     const mix = 1 - smoothAmt;
     touch.smoothPb = touch.smoothPb == null ? m.pbValue : touch.smoothPb + (m.pbValue - touch.smoothPb) * mix;
     touch.smoothSlide = touch.smoothSlide == null ? m.slide : touch.smoothSlide + (m.slide - touch.smoothSlide) * mix;
-    touch.smoothPress = touch.smoothPress == null ? m.press : touch.smoothPress + (m.press - touch.smoothPress) * mix;
+    if (touch.smoothPress == null) {
+        touch.smoothPress = m.press;
+    } else {
+        const rising = m.press > touch.smoothPress;
+        // Heavier smoothing on upward motion to avoid "steppy" rise; faster on release.
+        const pressMix = rising ? mix * 0.45 : Math.min(1, mix * 1.15);
+        touch.smoothPress = touch.smoothPress + (m.press - touch.smoothPress) * pressMix;
+    }
     return {
         ...m,
         pbValue: Math.round(touch.smoothPb),
