@@ -183,6 +183,8 @@ const els = {
     melodyRuleMotif: document.getElementById('melodyRuleMotif'),
     melodyRuleRhythm: document.getElementById('melodyRuleRhythm'),
     melodyRuleLeaps: document.getElementById('melodyRuleLeaps'),
+    melodyRhythmMode: document.getElementById('melodyRhythmMode'),
+    melodyRhythmPattern: document.getElementById('melodyRhythmPattern'),
     melodyHumanTiming: document.getElementById('melodyHumanTiming'),
     melodyHumanVelocity: document.getElementById('melodyHumanVelocity'),
     melodyHumanSwing: document.getElementById('melodyHumanSwing'),
@@ -202,6 +204,9 @@ const els = {
     melodyContinueBtn: document.getElementById('melodyContinueBtn'),
     melodyContinueSteps: document.getElementById('melodyContinueSteps'),
     melodyContinueTemp: document.getElementById('melodyContinueTemp'),
+    melodyContinueRhythm: document.getElementById('melodyContinueRhythm'),
+    melodyContinueAuto: document.getElementById('melodyContinueAuto'),
+    melodyContinueScale: document.getElementById('melodyContinueScale'),
     melodyContinueStatus: document.getElementById('melodyContinueStatus'),
     melodyLayerToggle: document.getElementById('melodyLayerToggle'),
     melodyLayerMode: document.getElementById('melodyLayerMode'),
@@ -4693,6 +4698,48 @@ function buildRhythmMask(rng, length) {
     return mask;
 }
 
+const RHYTHM_PATTERNS = {
+    straight_4: [true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false],
+    straight_8: [true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false],
+    straight_16: [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true],
+    offbeat_8: [false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false],
+    syncop_classic: [true, false, false, true, false, true, false, false, true, false, false, true, false, true, false, false],
+    syncop_push: [false, false, true, false, false, false, false, true, false, false, true, false, false, false, false, true],
+    backbeat_2_4: [true, false, false, false, false, false, false, false, true, false, false, false, false, false, false, false],
+    rock_8: [true, false, true, false, false, false, false, false, true, false, true, false, false, false, false, false],
+    pop_groove: [true, false, false, true, false, true, false, false, true, false, false, true, false, true, false, false],
+    funk_16: [true, false, true, false, false, true, false, false, true, false, true, false, false, true, false, false],
+    funk_james: [true, false, false, true, false, true, true, false, true, false, false, true, false, true, false, false],
+    ghost_dense: [true, false, true, false, true, false, true, false, true, false, true, false, true, false, true, false],
+    shuffle_8: [true, false, false, true, false, false, true, false, false, true, false, false, true, false, false, false],
+    swing_16: [true, false, false, true, false, false, true, false, true, false, false, true, false, false, true, false],
+    clave_3_2: [true, false, false, true, false, true, false, false, false, false, true, false, false, true, false, false],
+    clave_2_3: [false, false, true, false, false, true, false, false, true, false, false, true, false, true, false, false],
+    bossa: [true, false, false, false, false, false, true, false, true, false, false, false, false, false, true, false],
+    one_drop: [false, true, false, false, false, false, false, false, false, true, false, false, false, false, false, false],
+    skank: [false, true, false, true, false, true, false, true, false, true, false, true, false, true, false, true],
+    break_classic: [true, false, false, true, false, false, false, false, true, false, false, true, false, true, false, false],
+    hiphop_sparse: [true, false, false, false, false, false, false, false, true, false, false, true, false, false, false, false],
+    house_4: [true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false],
+    techno_pump: [true, false, false, true, true, false, false, true, true, false, false, true, true, false, false, true],
+    dnb_drive: [true, false, false, false, false, false, true, false, true, false, false, false, false, false, true, false],
+    meter_3_4: [true, false, false, false, true, false, false, false, true, false, false, false],
+    meter_5_4: [true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false, true, false, false, false],
+    meter_7_8: [true, false, false, true, false, false, true, false, false, true, false, false, true, false],
+    poly_3_4: [true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, false],
+    poly_5_4: [true, false, false, false, false, true, false, false, false, false, true, false, false, false, false, true, false, false, false, false]
+};
+
+function buildPatternMask(length, patternId) {
+    const seq = RHYTHM_PATTERNS[patternId];
+    if (!seq || !seq.length) return null;
+    const mask = new Array(length).fill(false);
+    for (let i = 0; i < length; i += 1) {
+        mask[i] = !!seq[i % seq.length];
+    }
+    return mask;
+}
+
 function getNoteColor(note) {
     const hue = Math.round((note * 7) % 360);
     return `hsl(${hue}, 80%, 55%)`;
@@ -4846,6 +4893,8 @@ function buildMelodySequence() {
         rhythm: !!els.melodyRuleRhythm?.checked,
         leaps: !!els.melodyRuleLeaps?.checked
     };
+    const rhythmMode = els.melodyRhythmMode?.value || 'rule';
+    const rhythmPattern = els.melodyRhythmPattern?.value || '';
     const def = getScaleDefinition();
     const pool = getMelodyScalePool(range);
     if (!pool.length) return [];
@@ -4858,6 +4907,8 @@ function buildMelodySequence() {
     state.melody.cadence = cadence;
     state.melody.rate = rate;
     state.melody.rules = { ...rules };
+    state.melody.rhythmMode = rhythmMode;
+    state.melody.rhythmPattern = rhythmPattern;
 
     const rng = createSeededRng(seed);
     const base = 60 + def.root + (state.currentOctave * 12);
@@ -4892,7 +4943,12 @@ function buildMelodySequence() {
     const notes = [];
     let lastNote = null;
     let lastInterval = 0;
-    const rhythmMask = rules.rhythm ? buildRhythmMask(rng, length) : null;
+    let rhythmMask = null;
+    if (rhythmMode === 'pattern' && rhythmPattern) {
+        rhythmMask = buildPatternMask(length, rhythmPattern);
+    } else if (rhythmMode === 'rule' && rules.rhythm) {
+        rhythmMask = buildRhythmMask(rng, length);
+    }
     const motifLen = rules.motif ? (2 + Math.floor(rng() * 3)) : 0;
     const motif = rules.motif ? [] : null;
 
@@ -4971,6 +5027,11 @@ let magentaModel = null;
 let magentaLoadPromise = null;
 let musicRnnModel = null;
 let musicRnnLoadPromise = null;
+
+function clearMelodyContinuationState() {
+    if (!state.melody) return;
+    state.melody.continue = null;
+}
 
 function melodyNotesMatch(a, b) {
     if (!a || !b || a.length !== b.length) return false;
@@ -5099,6 +5160,79 @@ function buildQuantizedSeedFromMelody(seedSteps) {
     };
 }
 
+function buildRhythmMaskFromNotes(notes, steps) {
+    const mask = [];
+    if (!Array.isArray(notes) || !notes.length) return mask;
+    const start = Math.max(0, notes.length - steps);
+    for (let i = start; i < notes.length; i += 1) {
+        mask.push(notes[i] != null);
+    }
+    return mask;
+}
+
+function buildRhythmMaskForContinuation(baseMask, steps, similarity, density, rng) {
+    const result = new Array(steps).fill(false);
+    const sim = Math.max(0, Math.min(1, similarity));
+    const dens = Math.max(0.1, Math.min(1, density));
+    for (let i = 0; i < steps; i += 1) {
+        const baseActive = baseMask[i % baseMask.length] === true;
+        if (sim >= 0.999) {
+            result[i] = baseActive;
+            continue;
+        }
+        if (sim <= 0.001) {
+            result[i] = rng() < dens;
+            continue;
+        }
+        if (baseActive) {
+            result[i] = rng() < (sim + (1 - sim) * dens);
+        } else {
+            result[i] = rng() < ((1 - sim) * dens);
+        }
+    }
+    return result;
+}
+
+function applyRhythmMaskToQuantizedSequence(seq, mask) {
+    if (!seq?.notes?.length || !mask?.length) return seq;
+    const kept = seq.notes.filter(n => {
+        const step = Number.isFinite(n.quantizedStartStep) ? n.quantizedStartStep : 0;
+        if (step < 0 || step >= mask.length) return false;
+        return mask[step];
+    });
+    return { ...seq, notes: kept };
+}
+
+function quantizePitchToScale(pitch) {
+    if (!Number.isFinite(pitch)) return pitch;
+    const def = getScaleDefinition();
+    const scaleKey = `${def.mode}:${def.name}`;
+    if (!state.scaleNotes.notes.length || state.scaleNotes.root !== def.root || state.scaleNotes.scale !== scaleKey) {
+        updateScaleNotes();
+    }
+    const pool = state.scaleNotes.notes || [];
+    if (!pool.length) return pitch;
+    let best = pool[0];
+    let bestDist = Math.abs(best - pitch);
+    for (let i = 1; i < pool.length; i += 1) {
+        const dist = Math.abs(pool[i] - pitch);
+        if (dist < bestDist) {
+            bestDist = dist;
+            best = pool[i];
+        }
+    }
+    return best;
+}
+
+function applyScaleToQuantizedSequence(seq) {
+    if (!seq?.notes?.length) return seq;
+    const updated = seq.notes.map(n => ({
+        ...n,
+        pitch: Math.max(0, Math.min(127, Math.round(quantizePitchToScale(n.pitch))))
+    }));
+    return { ...seq, notes: updated };
+}
+
 function appendQuantizedSequenceToMelody(seq, maxSteps) {
     if (!seq?.notes?.length) return 0;
     const stepsToAdd = Math.max(4, Math.min(maxSteps || 16, seq.totalQuantizedSteps || maxSteps || 16));
@@ -5116,6 +5250,77 @@ function appendQuantizedSequenceToMelody(seq, maxSteps) {
     state.melody.length = state.melody.notes.length;
     if (els.melodyLength) els.melodyLength.value = state.melody.length;
     return stepsToAdd;
+}
+
+async function generateMelodyContinuation(options = {}) {
+    const steps = Math.max(4, Math.min(64, options.steps || 16));
+    const temperature = Math.max(0.4, Math.min(2, options.temperature || 1));
+    const similarity = Math.max(0, Math.min(1, options.rhythmSimilarity ?? 0.7));
+    const baseLength = Number.isFinite(options.baseLength) ? options.baseLength : state.melody.notes.length;
+    const seedSteps = Math.max(4, Math.min(32, options.seedSteps || 16));
+    const forceScale = !!options.forceScale;
+    if (!state.melody.notes?.length || state.melody.notes.length < 2) {
+        throw new Error('No melody to continue');
+    }
+    const model = await loadMusicRnn();
+    const seed = buildQuantizedSeedFromMelody(Math.min(seedSteps, state.melody.notes.length));
+    if (!seed?.notes?.length) throw new Error('Seed too short');
+    let continuation = await model.continueSequence(seed, steps, temperature);
+    if (forceScale) {
+        continuation = applyScaleToQuantizedSequence(continuation);
+    }
+    let baseMask = null;
+    if (state.melody.rhythmMode === 'pattern' && state.melody.rhythmPattern) {
+        baseMask = buildPatternMask(Math.min(seedSteps, baseLength), state.melody.rhythmPattern);
+    } else {
+        baseMask = buildRhythmMaskFromNotes(state.melody.notes.slice(0, baseLength), Math.min(seedSteps, baseLength));
+    }
+    if (baseMask.length) {
+        const rng = createSeededRng((state.melody.seed || 1) + Math.round(temperature * 100));
+        const mask = buildRhythmMaskForContinuation(baseMask, steps, similarity, state.melody.density || 0.7, rng);
+        let filtered = applyRhythmMaskToQuantizedSequence(continuation, mask);
+        if (forceScale) {
+            filtered = applyScaleToQuantizedSequence(filtered);
+        }
+        return { seq: filtered, baseLength };
+    }
+    return { seq: continuation, baseLength };
+}
+
+async function regenerateMelodyContinuation() {
+    if (!state.melody?.continue || state.melody.continue.regenerating) return;
+    if (state.melody.continue.baseLength == null) return;
+    state.melody.continue.regenerating = true;
+    try {
+        const baseLength = state.melody.continue.baseLength;
+        state.melody.notes = state.melody.notes.slice(0, baseLength);
+        const result = await generateMelodyContinuation({
+            steps: state.melody.continue.steps,
+            temperature: state.melody.continue.temperature,
+            rhythmSimilarity: state.melody.continue.rhythmSimilarity,
+            seedSteps: state.melody.continue.seedSteps,
+            baseLength,
+            forceScale: !!state.melody.continue.forceScale
+        });
+        appendQuantizedSequenceToMelody(result.seq, state.melody.continue.steps);
+        state.melody.imported = true;
+        state.melody.importedFeatures = null;
+        state.melody.stepIndex = 0;
+        updateMelodyPreview();
+        setMelodyEditStep(0);
+        if (state.melody.running) restartMelodyGenerator();
+        if (els.melodyContinueStatus) {
+            els.melodyContinueStatus.textContent = `Auto updated (${state.melody.continue.steps} steps).`;
+        }
+    } catch (err) {
+        console.error('Auto continue failed', err);
+        if (els.melodyContinueStatus) {
+            const msg = err?.message || String(err || 'Unknown error');
+            els.melodyContinueStatus.textContent = `Auto continue failed: ${msg}`;
+        }
+    } finally {
+        state.melody.continue.regenerating = false;
+    }
 }
 
 function buildNotesFromNoteSequence(seq) {
@@ -5525,6 +5730,145 @@ function refreshMelodySaveSelect(saves, selected) {
     const names = Object.keys(saves || {}).sort();
     fillSelectFromNames(els.melodySaveSelect, names, 'Saved melodies');
     if (selected && names.includes(selected)) els.melodySaveSelect.value = selected;
+}
+
+function getMelodySaveParams() {
+    const cont = state.melody.continue || {};
+    const rhythmSimilarity = cont.rhythmSimilarity ?? ((parseInt(els.melodyContinueRhythm?.value, 10) || 70) / 100);
+    return {
+        scale: {
+            rootNote: els.rootNote?.value,
+            scaleType: els.scaleType?.value,
+            scaleMode: els.scaleModeDiatonic?.checked ? 'diatonic' : (els.scaleModeMicro?.checked ? 'microtonal' : 'custom'),
+            microScaleName: els.microScaleSelect?.value,
+            customScaleName: els.customScaleName?.value,
+            customScaleMode: els.customModeNotes?.checked ? 'notes' : 'cents',
+            customScaleNotes: els.customScaleNotes?.value,
+            customScaleCents: els.customScaleCents?.value,
+            microtonalizeIn: !!els.microtonalizeIn?.checked
+        },
+        length: state.melody.length,
+        rate: state.melody.rate,
+        range: state.melody.range,
+        density: state.melody.density,
+        style: state.melody.style,
+        seed: state.melody.seed,
+        cadence: state.melody.cadence,
+        layer: { ...state.melody.layer },
+        rules: { ...state.melody.rules },
+        rhythmMode: state.melody.rhythmMode || 'rule',
+        rhythmPattern: state.melody.rhythmPattern || '',
+        humanize: { ...state.melody.humanize },
+        mpePerNote: !!state.melody.mpePerNote,
+        continue: {
+            steps: cont.steps ?? (parseInt(els.melodyContinueSteps?.value, 10) || 16),
+            temperature: cont.temperature ?? (parseFloat(els.melodyContinueTemp?.value) || 1),
+            rhythmSimilarity,
+            auto: cont.auto ?? !!els.melodyContinueAuto?.checked,
+            forceScale: cont.forceScale ?? !!els.melodyContinueScale?.checked
+        }
+    };
+}
+
+function applyMelodySaveParams(saved) {
+    const params = saved?.params || saved || {};
+    const scale = params.scale;
+    if (scale) {
+        if (els.rootNote && scale.rootNote != null) els.rootNote.value = scale.rootNote;
+        if (els.scaleType && scale.scaleType) els.scaleType.value = scale.scaleType;
+        if (els.scaleModeMicro && els.scaleModeCustom && els.scaleModeDiatonic) {
+            if (scale.scaleMode === 'microtonal') els.scaleModeMicro.checked = true;
+            else if (scale.scaleMode === 'custom') els.scaleModeCustom.checked = true;
+            else els.scaleModeDiatonic.checked = true;
+        }
+        if (els.microScaleSelect && scale.microScaleName) els.microScaleSelect.value = scale.microScaleName;
+        if (els.microtonalizeIn && scale.microtonalizeIn != null) els.microtonalizeIn.checked = !!scale.microtonalizeIn;
+        if (scale.customScaleName && els.customScaleName) {
+            els.customScaleName.value = scale.customScaleName;
+            if (state.customScales?.[scale.customScaleName]) {
+                const entry = state.customScales[scale.customScaleName];
+                if (entry.type === 'notes') {
+                    if (els.customModeNotes) els.customModeNotes.checked = true;
+                    if (els.customScaleNotes) els.customScaleNotes.value = formatNotesList(entry.degrees || []);
+                } else {
+                    if (els.customModeCents) els.customModeCents.checked = true;
+                    if (els.customScaleCents) els.customScaleCents.value = formatCentsList(entry.cents || []);
+                }
+            }
+        }
+        if (scale.customScaleMode === 'notes') {
+            if (els.customModeNotes) els.customModeNotes.checked = true;
+            if (els.customScaleNotes && scale.customScaleNotes) {
+                els.customScaleNotes.value = scale.customScaleNotes;
+            }
+        } else if (scale.customScaleMode === 'cents') {
+            if (els.customModeCents) els.customModeCents.checked = true;
+            if (els.customScaleCents && scale.customScaleCents) {
+                els.customScaleCents.value = scale.customScaleCents;
+            }
+        }
+        updateScaleModeUI();
+        scheduleScaleUpdate();
+    }
+    if (els.melodyStyle && params.style) els.melodyStyle.value = params.style;
+    if (els.melodyLength) {
+        const len = params.length ?? saved?.notes?.length ?? els.melodyLength.value;
+        if (Number.isFinite(len)) els.melodyLength.value = len;
+    }
+    if (els.melodyRate && params.rate) els.melodyRate.value = params.rate;
+    if (els.melodyRange && Number.isFinite(params.range)) els.melodyRange.value = params.range;
+    if (els.melodyDensity && Number.isFinite(params.density)) {
+        const dens = params.density <= 1 ? Math.round(params.density * 100) : Math.round(params.density);
+        els.melodyDensity.value = Math.max(20, Math.min(100, dens));
+    }
+    if (els.melodySeed && Number.isFinite(params.seed)) els.melodySeed.value = params.seed;
+    if (els.melodyCadence && params.cadence) els.melodyCadence.value = params.cadence;
+    if (params.layer) {
+        if (els.melodyLayerMode && params.layer.mode) els.melodyLayerMode.value = params.layer.mode;
+        if (els.melodyLayerLevel && Number.isFinite(params.layer.level)) els.melodyLayerLevel.value = params.layer.level;
+        state.melody.layer = { ...state.melody.layer, ...params.layer };
+        updateLayerToggleUI();
+    }
+    if (params.rules) {
+        if (els.melodyRuleStep) els.melodyRuleStep.checked = !!params.rules.stepwise;
+        if (els.melodyRuleMotif) els.melodyRuleMotif.checked = !!params.rules.motif;
+        if (els.melodyRuleRhythm) els.melodyRuleRhythm.checked = !!params.rules.rhythm;
+        if (els.melodyRuleLeaps) els.melodyRuleLeaps.checked = !!params.rules.leaps;
+    }
+    if (els.melodyRhythmMode && params.rhythmMode) {
+        els.melodyRhythmMode.value = params.rhythmMode;
+    }
+    if (els.melodyRhythmPattern && params.rhythmPattern != null) {
+        els.melodyRhythmPattern.value = params.rhythmPattern || '';
+    }
+    if (params.humanize) {
+        if (els.melodyHumanTiming && Number.isFinite(params.humanize.timing)) els.melodyHumanTiming.value = params.humanize.timing;
+        if (els.melodyHumanVelocity && Number.isFinite(params.humanize.velocity)) els.melodyHumanVelocity.value = params.humanize.velocity;
+        if (els.melodyHumanSwing && Number.isFinite(params.humanize.swing)) els.melodyHumanSwing.value = params.humanize.swing;
+        if (els.melodyHumanLegato && Number.isFinite(params.humanize.legato)) els.melodyHumanLegato.value = params.humanize.legato;
+        if (els.melodyHumanOrnament && Number.isFinite(params.humanize.ornament)) els.melodyHumanOrnament.value = params.humanize.ornament;
+        if (els.melodyHumanPress && Number.isFinite(params.humanize.press)) els.melodyHumanPress.value = params.humanize.press;
+        if (els.melodyHumanTimbre && Number.isFinite(params.humanize.timbre)) els.melodyHumanTimbre.value = params.humanize.timbre;
+        if (els.melodyHumanPitch && Number.isFinite(params.humanize.pitch)) els.melodyHumanPitch.value = params.humanize.pitch;
+        if (els.melodyHumanYMotion && Number.isFinite(params.humanize.yMotion)) els.melodyHumanYMotion.value = params.humanize.yMotion;
+        if (els.melodyHumanYMotionToggle) els.melodyHumanYMotionToggle.checked = !!params.humanize.yMotionEnabled;
+    }
+    if (els.melodyMpePerNote && params.mpePerNote != null) {
+        els.melodyMpePerNote.checked = !!params.mpePerNote;
+    }
+    if (params.continue) {
+        if (els.melodyContinueSteps && Number.isFinite(params.continue.steps)) els.melodyContinueSteps.value = params.continue.steps;
+        if (els.melodyContinueTemp && Number.isFinite(params.continue.temperature)) els.melodyContinueTemp.value = params.continue.temperature;
+        if (els.melodyContinueRhythm && Number.isFinite(params.continue.rhythmSimilarity)) {
+            els.melodyContinueRhythm.value = Math.round(params.continue.rhythmSimilarity * 100);
+        }
+        if (els.melodyContinueAuto && params.continue.auto != null) {
+            els.melodyContinueAuto.checked = !!params.continue.auto;
+        }
+        if (els.melodyContinueScale && params.continue.forceScale != null) {
+            els.melodyContinueScale.checked = !!params.continue.forceScale;
+        }
+    }
 }
 
 function updateMelodyPreview() {
@@ -5941,7 +6285,12 @@ function applyMelodyEdit(stepIdx, rootNote, options = {}) {
             updateMelodyLiveNotes(rootNote, { minRelease: MELODY_MIN_RELEASE, holdSame: true });
         }
     }
-    if (options.finalize) updateMelodyPreview();
+    if (options.finalize) {
+        updateMelodyPreview();
+        if (state.melody?.continue?.auto) {
+            regenerateMelodyContinuation();
+        }
+    }
     else drawMelodyPianoRoll();
 }
 
@@ -5978,6 +6327,23 @@ function updateMelodyFromUI(regenerate = false) {
         rhythm: !!els.melodyRuleRhythm?.checked,
         leaps: !!els.melodyRuleLeaps?.checked
     };
+    state.melody.rhythmMode = els.melodyRhythmMode?.value || state.melody.rhythmMode || 'rule';
+    state.melody.rhythmPattern = els.melodyRhythmPattern?.value || state.melody.rhythmPattern || '';
+    state.melody.continue = state.melody.continue || {};
+    state.melody.continue.auto = !!els.melodyContinueAuto?.checked;
+    state.melody.continue.forceScale = !!els.melodyContinueScale?.checked;
+    state.melody.continue.rhythmSimilarity = Math.max(
+        0,
+        Math.min(1, (parseInt(els.melodyContinueRhythm?.value, 10) || 70) / 100)
+    );
+    state.melody.continue.temperature = Math.max(
+        0.4,
+        Math.min(2, parseFloat(els.melodyContinueTemp?.value) || 1)
+    );
+    state.melody.continue.steps = Math.max(
+        4,
+        Math.min(64, parseInt(els.melodyContinueSteps?.value, 10) || 16)
+    );
     if (regenerate) {
         if (!state.melody.imported) {
             state.melody.notes = buildMelodySequence();
@@ -5985,6 +6351,12 @@ function updateMelodyFromUI(regenerate = false) {
         state.melody.stepIndex = 0;
         updateMelodyPreview();
         setMelodyEditStep(state.melody.edit.step || 0);
+        if (state.melody.continue) {
+            state.melody.continue.baseLength = state.melody.notes.length;
+        }
+    }
+    if (state.melody.continue?.auto && state.melody.continue?.baseLength != null) {
+        regenerateMelodyContinuation();
     }
 }
 
@@ -8474,11 +8846,10 @@ function bindUI() {
                 state.melody.notes = buildMelodySequence();
                 updateMelodyPreview();
             }
+            updateMelodyFromUI(false);
             state.melody.saves[name] = {
                 notes: [...state.melody.notes],
-                length: state.melody.notes.length,
-                rate: state.melody.rate,
-                range: state.melody.range
+                params: getMelodySaveParams()
             };
             saveMelodySaves(state.melody.saves);
             refreshMelodySaveSelect(state.melody.saves, name);
@@ -8492,9 +8863,8 @@ function bindUI() {
             if (!saved || !Array.isArray(saved.notes)) return;
             state.melody.notes = [...saved.notes];
             state.melody.stepIndex = 0;
-            if (els.melodyLength) els.melodyLength.value = saved.length || state.melody.notes.length || 16;
-            if (els.melodyRate && saved.rate) els.melodyRate.value = saved.rate;
-            if (els.melodyRange && saved.range) els.melodyRange.value = saved.range;
+            clearMelodyContinuationState();
+            applyMelodySaveParams(saved);
             updateMelodyFromUI(false);
             updateMelodyPreview();
             setMelodyEditStep(0);
@@ -8506,6 +8876,7 @@ function bindUI() {
             state.melody.imported = false;
             state.melody.importedFeatures = null;
             state.melody.notes = buildMelodySequence();
+            clearMelodyContinuationState();
             state.melody.stepIndex = 0;
             updateMelodyPreview();
             setMelodyEditStep(state.melody.edit.step || 0);
@@ -8546,6 +8917,7 @@ function bindUI() {
                 state.melody.importedFeatures = result?.features || null;
                 state.melody.notes = notes;
                 state.melody.length = notes.length;
+                clearMelodyContinuationState();
                 state.melody.stepIndex = 0;
                 if (els.melodyLength) els.melodyLength.value = notes.length;
                 updateMelodyPreview();
@@ -8573,23 +8945,37 @@ function bindUI() {
         els.melodyContinueBtn.onclick = async () => {
             const steps = Math.max(4, Math.min(64, parseInt(els.melodyContinueSteps?.value, 10) || 16));
             const temperature = Math.max(0.4, Math.min(2, parseFloat(els.melodyContinueTemp?.value) || 1));
+            const rhythmSimilarity = Math.max(0, Math.min(1, (parseInt(els.melodyContinueRhythm?.value, 10) || 70) / 100));
+            const forceScale = !!els.melodyContinueScale?.checked;
             if (!state.melody.notes?.length) {
                 if (els.melodyContinueStatus) els.melodyContinueStatus.textContent = 'No melody to continue.';
                 return;
             }
             if (els.melodyContinueStatus) els.melodyContinueStatus.textContent = 'Loading Magenta...';
             try {
-                const model = await loadMusicRnn();
                 if (els.melodyContinueStatus) els.melodyContinueStatus.textContent = 'Generating...';
-                const seed = buildQuantizedSeedFromMelody(Math.min(16, state.melody.notes.length));
-                if (!seed?.notes?.length) {
-                    if (els.melodyContinueStatus) els.melodyContinueStatus.textContent = 'Seed too short.';
-                    return;
-                }
-                const continuation = await model.continueSequence(seed, steps, temperature);
-                const added = appendQuantizedSequenceToMelody(continuation, steps);
+                const baseLength = state.melody.notes.length;
+                const seedSteps = Math.min(16, baseLength);
+                const result = await generateMelodyContinuation({
+                    steps,
+                    temperature,
+                    rhythmSimilarity,
+                    seedSteps,
+                    baseLength,
+                    forceScale
+                });
+                const added = appendQuantizedSequenceToMelody(result.seq, steps);
                 state.melody.imported = true;
                 state.melody.importedFeatures = null;
+                state.melody.continue = {
+                    auto: !!els.melodyContinueAuto?.checked,
+                    steps,
+                    temperature,
+                    rhythmSimilarity,
+                    forceScale,
+                    seedSteps,
+                    baseLength
+                };
                 state.melody.stepIndex = 0;
                 updateMelodyPreview();
                 setMelodyEditStep(0);
@@ -8626,6 +9012,7 @@ function bindUI() {
                 state.melody.length = notes.length;
                 state.melody.imported = true;
                 state.melody.importedFeatures = result?.features || null;
+                clearMelodyContinuationState();
                 state.melody.stepIndex = 0;
                 if (els.melodyLength) els.melodyLength.value = notes.length;
                 updateMelodyPreview();
@@ -8652,6 +9039,8 @@ function bindUI() {
         [els.melodyRuleMotif, 'Rule: repeat short motifs more often.'],
         [els.melodyRuleRhythm, 'Rule: apply rhythmic masks/syncopation.'],
         [els.melodyRuleLeaps, 'Rule: allow larger leaps with return motion.'],
+        [els.melodyRhythmMode, 'Rhythm mode: off, rules-based, or fixed pattern.'],
+        [els.melodyRhythmPattern, 'Rhythm pattern: pick a predefined groove family.'],
         [els.melodyLayerToggle, 'Layer on/off: add extra harmony notes.'],
         [els.melodyLayerMode, 'Layer mode: chord shape for added notes.'],
         [els.melodyLayerLevel, 'Layer level: velocity of harmony notes.'],
@@ -8670,7 +9059,10 @@ function bindUI() {
         [els.melodyImportAdvancedBtn, 'Advanced import: Magenta transcription for better pitch accuracy.'],
         [els.melodyContinueBtn, 'Continue: Magenta generates the next steps from the current melody.'],
         [els.melodyContinueSteps, 'Continue steps: how many new steps to add.'],
-        [els.melodyContinueTemp, 'Temperature: randomness of the continuation (lower = safer).']
+        [els.melodyContinueTemp, 'Temperature: randomness of the continuation (lower = safer).'],
+        [els.melodyContinueRhythm, 'Rhythm similarity: how closely the continuation matches the original rhythm.'],
+        [els.melodyContinueAuto, 'Auto regenerate: update the continuation when melody settings change.'],
+        [els.melodyContinueScale, 'Force scale: snap continuation pitches to the selected scale.']
     ]);
     const showMelodyLegend = el => {
         if (!melodyLegend || !el || !melodyLegendMap.has(el)) return;
@@ -8703,6 +9095,8 @@ function bindUI() {
         els.melodyRuleMotif,
         els.melodyRuleRhythm,
         els.melodyRuleLeaps,
+        els.melodyRhythmMode,
+        els.melodyRhythmPattern,
         els.melodyHumanTiming,
         els.melodyHumanVelocity,
         els.melodyHumanSwing,
@@ -8715,7 +9109,12 @@ function bindUI() {
         els.melodyHumanYMotionToggle,
         els.melodyMpePerNote,
         els.melodyLayerMode,
-        els.melodyLayerLevel
+        els.melodyLayerLevel,
+        els.melodyContinueSteps,
+        els.melodyContinueTemp,
+        els.melodyContinueRhythm,
+        els.melodyContinueAuto,
+        els.melodyContinueScale
     ].forEach(input => {
         if (!input) return;
         input.onchange = () => {

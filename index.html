@@ -333,6 +333,19 @@
                     </div>
                     <div class="ui-group-inline">
                         <div class="box" style="min-width:240px;">
+                            <label>Save Melody</label>
+                            <div class="melody-save-inline">
+                                <input type="text" id="melodySaveName" placeholder="Name">
+                                <button id="melodySaveBtn" class="menu-btn btn-accent">SAVE</button>
+                            </div>
+                        </div>
+                        <div class="box" style="min-width:200px;">
+                            <label>Load Melody</label>
+                            <select id="melodySaveSelect"></select>
+                        </div>
+                    </div>
+                    <div class="ui-group-inline">
+                        <div class="box" style="min-width:240px;">
                             <label>Import WAV (melody)</label>
                             <input type="file" id="melodyImportFile" accept=".wav,audio/wav">
                         </div>
@@ -368,6 +381,22 @@
                             <label>Temperature</label>
                             <input type="range" id="melodyContinueTemp" min="0.4" max="2" step="0.1" value="1">
                         </div>
+                        <div class="box" style="max-width:160px;">
+                            <label>Rhythm Similarity</label>
+                            <input type="range" id="melodyContinueRhythm" min="0" max="100" step="1" value="70">
+                        </div>
+                        <div class="box" style="max-width:160px;">
+                            <label>Auto Regenerate</label>
+                            <label class="microtonalize-row" style="font-size:10px; white-space:nowrap;">
+                                <input type="checkbox" id="melodyContinueAuto" checked> On
+                            </label>
+                        </div>
+                        <div class="box" style="max-width:160px;">
+                            <label>Force Scale</label>
+                            <label class="microtonalize-row" style="font-size:10px; white-space:nowrap;">
+                                <input type="checkbox" id="melodyContinueScale" checked> On
+                            </label>
+                        </div>
                         <div class="box" style="min-width:220px;">
                             <label>Continue Status</label>
                             <div id="melodyContinueStatus" style="font-size:11px; color:#9aa;">Idle</div>
@@ -377,15 +406,80 @@
                 </div>
             </div>
             <div class="melody-acc-item">
-                <button class="melody-acc-toggle" type="button">Rules</button>
+                <button class="melody-acc-toggle" type="button">Rules &amp; Patterns</button>
                 <div class="melody-acc-panel">
                     <div class="ui-group-inline">
                         <div class="box melody-rules">
-                            <label>Rules</label>
+                            <label>Rules &amp; Patterns</label>
                             <label><input type="checkbox" id="melodyRuleStep"> piu note congiunte e poche ripetizioni</label>
                             <label><input type="checkbox" id="melodyRuleMotif"> piu ripetizioni e motivi brevi</label>
                             <label><input type="checkbox" id="melodyRuleRhythm"> pattern ritmici (es. sincopi/pausa regolare)</label>
                             <label><input type="checkbox" id="melodyRuleLeaps"> salti piu ampi con rientro</label>
+                        </div>
+                        <div class="box" style="min-width:220px;">
+                            <label>Rhythm Mode</label>
+                            <select id="melodyRhythmMode">
+                                <option value="off">Off</option>
+                                <option value="rule" selected>From Rules</option>
+                                <option value="pattern">Pattern</option>
+                            </select>
+                        </div>
+                        <div class="box" style="min-width:240px;">
+                            <label>Rhythm Pattern</label>
+                            <select id="melodyRhythmPattern">
+                                <option value="">(select pattern)</option>
+                                <optgroup label="Straight / Basic">
+                                    <option value="straight_4">4 on the floor</option>
+                                    <option value="straight_8">8th straight</option>
+                                    <option value="straight_16">16th straight</option>
+                                </optgroup>
+                                <optgroup label="Offbeat / Syncopated">
+                                    <option value="offbeat_8">Offbeat 8th</option>
+                                    <option value="syncop_classic">Classic syncopation</option>
+                                    <option value="syncop_push">Push sync</option>
+                                </optgroup>
+                                <optgroup label="Backbeat / Pop-Rock">
+                                    <option value="backbeat_2_4">Backbeat 2&4</option>
+                                    <option value="rock_8">Rock 8th</option>
+                                    <option value="pop_groove">Pop groove</option>
+                                </optgroup>
+                                <optgroup label="Funk / R&B / Groove">
+                                    <option value="funk_16">Funk 16th</option>
+                                    <option value="funk_james">James-style</option>
+                                    <option value="ghost_dense">Ghost-note feel</option>
+                                </optgroup>
+                                <optgroup label="Shuffle / Swing">
+                                    <option value="shuffle_8">Shuffle 8th</option>
+                                    <option value="swing_16">Swing 16th</option>
+                                </optgroup>
+                                <optgroup label="Latin / Afro / Clave">
+                                    <option value="clave_3_2">Son clave 3-2</option>
+                                    <option value="clave_2_3">Son clave 2-3</option>
+                                    <option value="bossa">Bossa feel</option>
+                                </optgroup>
+                                <optgroup label="Reggae / Dub">
+                                    <option value="one_drop">One drop</option>
+                                    <option value="skank">Skank</option>
+                                </optgroup>
+                                <optgroup label="Breakbeat / Hip-Hop">
+                                    <option value="break_classic">Classic break</option>
+                                    <option value="hiphop_sparse">Sparse hip-hop</option>
+                                </optgroup>
+                                <optgroup label="House / Techno / EDM">
+                                    <option value="house_4">House 4/4</option>
+                                    <option value="techno_pump">Techno pump</option>
+                                    <option value="dnb_drive">DnB drive</option>
+                                </optgroup>
+                                <optgroup label="Odd Meters">
+                                    <option value="meter_3_4">3/4 feel</option>
+                                    <option value="meter_5_4">5/4 feel</option>
+                                    <option value="meter_7_8">7/8 feel</option>
+                                </optgroup>
+                                <optgroup label="Polyrhythms">
+                                    <option value="poly_3_4">3 over 4</option>
+                                    <option value="poly_5_4">5 over 4</option>
+                                </optgroup>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -456,17 +550,6 @@
                         <div class="box" style="max-width:140px;">
                             <label>Scroll</label>
                             <input type="range" id="melodyRollScroll" min="-24" max="24" step="1" value="0">
-                        </div>
-                        <div class="box" style="min-width:240px; max-width:none; flex:2 1 240px;">
-                            <label>Save Melody</label>
-                            <div class="melody-save-inline">
-                                <input type="text" id="melodySaveName" placeholder="Nome">
-                                <button id="melodySaveBtn" class="menu-btn btn-accent">SAVE</button>
-                            </div>
-                        </div>
-                        <div class="box" style="min-width:200px; max-width:none; flex:1 1 200px;">
-                            <label>Load Melody</label>
-                            <select id="melodySaveSelect"></select>
                         </div>
                     </div>
                     <div class="ui-group-inline">
