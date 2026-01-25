@@ -73,7 +73,6 @@ const els = {
     holdNotes: document.getElementById('holdNotes'),
     panicBtn: document.getElementById('panicBtn'),
     fadeBtn: document.getElementById('fadeBtn'),
-    fadeSeconds: document.getElementById('fadeSeconds'),
     chordWheel: document.getElementById('chordWheel'),
     arpWheel: document.getElementById('arpWheel'),
     arpParamsToggle: document.getElementById('arpParamsToggle'),
@@ -170,6 +169,11 @@ const els = {
     amBias: document.getElementById('amBias'),
     melodyToggle: document.getElementById('melodyToggle'),
     melodyPerfToggle: document.getElementById('melodyPerfToggle'),
+    melodyStateBadge: document.getElementById('melodyStateBadge'),
+    melodyStateDesc: document.getElementById('melodyStateDesc'),
+    melodyStatusLog: document.getElementById('melodyStatusLog'),
+    melodyStatusLogInline: document.getElementById('melodyStatusLogInline'),
+    melodyActiveIndicator: document.getElementById('melodyActiveIndicator'),
     melodyStyle: document.getElementById('melodyStyle'),
     melodyLength: document.getElementById('melodyLength'),
     melodyRate: document.getElementById('melodyRate'),
@@ -177,14 +181,14 @@ const els = {
     melodyRange: document.getElementById('melodyRange'),
     melodySeed: document.getElementById('melodySeed'),
     melodyCadence: document.getElementById('melodyCadence'),
-    melodyGenerate: document.getElementById('melodyGenerate'),
+    melodyRebuild: document.getElementById('melodyRebuild'),
+    melodyKeepImported: document.getElementById('melodyKeepImported'),
     melodyPreview: document.getElementById('melodyPreview'),
-    melodyRuleStep: document.getElementById('melodyRuleStep'),
-    melodyRuleMotif: document.getElementById('melodyRuleMotif'),
-    melodyRuleRhythm: document.getElementById('melodyRuleRhythm'),
-    melodyRuleLeaps: document.getElementById('melodyRuleLeaps'),
+    melodyRuleSelect: document.getElementById('melodyRuleSelect'),
     melodyRhythmMode: document.getElementById('melodyRhythmMode'),
     melodyRhythmPattern: document.getElementById('melodyRhythmPattern'),
+    melodyRuleSummary: document.getElementById('melodyRuleSummary'),
+    melodyHumanizeAmount: document.getElementById('melodyHumanizeAmount'),
     melodyHumanTiming: document.getElementById('melodyHumanTiming'),
     melodyHumanVelocity: document.getElementById('melodyHumanVelocity'),
     melodyHumanSwing: document.getElementById('melodyHumanSwing'),
@@ -195,6 +199,16 @@ const els = {
     melodyHumanPitch: document.getElementById('melodyHumanPitch'),
     melodyHumanYMotion: document.getElementById('melodyHumanYMotion'),
     melodyHumanYMotionToggle: document.getElementById('melodyHumanYMotionToggle'),
+    melodyHumanTimingEff: document.getElementById('melodyHumanTimingEff'),
+    melodyHumanVelocityEff: document.getElementById('melodyHumanVelocityEff'),
+    melodyHumanSwingEff: document.getElementById('melodyHumanSwingEff'),
+    melodyHumanLegatoEff: document.getElementById('melodyHumanLegatoEff'),
+    melodyHumanOrnamentEff: document.getElementById('melodyHumanOrnamentEff'),
+    melodyHumanPressEff: document.getElementById('melodyHumanPressEff'),
+    melodyHumanTimbreEff: document.getElementById('melodyHumanTimbreEff'),
+    melodyHumanPitchEff: document.getElementById('melodyHumanPitchEff'),
+    melodyHumanYMotionEff: document.getElementById('melodyHumanYMotionEff'),
+    melodyHumanYMotionToggleEff: document.getElementById('melodyHumanYMotionToggleEff'),
     melodyMpePerNote: document.getElementById('melodyMpePerNote'),
     melodyImportFile: document.getElementById('melodyImportFile'),
     melodyImportBtn: document.getElementById('melodyImportBtn'),
@@ -208,6 +222,7 @@ const els = {
     melodyContinueAuto: document.getElementById('melodyContinueAuto'),
     melodyContinueScale: document.getElementById('melodyContinueScale'),
     melodyContinueStatus: document.getElementById('melodyContinueStatus'),
+    melodyContinueReset: document.getElementById('melodyContinueReset'),
     melodyLayerToggle: document.getElementById('melodyLayerToggle'),
     melodyLayerMode: document.getElementById('melodyLayerMode'),
     melodyLayerLevel: document.getElementById('melodyLayerLevel'),
@@ -217,6 +232,14 @@ const els = {
     melodyRollZoom: document.getElementById('melodyRollZoom'),
     melodyRollScroll: document.getElementById('melodyRollScroll'),
     melodyRollScrollWrap: document.getElementById('melodyRollScrollWrap'),
+    melodyEditStatus: document.getElementById('melodyEditStatus'),
+    melodyEditHint: document.getElementById('melodyEditHint'),
+    melodyRatePerf: document.getElementById('melodyRatePerf'),
+    melodyLayerPerf: document.getElementById('melodyLayerPerf'),
+    melodySeedPerfDown: document.getElementById('melodySeedPerfDown'),
+    melodySeedPerfUp: document.getElementById('melodySeedPerfUp'),
+    melodySeedPerfVal: document.getElementById('melodySeedPerfVal'),
+    melodyCadencePerf: document.getElementById('melodyCadencePerf'),
     melodySaveName: document.getElementById('melodySaveName'),
     melodySaveBtn: document.getElementById('melodySaveBtn'),
     melodySaveSelect: document.getElementById('melodySaveSelect'),
@@ -325,6 +348,22 @@ if (setToggleBtn) {
             tab.classList.add('active');
             const content = document.querySelector(`[data-subtab-content="${target}"]`);
             if (content) content.classList.add('active');
+        });
+    });
+
+    // Sub-tabs inside MELODY
+    const melodySubTabs = document.querySelectorAll('#melodySubTabs .ui-tab');
+    const melodySubContents = document.querySelectorAll('#tabMelody .ui-subtab-content');
+
+    melodySubTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const target = tab.dataset.subtab;
+            melodySubTabs.forEach(t => t.classList.remove('active'));
+            melodySubContents.forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            const content = document.querySelector(`[data-subtab-content="${target}"]`);
+            if (content) content.classList.add('active');
+            if (target === 'melody-main') resizeMelodyRollCanvas();
         });
     });
 })();
@@ -3735,7 +3774,7 @@ function getPresetState() {
         customScaleMode: els.customModeNotes.checked ? 'notes' : 'cents',
         customScaleNotes: els.customScaleNotes.value,
         customScaleCents: els.customScaleCents.value,
-        microtonalizeIn: els.microtonalizeIn.checked,
+        microtonalizeIn: getScaleMode() === 'microtonal',
         visibleOctaves: els.visibleOctaves.value,
         chordMode: els.chordMode.value,
         chordInversion: els.chordInversion.value,
@@ -3781,7 +3820,7 @@ function getPresetState() {
         samplerMaxVoices: state.audio.maxSamplerVoices,
         sampleLoop: state.audio.loopGlobal,
         // Fade settings
-        fadeSeconds: els.fadeSeconds ? els.fadeSeconds.value : '3',
+        fadeSeconds: els.fadeSeconds ? els.fadeSeconds.value : '5',
         // FX settings
         fx: { ...state.audio.fx },
         fxEnabled: state.audio.fxEnabled
@@ -3802,7 +3841,7 @@ function applyPresetState(presetState) {
     if (presetState.microScaleName && MICROTONAL_SCALES[presetState.microScaleName]) {
         els.microScaleSelect.value = presetState.microScaleName;
     }
-    els.microtonalizeIn.checked = !!presetState.microtonalizeIn;
+    if (els.microtonalizeIn) els.microtonalizeIn.checked = !!presetState.microtonalizeIn;
     if (presetState.customScaleName) {
         els.customScaleName.value = presetState.customScaleName;
         if (state.customScales[presetState.customScaleName]) {
@@ -4515,7 +4554,7 @@ function handleExternalMIDI(message) {
     const velocity = data2;
     const type = status & 0xf0;
     const srcChan = status & 0x0f;
-    const microtonalize = els.scaleModeMicro.checked && els.microtonalizeIn.checked;
+    const microtonalize = els.scaleModeMicro.checked;
     const mpeFromIn = els.midiInMpe && els.midiInMpe.checked;
     if (type === 0x90 && velocity > 0 && isLocalNoteOn(note)) {
         return;
@@ -4668,12 +4707,16 @@ function sendMidiHardware(data) {
 
 
 function getRateFactor(rate) {
+    if (rate === '1/2') return 2;
     if (rate === '1/4') return 1;
+    if (rate === '1/4T') return 2 / 3;
     if (rate === '1/8') return 0.5;
     if (rate === '1/8T') return 1 / 3;
     if (rate === '1/16') return 0.25;
     if (rate === '1/16T') return 1 / 6;
     if (rate === '1/32') return 0.125;
+    if (rate === '1/32T') return 1 / 12;
+    if (rate === '1/64') return 0.0625;
     return 0.25;
 }
 
@@ -4868,9 +4911,25 @@ function getLayerNotes(baseNote) {
         updateScaleNotes();
     }
     const mode = state.melody.layer.mode || 'triad';
-    const steps = mode === 'third'
-        ? [2]
-        : (mode === 'fifth' ? [4] : (mode === 'octave' ? [7] : [2, 4]));
+    const modeSteps = {
+        third: [2],
+        fifth: [4],
+        octave: [7],
+        triad: [2, 4],
+        sixth: [2, 4, 5],
+        seventh: [2, 4, 6],
+        maj7: [2, 4, 6],
+        min7: [2, 4, 6],
+        sus2: [1, 4],
+        sus4: [3, 4],
+        add9: [2, 4, 8],
+        dom9: [2, 4, 6, 8],
+        maj9: [2, 4, 6, 8],
+        min9: [2, 4, 6, 8],
+        eleventh: [2, 4, 6, 8, 10],
+        thirteenth: [2, 4, 6, 8, 10, 12]
+    };
+    const steps = modeSteps[mode] || [2, 4];
     const idx = getScaleIndexForNote(baseNote);
     const result = [];
     steps.forEach(step => {
@@ -4893,6 +4952,37 @@ function getMelodyScalePool(range) {
     const max = base + (span - half);
     const pool = state.scaleNotes.notes.filter(n => n >= min && n <= max);
     return pool.length ? pool : state.scaleNotes.notes.slice();
+}
+
+function getMelodyStyleConfig() {
+    const raw = (els.melodyStyle?.value || 'balanced').trim();
+    let style = 'balanced';
+    let rules = { stepwise: true, motif: true, rhythm: true, leaps: true };
+    let rhythmMode = 'rule';
+    let rhythmPattern = '';
+    if (raw.startsWith('rule:')) {
+        const rule = raw.slice(5);
+        rules = {
+            stepwise: rule === 'all' || rule === 'stepwise',
+            motif: rule === 'all' || rule === 'motif',
+            rhythm: rule === 'all' || rule === 'rhythm',
+            leaps: rule === 'all' || rule === 'leaps'
+        };
+        style = 'balanced';
+        rhythmMode = 'rule';
+        rhythmPattern = '';
+    } else if (raw.startsWith('pattern:')) {
+        style = 'balanced';
+        rules = { stepwise: true, motif: true, rhythm: true, leaps: true };
+        rhythmMode = 'pattern';
+        rhythmPattern = raw.slice(8);
+    } else {
+        style = raw || 'balanced';
+        rules = { stepwise: true, motif: true, rhythm: true, leaps: true };
+        rhythmMode = 'rule';
+        rhythmPattern = '';
+    }
+    return { style, rules, rhythmMode, rhythmPattern };
 }
 
 function findNearestIndex(pool, note) {
@@ -4930,17 +5020,13 @@ function buildMelodySequence() {
     const length = Math.max(4, Math.min(64, parseInt(els.melodyLength.value, 10) || 16));
     const range = Math.max(5, Math.min(36, parseInt(els.melodyRange.value, 10) || 14));
     const density = Math.max(0.2, Math.min(1, (parseInt(els.melodyDensity.value, 10) || 80) / 100));
-    const style = els.melodyStyle.value || 'balanced';
+    const styleConfig = getMelodyStyleConfig();
+    const style = styleConfig.style;
     const cadence = els.melodyCadence.value || 'tonic';
     const rate = els.melodyRate.value || '1/16';
-    const rules = {
-        stepwise: !!els.melodyRuleStep?.checked,
-        motif: !!els.melodyRuleMotif?.checked,
-        rhythm: !!els.melodyRuleRhythm?.checked,
-        leaps: !!els.melodyRuleLeaps?.checked
-    };
-    const rhythmMode = els.melodyRhythmMode?.value || 'rule';
-    const rhythmPattern = els.melodyRhythmPattern?.value || '';
+    const rules = styleConfig.rules;
+    const rhythmMode = styleConfig.rhythmMode;
+    const rhythmPattern = styleConfig.rhythmPattern;
     const def = getScaleDefinition();
     const pool = getMelodyScalePool(range);
     if (!pool.length) return [];
@@ -5059,7 +5145,11 @@ function buildMelodySequence() {
     }
 
     if (notes.length && cadence !== 'none') {
-        const cadencePc = cadence === 'dominant' ? (rootPc + 7) % 12 : rootPc;
+        let cadencePc = rootPc;
+        if (cadence === 'dominant') cadencePc = (rootPc + 7) % 12;
+        else if (cadence === 'subdominant') cadencePc = (rootPc + 5) % 12;
+        else if (cadence === 'mediant') cadencePc = (rootPc + 4) % 12;
+        else if (cadence === 'leading') cadencePc = (rootPc + 11) % 12;
         notes[notes.length - 1] = getCadenceNote(pool, cadencePc, base);
     }
 
@@ -5339,7 +5429,9 @@ async function regenerateMelodyContinuation() {
     state.melody.continue.regenerating = true;
     try {
         const baseLength = state.melody.continue.baseLength;
-        state.melody.notes = state.melody.notes.slice(0, baseLength);
+        const baseNotes = state.melody.continue.baseNotes || state.melody.notes.slice(0, baseLength);
+        state.melody.notes = [...baseNotes];
+        state.melody.continue.baseNotes = [...baseNotes];
         const result = await generateMelodyContinuation({
             steps: state.melody.continue.steps,
             temperature: state.melody.continue.temperature,
@@ -5355,6 +5447,8 @@ async function regenerateMelodyContinuation() {
         updateMelodyPreview();
         setMelodyEditStep(0);
         if (state.melody.running) restartMelodyGenerator();
+        updateMelodyStatusUI();
+        setMelodyStatusLog('auto-continue');
         if (els.melodyContinueStatus) {
             els.melodyContinueStatus.textContent = `Auto updated (${state.melody.continue.steps} steps).`;
         }
@@ -5791,7 +5885,7 @@ function getMelodySaveParams() {
             customScaleMode: els.customModeNotes?.checked ? 'notes' : 'cents',
             customScaleNotes: els.customScaleNotes?.value,
             customScaleCents: els.customScaleCents?.value,
-            microtonalizeIn: !!els.microtonalizeIn?.checked
+            microtonalizeIn: getScaleMode() === 'microtonal'
         },
         length: state.melody.length,
         rate: state.melody.rate,
@@ -5876,10 +5970,22 @@ function applyMelodySaveParams(saved) {
         updateLayerToggleUI();
     }
     if (params.rules) {
-        if (els.melodyRuleStep) els.melodyRuleStep.checked = !!params.rules.stepwise;
-        if (els.melodyRuleMotif) els.melodyRuleMotif.checked = !!params.rules.motif;
-        if (els.melodyRuleRhythm) els.melodyRuleRhythm.checked = !!params.rules.rhythm;
-        if (els.melodyRuleLeaps) els.melodyRuleLeaps.checked = !!params.rules.leaps;
+        if (els.melodyRuleSelect && params.rules) {
+            const { stepwise, motif, rhythm, leaps } = params.rules;
+            if (stepwise && motif && rhythm && leaps) {
+                els.melodyRuleSelect.value = 'all';
+            } else if (stepwise && !motif && !rhythm && !leaps) {
+                els.melodyRuleSelect.value = 'stepwise';
+            } else if (!stepwise && motif && !rhythm && !leaps) {
+                els.melodyRuleSelect.value = 'motif';
+            } else if (!stepwise && !motif && rhythm && !leaps) {
+                els.melodyRuleSelect.value = 'rhythm';
+            } else if (!stepwise && !motif && !rhythm && leaps) {
+                els.melodyRuleSelect.value = 'leaps';
+            } else {
+                els.melodyRuleSelect.value = 'all';
+            }
+        }
     }
     if (els.melodyRhythmMode && params.rhythmMode) {
         els.melodyRhythmMode.value = params.rhythmMode;
@@ -5915,6 +6021,7 @@ function applyMelodySaveParams(saved) {
             els.melodyContinueScale.checked = !!params.continue.forceScale;
         }
     }
+    updateMelodyRuleSummary();
 }
 
 function updateMelodyPreview() {
@@ -5923,6 +6030,103 @@ function updateMelodyPreview() {
     els.melodyPreview.textContent = preview || ' ';
     renderMelodyEditor();
     resizeMelodyRollCanvas();
+}
+
+function formatTimeStamp(ts) {
+    if (!ts) return '--';
+    const d = new Date(ts);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
+}
+
+function setMelodyStatusLog(reason = '') {
+    state.melody.lastUpdate = {
+        time: Date.now(),
+        seed: state.melody.seed,
+        length: state.melody.length,
+        reason
+    };
+    const msg = `Last update: ${formatTimeStamp(state.melody.lastUpdate.time)} | seed ${state.melody.seed} | len ${state.melody.length}`;
+    if (els.melodyStatusLog) els.melodyStatusLog.textContent = msg;
+    if (els.melodyStatusLogInline) els.melodyStatusLogInline.textContent = msg;
+}
+
+function updateMelodyStatusUI() {
+    if (els.melodyStateBadge && els.melodyStateDesc) {
+        const baseLen = state.melody.continue?.baseLength ?? null;
+        const isContinued = baseLen != null && state.melody.notes.length > baseLen;
+        const isImported = !!state.melody.imported;
+        let label = 'Generated';
+        let desc = 'Sequence created from params.';
+        let cls = 'badge-generated';
+        if (isContinued) {
+            label = 'Continued';
+            desc = 'Extended from the base melody.';
+            cls = 'badge-continued';
+        } else if (isImported) {
+            label = 'Imported';
+            desc = 'Sequence comes from audio or file.';
+            cls = 'badge-imported';
+        }
+        els.melodyStateBadge.textContent = label;
+        els.melodyStateBadge.classList.remove('badge-generated', 'badge-imported', 'badge-continued');
+        els.melodyStateBadge.classList.add(cls);
+        els.melodyStateDesc.textContent = desc;
+    }
+    const genGroup = document.querySelector('#tabMelody .melody-gen-group');
+    if (genGroup) {
+        genGroup.classList.toggle('melody-imported-muted', !!state.melody.imported);
+    }
+    if (els.melodyKeepImported) {
+        els.melodyKeepImported.disabled = !state.melody.imported;
+    }
+    if (els.melodyContinueReset) {
+        els.melodyContinueReset.disabled = !(state.melody.continue?.baseNotes?.length);
+    }
+}
+
+function updateMelodyHumanizeEffective() {
+    const master = els.melodyHumanizeAmount ? (parseInt(els.melodyHumanizeAmount.value, 10) || 0) / 100 : 0;
+    const timing = parseInt(els.melodyHumanTiming?.value, 10) || 0;
+    const velocity = parseInt(els.melodyHumanVelocity?.value, 10) || 0;
+    const swing = parseInt(els.melodyHumanSwing?.value, 10) || 0;
+    const legato = parseInt(els.melodyHumanLegato?.value, 10) || 0;
+    const ornament = parseInt(els.melodyHumanOrnament?.value, 10) || 0;
+    const press = parseInt(els.melodyHumanPress?.value, 10) || 0;
+    const timbre = parseInt(els.melodyHumanTimbre?.value, 10) || 0;
+    const pitch = parseInt(els.melodyHumanPitch?.value, 10) || 0;
+    const yMotion = parseInt(els.melodyHumanYMotion?.value, 10) || 0;
+    const yOn = !!els.melodyHumanYMotionToggle?.checked;
+    const toPct = (value, max = 100) => Math.round((Math.max(0, Math.min(max, value)) / max) * 100);
+    if (els.melodyHumanTimingEff) els.melodyHumanTimingEff.textContent = `Effective: ${toPct(timing * master, 30)}%`;
+    if (els.melodyHumanVelocityEff) els.melodyHumanVelocityEff.textContent = `Effective: ${toPct(velocity * master, 60)}%`;
+    if (els.melodyHumanSwingEff) els.melodyHumanSwingEff.textContent = `Effective: ${toPct(swing * master, 60)}%`;
+    if (els.melodyHumanLegatoEff) els.melodyHumanLegatoEff.textContent = `Effective: ${toPct(70 + (legato - 70) * master, 100)}%`;
+    if (els.melodyHumanOrnamentEff) els.melodyHumanOrnamentEff.textContent = `Effective: ${toPct(ornament * master, 40)}%`;
+    if (els.melodyHumanPressEff) els.melodyHumanPressEff.textContent = `Effective: ${toPct(press * master, 40)}%`;
+    if (els.melodyHumanTimbreEff) els.melodyHumanTimbreEff.textContent = `Effective: ${toPct(timbre * master, 80)}%`;
+    if (els.melodyHumanPitchEff) els.melodyHumanPitchEff.textContent = `Effective: ${toPct(pitch * master, 40)}%`;
+    if (els.melodyHumanYMotionEff) els.melodyHumanYMotionEff.textContent = `Effective: ${toPct(yMotion * master, 100)}%`;
+    if (els.melodyHumanYMotionToggleEff) els.melodyHumanYMotionToggleEff.textContent = `Effective: ${yOn && master > 0 ? 'On' : 'Off'}`;
+}
+
+function updateMelodyRuleSummary() {
+    if (!els.melodyRuleSummary) return;
+    const rule = els.melodyRuleSelect?.value || 'all';
+    const rhythmMode = els.melodyRhythmMode?.value || 'rule';
+    const rhythmPattern = els.melodyRhythmPattern?.value || '';
+    const ruleLabel = rule === 'all' ? 'all rules' : rule;
+    const rhythmLabel = rhythmMode === 'pattern' && rhythmPattern ? `pattern: ${rhythmPattern}` : rhythmMode;
+    els.melodyRuleSummary.textContent = `Rules bias: ${ruleLabel} | Rhythm: ${rhythmLabel}`;
+}
+
+function updateMelodyEditStatus() {
+    if (!els.melodyEditStatus) return;
+    const edit = Number.isFinite(state.melody.edit?.step) ? state.melody.edit.step : '--';
+    const live = Number.isFinite(state.melody.currentStep) ? state.melody.currentStep : '--';
+    els.melodyEditStatus.textContent = `Editing step: ${edit} | Live step: ${live}`;
 }
 
 function stopMelodyGenerator() {
@@ -6063,6 +6267,7 @@ function melodyStep() {
         state.melody.lastVoices = [];
         setSyntheticTouch('melody', [], 'MELODY');
     }
+    updateMelodyEditStatus();
     drawMelodyPianoRoll();
 }
 
@@ -6087,10 +6292,13 @@ function updateMelodyToggleUI() {
     els.melodyToggle.classList.toggle('toggle-on', isOn);
     els.melodyToggle.classList.toggle('toggle-off', !isOn);
     els.melodyToggle.textContent = isOn ? 'MELODY ON' : 'MELODY OFF';
+    if (els.melodyActiveIndicator) {
+        els.melodyActiveIndicator.textContent = isOn ? 'Active' : 'Inactive';
+    }
     if (els.melodyPerfToggle) {
         els.melodyPerfToggle.classList.toggle('toggle-on', isOn);
         els.melodyPerfToggle.classList.toggle('toggle-off', !isOn);
-        const label = isOn ? 'MELODY ON' : 'MELODY OFF';
+        const label = isOn ? 'MELODY ACTIVE' : 'MELODY INACTIVE';
         els.melodyPerfToggle.setAttribute('aria-pressed', isOn ? 'true' : 'false');
         els.melodyPerfToggle.setAttribute('aria-label', label);
         els.melodyPerfToggle.title = label;
@@ -6103,6 +6311,29 @@ function updateLayerToggleUI() {
     els.melodyLayerToggle.classList.toggle('toggle-on', isOn);
     els.melodyLayerToggle.classList.toggle('toggle-off', !isOn);
     els.melodyLayerToggle.textContent = isOn ? 'LAYER ON' : 'LAYER OFF';
+    if (els.melodyLayerPerf) {
+        els.melodyLayerPerf.classList.toggle('toggle-on', isOn);
+        els.melodyLayerPerf.classList.toggle('toggle-off', !isOn);
+        els.melodyLayerPerf.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+    }
+}
+
+function syncMelodyPerfControls() {
+    if (els.melodyRatePerf && els.melodyRate) {
+        els.melodyRatePerf.value = els.melodyRate.value;
+    }
+    if (els.melodySeedPerfVal && els.melodySeed) {
+        els.melodySeedPerfVal.textContent = els.melodySeed.value;
+    }
+    if (els.melodyCadencePerf && els.melodyCadence) {
+        els.melodyCadencePerf.value = els.melodyCadence.value;
+    }
+    if (els.melodyLayerPerf) {
+        const isOn = !!state.melody.layer.enabled;
+        els.melodyLayerPerf.classList.toggle('toggle-on', isOn);
+        els.melodyLayerPerf.classList.toggle('toggle-off', !isOn);
+        els.melodyLayerPerf.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+    }
 }
 
 function setMelodyEditStep(stepIdx) {
@@ -6111,6 +6342,7 @@ function setMelodyEditStep(stepIdx) {
     state.melody.edit.step = clamped;
     renderMelodyEditor();
     drawMelodyPianoRoll();
+    updateMelodyEditStatus();
 }
 
 function renderMelodyEditor() {
@@ -6349,7 +6581,8 @@ function updateMelodyFromUI(regenerate = false) {
     state.melody.length = Math.max(4, Math.min(64, parseInt(els.melodyLength.value, 10) || 16));
     state.melody.range = Math.max(5, Math.min(36, parseInt(els.melodyRange.value, 10) || 14));
     state.melody.density = Math.max(0.2, Math.min(1, (parseInt(els.melodyDensity.value, 10) || 80) / 100));
-    state.melody.style = els.melodyStyle.value || 'balanced';
+    const styleConfig = getMelodyStyleConfig();
+    state.melody.style = styleConfig.style;
     state.melody.cadence = els.melodyCadence.value || 'tonic';
     state.melody.rate = els.melodyRate.value || '1/16';
     state.melody.layer = {
@@ -6358,26 +6591,35 @@ function updateMelodyFromUI(regenerate = false) {
         level: parseInt(els.melodyLayerLevel?.value, 10) || 70
     };
     state.melody.mpePerNote = !!els.melodyMpePerNote?.checked;
-    state.melody.humanize = {
-        timing: parseInt(els.melodyHumanTiming?.value, 10) || 0,
-        velocity: parseInt(els.melodyHumanVelocity?.value, 10) || 0,
-        swing: parseInt(els.melodyHumanSwing?.value, 10) || 0,
-        legato: parseInt(els.melodyHumanLegato?.value, 10) || 0,
-        ornament: parseInt(els.melodyHumanOrnament?.value, 10) || 0,
-        press: parseInt(els.melodyHumanPress?.value, 10) || 0,
-        timbre: parseInt(els.melodyHumanTimbre?.value, 10) || 0,
-        pitch: parseInt(els.melodyHumanPitch?.value, 10) || 0,
-        yMotion: parseInt(els.melodyHumanYMotion?.value, 10) || 0,
+    const humanizeAmt = els.melodyHumanizeAmount ? (parseInt(els.melodyHumanizeAmount.value, 10) || 0) : 0;
+    const master = Math.max(0, Math.min(1, humanizeAmt / 100));
+    const base = {
+        timing: parseInt(els.melodyHumanTiming?.value, 10) || 8,
+        velocity: parseInt(els.melodyHumanVelocity?.value, 10) || 30,
+        swing: parseInt(els.melodyHumanSwing?.value, 10) || 60,
+        legato: parseInt(els.melodyHumanLegato?.value, 10) || 100,
+        ornament: parseInt(els.melodyHumanOrnament?.value, 10) || 10,
+        press: parseInt(els.melodyHumanPress?.value, 10) || 40,
+        timbre: parseInt(els.melodyHumanTimbre?.value, 10) || 80,
+        pitch: parseInt(els.melodyHumanPitch?.value, 10) || 10,
+        yMotion: parseInt(els.melodyHumanYMotion?.value, 10) || 100,
         yMotionEnabled: !!els.melodyHumanYMotionToggle?.checked
     };
-    state.melody.rules = {
-        stepwise: !!els.melodyRuleStep?.checked,
-        motif: !!els.melodyRuleMotif?.checked,
-        rhythm: !!els.melodyRuleRhythm?.checked,
-        leaps: !!els.melodyRuleLeaps?.checked
+    state.melody.humanize = {
+        timing: Math.round(base.timing * master),
+        velocity: Math.round(base.velocity * master),
+        swing: Math.round(base.swing * master),
+        legato: Math.round(70 + (base.legato - 70) * master),
+        ornament: Math.round(base.ornament * master),
+        press: Math.round(base.press * master),
+        timbre: Math.round(base.timbre * master),
+        pitch: Math.round(base.pitch * master),
+        yMotion: Math.round(base.yMotion * master),
+        yMotionEnabled: base.yMotionEnabled && master > 0
     };
-    state.melody.rhythmMode = els.melodyRhythmMode?.value || state.melody.rhythmMode || 'rule';
-    state.melody.rhythmPattern = els.melodyRhythmPattern?.value || state.melody.rhythmPattern || '';
+    state.melody.rules = { ...styleConfig.rules };
+    state.melody.rhythmMode = styleConfig.rhythmMode || state.melody.rhythmMode || 'rule';
+    state.melody.rhythmPattern = styleConfig.rhythmPattern || '';
     state.melody.continue = state.melody.continue || {};
     state.melody.continue.auto = !!els.melodyContinueAuto?.checked;
     state.melody.continue.forceScale = !!els.melodyContinueScale?.checked;
@@ -6393,9 +6635,11 @@ function updateMelodyFromUI(regenerate = false) {
         4,
         Math.min(64, parseInt(els.melodyContinueSteps?.value, 10) || 16)
     );
+    let didRegen = false;
     if (regenerate) {
         if (!state.melody.imported) {
             state.melody.notes = buildMelodySequence();
+            didRegen = true;
         }
         state.melody.stepIndex = 0;
         updateMelodyPreview();
@@ -6404,6 +6648,12 @@ function updateMelodyFromUI(regenerate = false) {
             state.melody.continue.baseLength = state.melody.notes.length;
         }
     }
+    if (didRegen) {
+        setMelodyStatusLog('regen');
+    }
+    updateMelodyStatusUI();
+    updateMelodyRuleSummary();
+    syncMelodyPerfControls();
     if (state.melody.continue?.auto && state.melody.continue?.baseLength != null) {
         regenerateMelodyContinuation();
     }
@@ -7011,7 +7261,7 @@ function fadeOutAll() {
             }
         });
     }
-    const seconds = Math.max(1, Math.min(20, parseFloat(els.fadeSeconds.value) || 4));
+    const seconds = Math.max(1, Math.min(20, parseFloat(els.fadeSeconds?.value) || 5));
     const channels = collectActiveChannels();
     const targets = collectFadeTargets();
     if (!channels.length) return;
@@ -8588,13 +8838,29 @@ function bindUI() {
         updateMelodyToggleUI();
         els.melodyPerfToggle.onclick = toggleMelody;
     }
+    if (els.melodyRebuild) {
+        els.melodyRebuild.onclick = () => {
+            state.melody.imported = false;
+            state.melody.importedFeatures = null;
+            clearMelodyContinuationState();
+            updateMelodyFromUI(true);
+            restartMelodyGenerator();
+            updateMelodyStatusUI();
+        };
+    }
+    if (els.melodyKeepImported) {
+        els.melodyKeepImported.onclick = () => {
+            state.melody.imported = true;
+            updateMelodyStatusUI();
+        };
+    }
     if (els.melodyLayerToggle) {
         updateLayerToggleUI();
         els.melodyLayerToggle.onclick = () => {
             state.melody.layer.enabled = !state.melody.layer.enabled;
             updateLayerToggleUI();
-            updateMelodyFromUI(true);
-            restartMelodyGenerator();
+            updateMelodyFromUI(false);
+            if (state.melody.running) restartMelodyGenerator();
         };
     }
     if (els.melodySeqEditor) {
@@ -8605,14 +8871,6 @@ function bindUI() {
             if (Number.isFinite(idx)) setMelodyEditStep(idx);
         };
     }
-    document.querySelectorAll('.melody-acc-toggle').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const item = btn.closest('.melody-acc-item');
-            if (!item) return;
-            item.classList.toggle('open');
-            setTimeout(resizeMelodyRollCanvas, 0);
-        });
-    });
     if (els.melodyRollCanvas) {
         const roll = els.melodyRollCanvas;
         const drag = { active: false, id: null, lastTapTime: 0, lastStep: null };
@@ -8743,18 +9001,6 @@ function bindUI() {
             if (state.melody.running) restartMelodyGenerator();
         };
     }
-    if (els.melodyGenerate) {
-        els.melodyGenerate.onclick = () => {
-            state.melody.imported = false;
-            state.melody.importedFeatures = null;
-            state.melody.notes = buildMelodySequence();
-            clearMelodyContinuationState();
-            state.melody.stepIndex = 0;
-            updateMelodyPreview();
-            setMelodyEditStep(state.melody.edit.step || 0);
-            restartMelodyGenerator();
-        };
-    }
     if (els.melodyImportAdvancedBtn) {
         els.melodyImportAdvancedBtn.onclick = async () => {
             const file = els.melodyImportFile?.files?.[0];
@@ -8795,6 +9041,8 @@ function bindUI() {
                 updateMelodyPreview();
                 setMelodyEditStep(0);
                 if (state.melody.running) restartMelodyGenerator();
+                setMelodyStatusLog('import');
+                updateMelodyStatusUI();
                 if (els.melodyImportAdvancedStatus) els.melodyImportAdvancedStatus.textContent = `Imported ${notes.length} steps.`;
             } catch (err) {
                 console.error('Advanced import failed', err);
@@ -8826,7 +9074,9 @@ function bindUI() {
             if (els.melodyContinueStatus) els.melodyContinueStatus.textContent = 'Loading Magenta...';
             try {
                 if (els.melodyContinueStatus) els.melodyContinueStatus.textContent = 'Generating...';
-                const baseLength = state.melody.notes.length;
+                const baseNotes = [...state.melody.notes];
+                const baseImported = !!state.melody.imported;
+                const baseLength = baseNotes.length;
                 const seedSteps = Math.min(16, baseLength);
                 const result = await generateMelodyContinuation({
                     steps,
@@ -8841,6 +9091,8 @@ function bindUI() {
                 state.melody.importedFeatures = null;
                 state.melody.continue = {
                     auto: !!els.melodyContinueAuto?.checked,
+                    baseNotes,
+                    baseImported,
                     steps,
                     temperature,
                     rhythmSimilarity,
@@ -8852,6 +9104,8 @@ function bindUI() {
                 updateMelodyPreview();
                 setMelodyEditStep(0);
                 if (state.melody.running) restartMelodyGenerator();
+                setMelodyStatusLog('continue');
+                updateMelodyStatusUI();
                 if (els.melodyContinueStatus) {
                     els.melodyContinueStatus.textContent = `Added ${added} steps.`;
                 }
@@ -8861,6 +9115,28 @@ function bindUI() {
                 musicRnnLoadPromise = null;
                 const msg = err?.message || String(err || 'Unknown error');
                 if (els.melodyContinueStatus) els.melodyContinueStatus.textContent = `Continue failed: ${msg}`;
+            }
+        };
+    }
+    if (els.melodyContinueReset) {
+        els.melodyContinueReset.onclick = () => {
+            const baseNotes = state.melody.continue?.baseNotes;
+            if (!baseNotes || !baseNotes.length) return;
+            const baseImported = !!state.melody.continue?.baseImported;
+            state.melody.notes = [...baseNotes];
+            state.melody.imported = baseImported;
+            state.melody.importedFeatures = null;
+            state.melody.continue = null;
+            state.melody.length = state.melody.notes.length;
+            if (els.melodyLength) els.melodyLength.value = state.melody.length;
+            state.melody.stepIndex = 0;
+            updateMelodyPreview();
+            setMelodyEditStep(0);
+            if (state.melody.running) restartMelodyGenerator();
+            setMelodyStatusLog('reset');
+            updateMelodyStatusUI();
+            if (els.melodyContinueStatus) {
+                els.melodyContinueStatus.textContent = 'Reset to base melody.';
             }
         };
     }
@@ -8890,6 +9166,8 @@ function bindUI() {
                 updateMelodyPreview();
                 setMelodyEditStep(0);
                 if (state.melody.running) restartMelodyGenerator();
+                setMelodyStatusLog('import');
+                updateMelodyStatusUI();
                 if (els.melodyImportStatus) els.melodyImportStatus.textContent = `Imported ${notes.length} steps.`;
             } catch (err) {
                 if (els.melodyImportStatus) els.melodyImportStatus.textContent = 'Import failed.';
@@ -8899,18 +9177,16 @@ function bindUI() {
     const melodyLegend = document.getElementById('melodyHumanLegend');
     const melodyLegendMap = new Map([
         [els.melodyToggle, 'Melody on/off: start or stop the generator.'],
-        [els.melodyGenerate, 'Generate: create a new melody using the current settings.'],
-        [els.melodyStyle, 'Style: changes step tendencies (smooth, balanced, leaps, call).'],
+        [els.melodyRebuild, 'Rebuild: regenerate using the current params.'],
+        [els.melodyKeepImported, 'Keep: keep the imported melody without rebuilding.'],
+        [els.melodyStyle, 'Pattern: choose melodic motion, rules bias, or a rhythm pattern.'],
         [els.melodyLength, 'Length: number of steps in the melody sequence.'],
         [els.melodyRate, 'Rate: step speed of the melody.'],
         [els.melodyDensity, 'Density: probability that a step produces a note.'],
         [els.melodyRange, 'Range: pitch span around the current octave/root.'],
         [els.melodySeed, 'Seed: random seed for repeatable melodies.'],
         [els.melodyCadence, 'Cadence: forces the ending note (tonic/dominant/none).'],
-        [els.melodyRuleStep, 'Rule: prefer stepwise motion, fewer repeats.'],
-        [els.melodyRuleMotif, 'Rule: repeat short motifs more often.'],
-        [els.melodyRuleRhythm, 'Rule: apply rhythmic masks/syncopation.'],
-        [els.melodyRuleLeaps, 'Rule: allow larger leaps with return motion.'],
+        [els.melodyRuleSelect, 'Rules: choose the rule bias for melody generation.'],
         [els.melodyRhythmMode, 'Rhythm mode: off, rules-based, or fixed pattern.'],
         [els.melodyRhythmPattern, 'Rhythm pattern: pick a predefined groove family.'],
         [els.melodyLayerToggle, 'Layer on/off: add extra harmony notes.'],
@@ -8930,6 +9206,7 @@ function bindUI() {
         [els.melodyImportBtn, 'Import: detect a melody from the WAV using fast analysis.'],
         [els.melodyImportAdvancedBtn, 'Advanced import: Magenta transcription for better pitch accuracy.'],
         [els.melodyContinueBtn, 'Continue: Magenta generates the next steps from the current melody.'],
+        [els.melodyContinueReset, 'Reset: restore the melody before continuation.'],
         [els.melodyContinueSteps, 'Continue steps: how many new steps to add.'],
         [els.melodyContinueTemp, 'Temperature: randomness of the continuation (lower = safer).'],
         [els.melodyContinueRhythm, 'Rhythm similarity: how closely the continuation matches the original rhythm.'],
@@ -8955,20 +9232,17 @@ function bindUI() {
         els.melodyHumanYMotionToggle.addEventListener('change', syncMelodyYMotionToggle);
     }
     syncMelodyYMotionToggle();
-    [
+    const melodyGenInputs = new Set([
         els.melodyStyle,
         els.melodyLength,
-        els.melodyRate,
         els.melodyDensity,
         els.melodyRange,
         els.melodySeed,
-        els.melodyCadence,
-        els.melodyRuleStep,
-        els.melodyRuleMotif,
-        els.melodyRuleRhythm,
-        els.melodyRuleLeaps,
-        els.melodyRhythmMode,
-        els.melodyRhythmPattern,
+        els.melodyCadence
+    ]);
+    const melodyPlaybackInputs = new Set([
+        els.melodyRate,
+        els.melodyHumanizeAmount,
         els.melodyHumanTiming,
         els.melodyHumanVelocity,
         els.melodyHumanSwing,
@@ -8979,21 +9253,75 @@ function bindUI() {
         els.melodyHumanPitch,
         els.melodyHumanYMotion,
         els.melodyHumanYMotionToggle,
-        els.melodyMpePerNote,
         els.melodyLayerMode,
         els.melodyLayerLevel,
-        els.melodyContinueSteps,
-        els.melodyContinueTemp,
-        els.melodyContinueRhythm,
-        els.melodyContinueAuto,
-        els.melodyContinueScale
+        els.melodyMpePerNote
+    ]);
+    const onMelodyParamChange = e => {
+        const target = e?.target || null;
+        const isGen = melodyGenInputs.has(target);
+        const isPlayback = melodyPlaybackInputs.has(target);
+        if (isGen) {
+            state.melody.imported = false;
+            clearMelodyContinuationState();
+        }
+        updateMelodyFromUI(!!isGen);
+        updateMelodyHumanizeEffective();
+        if (state.melody.running) {
+            restartMelodyGenerator();
+        }
+    };
+    [
+        ...melodyGenInputs,
+        ...melodyPlaybackInputs
     ].forEach(input => {
         if (!input) return;
-        input.onchange = () => {
-            updateMelodyFromUI(true);
-            restartMelodyGenerator();
-        };
+        input.onchange = onMelodyParamChange;
     });
+    if (els.melodyRatePerf) {
+        els.melodyRatePerf.onchange = e => {
+            if (els.melodyRate) els.melodyRate.value = e.target.value;
+            onMelodyParamChange({ target: els.melodyRate });
+        };
+    }
+    if (els.melodySeedPerfDown) {
+        els.melodySeedPerfDown.onclick = () => {
+            if (!els.melodySeed) return;
+            const current = parseInt(els.melodySeed.value, 10) || 1;
+            const next = Math.max(1, current - 1);
+            els.melodySeed.value = next;
+            onMelodyParamChange({ target: els.melodySeed });
+        };
+    }
+    if (els.melodySeedPerfUp) {
+        els.melodySeedPerfUp.onclick = () => {
+            if (!els.melodySeed) return;
+            const current = parseInt(els.melodySeed.value, 10) || 1;
+            const next = Math.min(9999, current + 1);
+            els.melodySeed.value = next;
+            onMelodyParamChange({ target: els.melodySeed });
+        };
+    }
+    if (els.melodyCadencePerf) {
+        els.melodyCadencePerf.onchange = e => {
+            if (els.melodyCadence) els.melodyCadence.value = e.target.value;
+            onMelodyParamChange({ target: els.melodyCadence });
+        };
+    }
+    if (els.melodyLayerPerf) {
+        els.melodyLayerPerf.onclick = () => {
+            state.melody.layer.enabled = !state.melody.layer.enabled;
+            updateLayerToggleUI();
+            updateMelodyFromUI(false);
+            if (state.melody.running) restartMelodyGenerator();
+            syncMelodyPerfControls();
+        };
+    }
+    updateMelodyRuleSummary();
+    updateMelodyStatusUI();
+    updateMelodyEditStatus();
+    syncMelodyPerfControls();
+    updateMelodyHumanizeEffective();
     if (els.arpParamsToggle && els.arpParamsPanel) {
         els.arpParamsToggle.onclick = () => {
             els.arpParamsPanel.classList.toggle('hidden');
@@ -9045,7 +9373,9 @@ function bindUI() {
     els.scaleModeDiatonic.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
     els.scaleModeMicro.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
     els.scaleModeCustom.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
-    els.microtonalizeIn.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
+    if (els.microtonalizeIn) {
+        els.microtonalizeIn.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
+    }
     document.querySelectorAll('[data-scale-choice]').forEach(choice => {
         choice.onclick = () => {
             const mode = choice.getAttribute('data-scale-choice');
@@ -9970,6 +10300,18 @@ function updateToggleLabels() {
     if (perfToggle) {
         const isCompact = els.performance.classList.contains('compact');
         perfToggle.classList.toggle('active', isCompact);
+        // Icona: robot (melody) se compact, play se non-compact
+        const iconMain = perfToggle.querySelector('.perf-icon-main');
+        const iconAlt = perfToggle.querySelector('.perf-icon-alt');
+        if (iconMain && iconAlt) {
+            if (isCompact) {
+                iconMain.style.display = 'inline-flex';
+                iconAlt.style.display = 'none';
+            } else {
+                iconMain.style.display = 'none';
+                iconAlt.style.display = 'inline-flex';
+            }
+        }
     }
     if (advLabel) advLabel.textContent = els.ui.classList.contains('show-advanced') ? 'X' : 'Sampler Set';
 }

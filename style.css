@@ -1,3 +1,11 @@
+/* MELODY/LAYER perf-alt: attivo azzurro come i principali */
+#melodyPerfToggle.active, #melodyPerfToggle.toggle-on,
+#melodyLayerPerf.active, #melodyLayerPerf.toggle-on {
+    background: var(--primary);
+    color: #000;
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.4);
+    border-color: var(--primary);
+}
 :root {
     /* Palette Colori Moderna */
     --primary: #00f2ff;       /* Ciano Neon per accenti attivi */
@@ -125,6 +133,12 @@ body {
     scrollbar-color: var(--accent) transparent;
 }
 .ui-tab-content.active { display: block; }
+.ui-tab-content[data-tab-content="sampler"] {
+    overflow-x: hidden;
+}
+.ui-tab-content[data-tab-content="scale"] {
+    overflow-x: hidden;
+}
 
 /* Sub-tabs row (inside ADVANCED) */
 .ui-subtabs {
@@ -229,6 +243,108 @@ body {
     font-size: 12px;
     color: #b7c1cc;
 }
+.melody-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.melody-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    border: 1px solid transparent;
+}
+.badge-generated {
+    background: rgba(0, 180, 120, 0.18);
+    color: #6fffb7;
+    border-color: rgba(0, 180, 120, 0.5);
+}
+.badge-imported {
+    background: rgba(0, 140, 255, 0.18);
+    color: #84c9ff;
+    border-color: rgba(0, 140, 255, 0.5);
+}
+.badge-continued {
+    background: rgba(255, 180, 0, 0.18);
+    color: #ffd27d;
+    border-color: rgba(255, 180, 0, 0.55);
+}
+.melody-status-desc {
+    font-size: 12px;
+    color: #b7c1cc;
+}
+.melody-status-log {
+    margin-top: 4px;
+    font-size: 11px;
+    color: #9aa;
+}
+.melody-active-indicator {
+    font-size: 11px;
+    color: #9aa;
+    margin-top: 4px;
+}
+.melody-gen-group.melody-imported-muted {
+    opacity: 0.6;
+    filter: grayscale(0.4);
+}
+.group-title-box {
+    max-width: 220px;
+    min-width: 150px;
+}
+.group-title {
+    font-size: 12px;
+    letter-spacing: 0.6px;
+    color: #dbe6f2;
+}
+.group-subtitle {
+    font-size: 10px;
+    color: #9aa;
+}
+.melody-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.melody-action-row .menu-btn {
+    width: auto;
+    min-width: 84px;
+}
+.melody-seed-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.melody-seed-row input {
+    flex: 1 1 auto;
+    min-width: 90px;
+}
+.melody-seed-row .menu-btn {
+    width: auto;
+    min-width: 48px;
+}
+.perf-select-fit {
+    width: auto;
+    min-width: unset;
+}
+.param-effective {
+    margin-top: 4px;
+    font-size: 10px;
+    color: #9aa;
+}
+.tempo-hint {
+    font-size: 10px;
+    color: #9aa;
+    margin-top: 4px;
+}
+.melody-status-btn:disabled {
+    opacity: 0.7;
+    cursor: default;
+}
 .legend-inline {
     margin-top: 6px;
     padding: 6px 8px;
@@ -318,6 +434,7 @@ body {
 /* === SAMPLER SLOTS: Two-column grid === */
 .sampler-slots {
     flex-direction: column;
+    overflow-x: hidden;
 }
 
 .sampler-slots .sample-grid {
@@ -454,6 +571,7 @@ select:focus, input:focus {
 .menu-btn.btn-accent { background: var(--bg-group); color: var(--primary); border: 1px solid var(--primary); }
 .menu-btn.btn-danger { background: rgba(255, 0, 85, 0.2); color: #ff5588; }
 .menu-btn.btn-ok { background: rgba(0, 255, 136, 0.2); color: #55ffaa; }
+.menu-btn.btn-ghost { background: rgba(255,255,255,0.06); color: #cfd6dd; border: 1px solid rgba(255,255,255,0.12); }
 
 /* === AUDIO RECORDER STYLES === */
 .menu-btn.btn-rec {
@@ -1447,12 +1565,18 @@ body.note-dragging .rec-controls-bar {
     font-size: 18px;
     color: #000;
 }
+#perfToggle .perf-icon-main { display: inline-flex; }
+#perfToggle .perf-icon-alt { display: none; }
+#perfToggle.active .perf-icon-main { display: none; }
+#perfToggle.active .perf-icon-alt { display: inline-flex; }
+#perfToggle .perf-icon-alt svg { color: #000; fill: #000; }
+#perfToggle .perf-icon-main svg, #perfToggle .perf-icon-alt svg { width: 18px; height: 18px; display: block; }
 #perfToggle:active {
     transform: scale(0.9);
 }
 #perfToggle.panel-closed {
     background: var(--bg-glass-heavy);
-    border: 1px solid rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.2q);
 }
 #perfToggle.panel-closed .btn-icon {
     color: var(--primary);
@@ -1618,26 +1742,27 @@ canvas { display: block; width: 100%; height: 100%; }
 /* Compact Sample Grid - auto-fit for responsive 4 columns */
 .sample-grid-compact {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 6px;
+    width: 100%;
 }
 
-@media (min-width: 900px) {
-    .sample-grid-compact {
-        grid-template-columns: repeat(4, 1fr);
-    }
+.sampler-set-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
 }
 
-@media (max-width: 600px) {
-    .sample-grid-compact {
-        grid-template-columns: repeat(2, 1fr);
-    }
+.sampler-set-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
 }
 
-@media (max-width: 400px) {
-    .sample-grid-compact {
-        grid-template-columns: 1fr;
-    }
+.sampler-set-header label {
+    margin-bottom: 0;
 }
 
 .sample-slot-compact {
@@ -1748,30 +1873,62 @@ canvas { display: block; width: 100%; height: 100%; }
 /* === SCALE ROW SINGLE LINE === */
 .scale-row-single {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 8px;
     align-items: flex-start;
-    overflow-x: auto;
+    overflow-x: hidden;
     padding-bottom: 4px;
 }
 
 .scale-row-single .box {
-    flex: 0 0 auto;
-    min-width: 60px;
+    flex: 1 1 140px;
+    min-width: 120px;
+    max-width: 260px;
 }
 
 .scale-row-single .box select {
-    min-width: 70px;
+    min-width: 0;
+    width: 100%;
 }
 
 .scale-row-single #scaleDiatonicBox select,
 .scale-row-single #scaleMicroBox select {
-    min-width: 100px;
+    min-width: 0;
+    width: 100%;
 }
 
 .scale-row-single #scaleCustomBox {
-    min-width: 400px;
-    flex: 1 1 auto;
+    min-width: 240px;
+    flex: 2 1 320px;
+    max-width: none;
+}
+
+#scaleRootBox {
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+#scaleRootBox select {
+    width: 7.5ch;
+}
+
+#tabScale #scaleRootBox + .box {
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+#tabScale #scaleRootBox + .box select {
+    width: 6.5ch;
+}
+
+#scaleDiatonicBox select {
+    width: auto;
+    min-width: 15ch;
+}
+
+#scaleMicroBox select {
+    width: auto;
+    min-width: 21ch;
 }
 
 .scale-custom-wide {
@@ -1858,4 +2015,5 @@ canvas { display: block; width: 100%; height: 100%; }
 } */
 
 /* Old sample-row/sample-grid styles kept for compatibility */
+
 
