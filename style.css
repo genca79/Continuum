@@ -1032,6 +1032,7 @@ body.note-dragging .rec-controls-bar {
     pointer-events: auto;
     transition: transform 0.3s ease;
     scrollbar-width: none; 
+    padding-right: calc(clamp(32px, 5vw, 44px) + 15px) !important;
 }
 #performance::-webkit-scrollbar { display: none; }
 
@@ -1039,31 +1040,36 @@ body.note-dragging .rec-controls-bar {
 #performance .perf-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-    justify-content: center;
+    gap: 4px;            /* Ridotto il gap da 12px a 4px per risparmiare spazio */
+    flex-wrap: nowrap;   /* Impedisce l'andata a capo */
+    justify-content: space-between; /* Distribuisce gli elementi */
+    width: 100%;
 }
 
 #performance .perf-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    flex: 1 1 100px;
-    max-width: 140px;
+    gap: 2px;
+    flex: 1 1 0;      /* Permette di crescere e restringersi in base allo spazio */
+    min-width: 0;        /* Fondamentale per permettere a flex-shrink di funzionare */
+    max-width: none;     /* Rimuoviamo il limite massimo fisso */
     text-align: center;
 }
 
 #performance .perf-label-top {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #a9b2bb;
+    font-size: 8px;
+    white-space: nowrap;      /* Impedisce al testo di andare su due righe */
+    overflow: hidden;         /* Nasconde il testo in eccesso */
+    text-overflow: ellipsis;  /* Aggiunge i puntini sospensivi (...) se il testo è troppo lungo */
+    max-width: 100%;          /* Forza il label a non superare mai la larghezza della colonna */
 }
 
 #performance .perf-item select,
-#performance .perf-item input[type="number"] {
-    width: 100%;
+#performance .perf-item {
+    flex: 1 1 0;      /* La base 0 permette al flexbox di distribuire lo spazio in parti uguali */
+    min-width: 0;     /* Fondamentale: permette all'elemento di rimpicciolirsi sotto la dimensione del contenuto */
+    padding: 0 2px;   /* Un minimo di respiro tra i pulsanti */
 }
 
 #performance .perf-item.perf-transpose {
@@ -1186,6 +1192,70 @@ body.note-dragging .rec-controls-bar {
     #performance .perf-item {
         flex: 1 1 100px;
         max-width: 140px;
+    }
+}
+
+/* Media query per schermi molto piccoli (es. smartphone portrait) */
+@media (max-width: 600px) {
+    #performance {
+        padding: 4px 6px; /* Riduciamo il padding del contenitore principale */
+    }
+
+    /* Riduciamo i pulsanti */
+    .perf-btn {
+        padding: 4px 6px !important;
+        font-size: 10px !important;
+        min-height: 32px !important; /* Ridotto da 44px */
+        min-width: 0 !important;
+    }
+
+    /* Riduciamo i knob (Arp/Chord) */
+    #performance .perf-knob {
+        width: 32px !important;
+        height: 32px !important;
+    }
+
+    /* Riduciamo le icone SVG dentro i pulsanti */
+    .perf-btn svg, .perf-knob svg {
+        width: 16px !important;
+        height: 16px !important;
+    }
+
+    /* Riduciamo i testi dei label superiori */
+    #performance .perf-label-top {
+        font-size: 8px !important;
+        letter-spacing: 0;
+    }
+
+    /* Riduciamo le select e i numeri */
+    #performance select, 
+    #performance input[type="number"] {
+        padding: 2px 4px !important;
+        font-size: 10px !important;
+        min-height: 28px !important;
+        min-width: 0 !important;
+    }
+
+    /* Gestione specifica per il valore di Transpose */
+    .perf-value {
+        font-size: 12px !important;
+        min-width: 15px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Forza le icone a scalare con il pulsante */
+    .perf-btn svg {
+        width: 100% !important;
+        max-width: 18px; /* Dimensione massima per non sgranare */
+        height: auto;
+    }
+
+    /* Rendi i knob (Arp/Chord) flessibili */
+    #performance .perf-knob {
+        width: 30px !important; 
+        height: 30px !important;
+        flex-shrink: 0; /* Impedisce che diventino ovali */
     }
 }
 /* === END PERFORMANCE TOGGLE LAYOUTS === */
@@ -1545,12 +1615,19 @@ body.note-dragging .rec-controls-bar {
 /* Pulsante PLAY toggle in basso a destra */
 #perfToggle {
     position: fixed;
-    bottom: 12px;
-    right: 12px;
+    /* Offset dinamico: si sposta tra 6px e 12px in base alla larghezza schermo */
+    bottom: clamp(6px, 1.5vw, 12px);
+    right: clamp(6px, 1.5vw, 12px);
     z-index: 1001;
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
+    
+    /* Dimensione fluida: oscilla tra 32px (mobile) e 44px (desktop) */
+    width: clamp(32px, 5vw, 44px);
+    height: clamp(32px, 5vw, 44px);
+    
+    /* IMPORTANTE: rimuovi min-width fisso per permettere la riduzione */
+    min-width: 0; 
+    min-height: 0; 
+    
     padding: 0;
     border-radius: 50%;
     background: var(--primary);
@@ -1560,6 +1637,13 @@ body.note-dragging .rec-controls-bar {
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
+}
+
+/* Ridimensiona anche l'icona interna per non farla uscire dal cerchio */
+#perfToggle .perf-icon-main svg, 
+#perfToggle .perf-icon-alt svg {
+    width: 50%; 
+    height: 50%;
 }
 #perfToggle .btn-icon {
     font-size: 18px;
