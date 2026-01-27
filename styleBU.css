@@ -1,3 +1,13 @@
+
+/* MELODY/LAYER perf-alt: attivo azzurro come i principali */
+#melodyPerfToggle.active, #melodyPerfToggle.toggle-on,
+#melodyLayerPerf.active, #melodyLayerPerf.toggle-on,
+#melodyLatchPerf.active, #melodyLatchPerf.toggle-on {
+    background: var(--primary);
+    color: #000;
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.4);
+    border-color: var(--primary);
+}
 :root {
     /* Palette Colori Moderna */
     --primary: #00f2ff;       /* Ciano Neon per accenti attivi */
@@ -88,12 +98,28 @@ body {
     cursor: pointer;
     transition: all 0.2s;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 .ui-tab:hover { background: rgba(255,255,255,0.1); color: #fff; }
 .ui-tab.active {
     background: var(--primary);
     color: #000;
     border-color: var(--primary);
+}
+
+.ui-tab .tab-icon {
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.ui-tab .tab-icon svg {
+    width: 14px;
+    height: 14px;
+    display: block;
 }
 
 /* Tab content panels */
@@ -109,6 +135,12 @@ body {
     scrollbar-color: var(--accent) transparent;
 }
 .ui-tab-content.active { display: block; }
+.ui-tab-content[data-tab-content="sampler"] {
+    overflow-x: hidden;
+}
+.ui-tab-content[data-tab-content="scale"] {
+    overflow-x: hidden;
+}
 
 /* Sub-tabs row (inside ADVANCED) */
 .ui-subtabs {
@@ -213,6 +245,108 @@ body {
     font-size: 12px;
     color: #b7c1cc;
 }
+.melody-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.melody-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    border: 1px solid transparent;
+}
+.badge-generated {
+    background: rgba(0, 180, 120, 0.18);
+    color: #6fffb7;
+    border-color: rgba(0, 180, 120, 0.5);
+}
+.badge-imported {
+    background: rgba(0, 140, 255, 0.18);
+    color: #84c9ff;
+    border-color: rgba(0, 140, 255, 0.5);
+}
+.badge-continued {
+    background: rgba(255, 180, 0, 0.18);
+    color: #ffd27d;
+    border-color: rgba(255, 180, 0, 0.55);
+}
+.melody-status-desc {
+    font-size: 12px;
+    color: #b7c1cc;
+}
+.melody-status-log {
+    margin-top: 4px;
+    font-size: 11px;
+    color: #9aa;
+}
+.melody-active-indicator {
+    font-size: 11px;
+    color: #9aa;
+    margin-top: 4px;
+}
+.melody-gen-group.melody-imported-muted {
+    opacity: 0.6;
+    filter: grayscale(0.4);
+}
+.group-title-box {
+    max-width: 220px;
+    min-width: 150px;
+}
+.group-title {
+    font-size: 12px;
+    letter-spacing: 0.6px;
+    color: #dbe6f2;
+}
+.group-subtitle {
+    font-size: 10px;
+    color: #9aa;
+}
+.melody-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.melody-action-row .menu-btn {
+    width: auto;
+    min-width: 84px;
+}
+.melody-seed-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.melody-seed-row input {
+    flex: 1 1 auto;
+    min-width: 90px;
+}
+.melody-seed-row .menu-btn {
+    width: auto;
+    min-width: 48px;
+}
+.perf-select-fit {
+    width: auto;
+    min-width: unset;
+}
+.param-effective {
+    margin-top: 4px;
+    font-size: 10px;
+    color: #9aa;
+}
+.tempo-hint {
+    font-size: 10px;
+    color: #9aa;
+    margin-top: 4px;
+}
+.melody-status-btn:disabled {
+    opacity: 0.7;
+    cursor: default;
+}
 .legend-inline {
     margin-top: 6px;
     padding: 6px 8px;
@@ -249,6 +383,40 @@ body {
     overflow-x: auto;
     overflow-y: hidden;
     min-width: 0;
+    padding-left: 56px;
+}
+
+/* Make container positioned so absolute children (selection rect, editor) align correctly */
+.melody-roll-scroll { position: relative; }
+.melody-roll-labels {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 56px;
+    height: 100%;
+    pointer-events: none;
+    z-index: 3;
+    background: linear-gradient(90deg, rgba(15,18,23,0.98), rgba(15,18,23,0.65));
+    border-right: 1px solid rgba(255,255,255,0.08);
+}
+.melody-roll-label {
+    position: absolute;
+    left: 8px;
+    transform: translateY(-50%);
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    color: rgba(195, 205, 215, 0.7);
+    text-shadow: 0 1px 0 rgba(0,0,0,0.55);
+    white-space: nowrap;
+}
+.melody-roll-label.is-active {
+    color: #ffffff;
+    font-weight: 600;
+    text-shadow: 0 0 6px rgba(0, 255, 200, 0.4);
+    background: rgba(0, 255, 200, 0.15);
+    padding: 1px 4px;
+    border-radius: 4px;
 }
 .melody-roll {
     width: 100%;
@@ -268,6 +436,21 @@ body {
 .melody-save-inline input {
     flex: 1 1 auto;
     min-width: 120px;
+}
+
+/* Melody params disabled visual state */
+#tabMelody input:disabled,
+#tabMelody select:disabled,
+#tabMelody button:disabled {
+    opacity: 0.45;
+    filter: grayscale(70%);
+    cursor: not-allowed;
+}
+#tabMelody input:disabled,
+#tabMelody select:disabled {
+    background: rgba(10, 12, 16, 0.65);
+    border-color: rgba(255,255,255,0.08);
+    color: #77808a;
 }
 
 /* === MPE CONTROLS: Two-row layout === */
@@ -302,6 +485,7 @@ body {
 /* === SAMPLER SLOTS: Two-column grid === */
 .sampler-slots {
     flex-direction: column;
+    overflow-x: hidden;
 }
 
 .sampler-slots .sample-grid {
@@ -438,6 +622,7 @@ select:focus, input:focus {
 .menu-btn.btn-accent { background: var(--bg-group); color: var(--primary); border: 1px solid var(--primary); }
 .menu-btn.btn-danger { background: rgba(255, 0, 85, 0.2); color: #ff5588; }
 .menu-btn.btn-ok { background: rgba(0, 255, 136, 0.2); color: #55ffaa; }
+.menu-btn.btn-ghost { background: rgba(255,255,255,0.06); color: #cfd6dd; border: 1px solid rgba(255,255,255,0.12); }
 
 /* === AUDIO RECORDER STYLES === */
 .menu-btn.btn-rec {
@@ -898,55 +1083,233 @@ body.note-dragging .rec-controls-bar {
     pointer-events: auto;
     transition: transform 0.3s ease;
     scrollbar-width: none; 
+    padding-right: calc(clamp(32px, 5vw, 44px) + 15px) !important;
 }
 #performance::-webkit-scrollbar { display: none; }
 
-/* === COMPACT MODE === */
+/* === PERFORMANCE TOGGLE LAYOUTS === */
+#performance .perf-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;            /* Ridotto il gap da 12px a 4px per risparmiare spazio */
+    flex-wrap: nowrap;   /* Impedisce l'andata a capo */
+    justify-content: space-between; /* Distribuisce gli elementi */
+    width: 100%;
+}
+
+#performance .perf-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex: 1 1 0;      /* Permette di crescere e restringersi in base allo spazio */
+    min-width: 0;        /* Fondamentale per permettere a flex-shrink di funzionare */
+    max-width: none;     /* Rimuoviamo il limite massimo fisso */
+    text-align: center;
+}
+
+#performance .perf-label-top {
+    font-size: 8px;
+    white-space: nowrap;      /* Impedisce al testo di andare su due righe */
+    overflow: hidden;         /* Nasconde il testo in eccesso */
+    text-overflow: ellipsis;  /* Aggiunge i puntini sospensivi (...) se il testo è troppo lungo */
+    max-width: 100%;          /* Forza il label a non superare mai la larghezza della colonna */
+}
+
+#performance .perf-item select,
+#performance .perf-item {
+    flex: 1 1 0;      /* La base 0 permette al flexbox di distribuire lo spazio in parti uguali */
+    min-width: 0;     /* Fondamentale: permette all'elemento di rimpicciolirsi sotto la dimensione del contenuto */
+    padding: 0 2px;   /* Un minimo di respiro tra i pulsanti */
+}
+
+#performance .perf-item.perf-transpose {
+    min-width: 140px;
+    max-width: 180px;
+}
+
+#performance .perf-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    justify-content: center;
+}
+
+#performance .perf-inline-compact input[type="number"] {
+    max-width: 56px;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+
+#performance .perf-inline-compact .perf-label {
+    margin-left: 2px;
+}
+
+#performance .perf-btn svg,
+#performance .perf-knob svg {
+    width: 22px;
+    height: 22px;
+    display: block;
+}
+
+#performance .perf-knob {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#performance .perf-fade-compact input[type=\"number\"] {
+    min-width: 70px;
+}
+
 #performance.compact {
     justify-content: center;
     gap: 12px;
 }
-/* Hide non-essential elements in compact mode */
-#performance.compact .perf-group {
-    display: none !important;
+
+#performance .perf-alt {
+    display: none;
 }
-#performance.compact .perf-label,
-#performance.compact #groupShiftBtn,
-#performance.compact #fxToggle,
-#performance.compact #fxPresetQuick,
-#performance.compact #fadeBtn,
-#performance.compact #fadeSeconds {
-    display: none !important;
+
+#performance .perf-alt {
+    justify-content: center;
+    width: 100%;
 }
-/* Show compact-essential elements at root level */
-#performance.compact > .compact-essential {
-    display: inline-flex !important;
+
+#performance .perf-alt #fxToggle {
+    flex: 0 0 auto;
+    width: auto;
 }
-/* Bigger buttons in compact mode */
-#performance.compact .perf-btn.compact-essential {
-    padding: 16px 24px;
-    font-size: 18px;
-    min-height: 56px;
-    min-width: 80px;
+
+#performance.compact .perf-compact {
+    display: flex;
 }
-/* Bigger knobs in compact mode */
-#performance.compact .perf-knob.compact-essential {
+
+#performance.compact .perf-alt {
+    display: none;
+}
+
+#performance:not(.compact) .perf-compact {
+    display: none;
+}
+
+#performance:not(.compact) .perf-alt {
+    display: flex;
+}
+
+#performance.compact .perf-btn,
+#performance:not(.compact) .perf-alt .perf-btn {
+    padding: 10px 12px;
+    font-size: 16px;
+    min-height: 44px;
+    min-width: 68px;
+}
+
+#performance.compact .perf-knob,
+#performance:not(.compact) .perf-alt .perf-knob {
     width: 56px;
     height: 56px;
     font-size: 12px;
 }
-/* Bigger selects in compact mode */
-#performance.compact select.compact-essential {
-    padding: 14px 12px;
-    font-size: 16px;
-    min-height: 56px;
-    min-width: 90px;
+
+#performance.compact select,
+#performance.compact input[type="number"],
+#performance:not(.compact) .perf-alt select,
+#performance:not(.compact) .perf-alt input[type="number"] {
+    padding: 8px 8px;
+    font-size: 14px;
+    min-height: 40px;
+    min-width: 60px;
     background: var(--bg-input);
     border: 1px solid rgba(255,255,255,0.15);
     border-radius: 8px;
     color: var(--btn-text);
 }
-/* === END COMPACT MODE === */
+
+#performance #fxToggle svg {
+    width: 24px;
+    height: 24px;
+    stroke: currentColor;
+}
+
+@media (min-width: 1200px) {
+    #performance .perf-row {
+        flex-wrap: nowrap;
+    }
+}
+
+@media (max-width: 900px) {
+    #performance .perf-item {
+        flex: 1 1 100px;
+        max-width: 140px;
+    }
+}
+
+/* Media query per schermi molto piccoli (es. smartphone portrait) */
+@media (max-width: 600px) {
+    #performance {
+        padding: 4px 6px; /* Riduciamo il padding del contenitore principale */
+    }
+
+    /* Riduciamo i pulsanti */
+    .perf-btn {
+        padding: 4px 6px !important;
+        font-size: 10px !important;
+        min-height: 32px !important; /* Ridotto da 44px */
+        min-width: 0 !important;
+    }
+
+    /* Riduciamo i knob (Arp/Chord) */
+    #performance .perf-knob {
+        width: 32px !important;
+        height: 32px !important;
+    }
+
+    /* Riduciamo le icone SVG dentro i pulsanti */
+    .perf-btn svg, .perf-knob svg {
+        width: 16px !important;
+        height: 16px !important;
+    }
+
+    /* Riduciamo i testi dei label superiori */
+    #performance .perf-label-top {
+        font-size: 8px !important;
+        letter-spacing: 0;
+    }
+
+    /* Riduciamo le select e i numeri */
+    #performance select, 
+    #performance input[type="number"] {
+        padding: 2px 4px !important;
+        font-size: 10px !important;
+        min-height: 28px !important;
+        min-width: 0 !important;
+    }
+
+    /* Gestione specifica per il valore di Transpose */
+    .perf-value {
+        font-size: 12px !important;
+        min-width: 15px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Forza le icone a scalare con il pulsante */
+    .perf-btn svg {
+        width: 100% !important;
+        max-width: 18px; /* Dimensione massima per non sgranare */
+        height: auto;
+    }
+
+    /* Rendi i knob (Arp/Chord) flessibili */
+    #performance .perf-knob {
+        width: 30px !important; 
+        height: 30px !important;
+        flex-shrink: 0; /* Impedisce che diventino ovali */
+    }
+}
+/* === END PERFORMANCE TOGGLE LAYOUTS === */
 
 /* --- FLOATING GESTURE OVERLAY --- */
 .gesture-overlay {
@@ -1231,8 +1594,8 @@ body.note-dragging .rec-controls-bar {
     text-align: center;
 }
 
-/* GROUP button specific active state */
-#groupShiftBtn.active {
+/* KEEP button specific active state */
+#keepBtn.active {
     background: var(--primary);
     color: #000;
     border-color: var(--primary);
@@ -1303,12 +1666,19 @@ body.note-dragging .rec-controls-bar {
 /* Pulsante PLAY toggle in basso a destra */
 #perfToggle {
     position: fixed;
-    bottom: 12px;
-    right: 12px;
+    /* Offset dinamico: si sposta tra 6px e 12px in base alla larghezza schermo */
+    bottom: clamp(6px, 1.5vw, 12px);
+    right: clamp(6px, 1.5vw, 12px);
     z-index: 1001;
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
+    
+    /* Dimensione fluida: oscilla tra 32px (mobile) e 44px (desktop) */
+    width: clamp(32px, 5vw, 44px);
+    height: clamp(32px, 5vw, 44px);
+    
+    /* IMPORTANTE: rimuovi min-width fisso per permettere la riduzione */
+    min-width: 0; 
+    min-height: 0; 
+    
     padding: 0;
     border-radius: 50%;
     background: var(--primary);
@@ -1319,16 +1689,29 @@ body.note-dragging .rec-controls-bar {
     justify-content: center;
     transition: all 0.2s ease;
 }
+
+/* Ridimensiona anche l'icona interna per non farla uscire dal cerchio */
+#perfToggle .perf-icon-main svg, 
+#perfToggle .perf-icon-alt svg {
+    width: 50%; 
+    height: 50%;
+}
 #perfToggle .btn-icon {
     font-size: 18px;
     color: #000;
 }
+#perfToggle .perf-icon-main { display: inline-flex; }
+#perfToggle .perf-icon-alt { display: none; }
+#perfToggle.active .perf-icon-main { display: none; }
+#perfToggle.active .perf-icon-alt { display: inline-flex; }
+#perfToggle .perf-icon-alt svg { color: #000; fill: #000; }
+#perfToggle .perf-icon-main svg, #perfToggle .perf-icon-alt svg { width: 18px; height: 18px; display: block; }
 #perfToggle:active {
     transform: scale(0.9);
 }
 #perfToggle.panel-closed {
     background: var(--bg-glass-heavy);
-    border: 1px solid rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.2q);
 }
 #perfToggle.panel-closed .btn-icon {
     color: var(--primary);
@@ -1494,26 +1877,27 @@ canvas { display: block; width: 100%; height: 100%; }
 /* Compact Sample Grid - auto-fit for responsive 4 columns */
 .sample-grid-compact {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 6px;
+    width: 100%;
 }
 
-@media (min-width: 900px) {
-    .sample-grid-compact {
-        grid-template-columns: repeat(4, 1fr);
-    }
+.sampler-set-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
 }
 
-@media (max-width: 600px) {
-    .sample-grid-compact {
-        grid-template-columns: repeat(2, 1fr);
-    }
+.sampler-set-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
 }
 
-@media (max-width: 400px) {
-    .sample-grid-compact {
-        grid-template-columns: 1fr;
-    }
+.sampler-set-header label {
+    margin-bottom: 0;
 }
 
 .sample-slot-compact {
@@ -1624,30 +2008,62 @@ canvas { display: block; width: 100%; height: 100%; }
 /* === SCALE ROW SINGLE LINE === */
 .scale-row-single {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 8px;
     align-items: flex-start;
-    overflow-x: auto;
+    overflow-x: hidden;
     padding-bottom: 4px;
 }
 
 .scale-row-single .box {
-    flex: 0 0 auto;
-    min-width: 60px;
+    flex: 1 1 140px;
+    min-width: 120px;
+    max-width: 260px;
 }
 
 .scale-row-single .box select {
-    min-width: 70px;
+    min-width: 0;
+    width: 100%;
 }
 
 .scale-row-single #scaleDiatonicBox select,
 .scale-row-single #scaleMicroBox select {
-    min-width: 100px;
+    min-width: 0;
+    width: 100%;
 }
 
 .scale-row-single #scaleCustomBox {
-    min-width: 400px;
-    flex: 1 1 auto;
+    min-width: 240px;
+    flex: 2 1 320px;
+    max-width: none;
+}
+
+#scaleRootBox {
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+#scaleRootBox select {
+    width: 7.5ch;
+}
+
+#tabScale #scaleRootBox + .box {
+    flex: 0 0 auto;
+    min-width: 0;
+}
+
+#tabScale #scaleRootBox + .box select {
+    width: 6.5ch;
+}
+
+#scaleDiatonicBox select {
+    width: auto;
+    min-width: 15ch;
+}
+
+#scaleMicroBox select {
+    width: auto;
+    min-width: 21ch;
 }
 
 .scale-custom-wide {
@@ -1734,4 +2150,78 @@ canvas { display: block; width: 100%; height: 100%; }
 } */
 
 /* Old sample-row/sample-grid styles kept for compatibility */
+
+
+/* Rettangolo di selezione (Marquee) */
+.melody-roll-selection-rect {
+    position: absolute;
+    border: 1px solid var(--primary);
+    background: rgba(0, 242, 255, 0.1);
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Box di input per editing rapido della nota */
+#melodyNoteEditorBox {
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-glass-heavy);
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    padding: 6px 8px;
+    display: none;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+    min-width: 120px;
+}
+
+.melody-note-label {
+    font-size: 11px;
+    color: #d0d7de;
+    margin-bottom: 4px;
+    text-align: center;
+}
+
+.melody-note-select {
+    width: 100%;
+    background: #0f1115;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #cfd6dd;
+    font-size: 12px;
+    border-radius: 4px;
+    padding: 4px 6px;
+    outline: none;
+}
+
+.melody-seq-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 100%;
+}
+
+.melody-seq-cell {
+    min-width: 34px;
+    height: 30px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: #15181d;
+    color: #cfd6dd;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.melody-seq-cell.has-note {
+    background: #1b222b;
+}
+
+.melody-seq-cell.is-selected {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px rgba(0, 242, 255, 0.25);
+}
+
+.melody-seq-cell.is-active {
+    background: #2c3e2c;
+}
+
 
