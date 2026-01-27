@@ -773,8 +773,9 @@
             <div class="perf-label-top">FADE</div>
             <div class="perf-inline perf-inline-compact">
                 <button id="fadeBtn" class="perf-btn toggle-btn compact-essential" title="Fade Out" aria-label="Fade" data-legend="Fade out all active notes." data-legend-group="perf">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 12l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 20h12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16h14M7 12h10M9 8h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                 </button>
+                <input id="fadeTime" type="range" min="1" max="10" step="0.1" value="2" title="Fade Time">
             </div>
         </div>
         <div class="perf-item">
@@ -899,10 +900,7 @@
         <div class="perf-item">
             <div class="perf-label-top">LAYERS</div>
             <button id="melodyLayerPerf" class="perf-btn toggle-btn" title="Melody Layer" aria-label="Melody Layer">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M4 8l8-4 8 4-8 4-8-4z" fill="none" stroke="currentColor" stroke-width="2"/>
-                    <path d="M4 12l8 4 8-4" fill="none" stroke="currentColor" stroke-width="2"/>
-                </svg>
+                LAYERS
             </button>
         </div>
         <div class="perf-item">

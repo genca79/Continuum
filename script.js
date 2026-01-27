@@ -73,6 +73,8 @@ const els = {
     holdNotes: document.getElementById('holdNotes'),
     panicBtn: document.getElementById('panicBtn'),
     fadeBtn: document.getElementById('fadeBtn'),
+    fadeTime: document.getElementById('fadeTime'),
+    fadeSeconds: document.getElementById('fadeSeconds'),
     chordWheel: document.getElementById('chordWheel'),
     arpWheel: document.getElementById('arpWheel'),
     arpParamsToggle: document.getElementById('arpParamsToggle'),
@@ -168,8 +170,7 @@ const els = {
     amTone: document.getElementById('amTone'),
     amBias: document.getElementById('amBias'),
     melodyToggle: document.getElementById('melodyToggle'),
-    melodyLatchPerf: document.getElementById('melodyLatchPerf'),
-    melodyPerfToggle: document.getElementById('melodyPerfToggle'),
+    melodyLatchPerf: document.getElementById('melodyLatchPerf'),    melodyPerfToggle: document.getElementById('melodyPerfToggle'),
     melodyVolumePerf: document.getElementById('melodyVolumePerf'),
     melodyStateBadge: document.getElementById('melodyStateBadge'),
     melodyStateDesc: document.getElementById('melodyStateDesc'),
@@ -636,6 +637,7 @@ const state = {
         chan: 1,
         mpePerNote: true,
         lastVoices: [],
+        voiceKeys: new Set(),
         virtualPhase: null,
         lastVirtualY: null,
         imported: false,
@@ -690,6 +692,7 @@ const state = {
         ctx: null,
         master: null,
         dryGain: null,
+        melodyGain: null,
         wetGain: null,
         fxBus: null,
         fxSend: null,
@@ -1195,6 +1198,7 @@ async function initAudioContext() {
     state.audio.ctx = new AudioCtx();
     state.audio.master = state.audio.ctx.createGain();
     state.audio.dryGain = state.audio.ctx.createGain();
+    state.audio.melodyGain = state.audio.ctx.createGain();
     state.audio.wetGain = state.audio.ctx.createGain();
     state.audio.fxBus = state.audio.ctx.createGain();
     state.audio.fxSend = state.audio.ctx.createGain();
@@ -1212,6 +1216,7 @@ async function initAudioContext() {
     state.audio.reverbWetGain = state.audio.ctx.createGain();
     state.audio.reverbDryGain = state.audio.ctx.createGain();
     state.audio.master.gain.value = 0.8;
+    state.audio.melodyGain.gain.value = Math.max(0, Math.min(1, Number.isFinite(state.melody?.volume) ? state.melody.volume : 1));
     state.audio.chorusDelay.delayTime.value = 0.015;
     state.audio.chorusLfo.type = 'sine';
     state.audio.chorusLfo.connect(state.audio.chorusLfoGain);
@@ -1223,6 +1228,8 @@ async function initAudioContext() {
     state.audio.reverbDryGain.gain.value = state.audio.fx.reverbDry;
     state.audio.fxSend.gain.value = state.audio.fx.fxMix;
     state.audio.dryGain.connect(state.audio.master);
+    state.audio.melodyGain.connect(state.audio.dryGain);
+    state.audio.melodyGain.connect(state.audio.fxSend);
     state.audio.fxSend.connect(state.audio.fxBus);
     state.audio.fxBus.connect(state.audio.chorusDelay);
     state.audio.chorusDelay.connect(state.audio.delay);
@@ -3242,10 +3249,11 @@ function stopAllVoicesInternal() {
     state.audio.voices.clear();
 }
 
-async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
+async function noteOnInternal(note, velocity, chan, tempAttackOverride = null, options = {}) {
     if (!state.audio.enabled) return;
     await initAudioContext();
     if (!state.audio.ctx || !state.audio.master) return;
+    const isMelodyVoice = !!options?.isMelody;
     const modeFlags = getWavetableModeFlags();
     const sample = modeFlags.sampler ? findBestSample(note) : null;
     const wtEnabled = modeFlags.wt && Object.keys(state.audio.wavetables || {}).length;
@@ -3363,8 +3371,13 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null) {
         ringGain.connect(filter);
     }
     filter.connect(gain);
-    gain.connect(state.audio.dryGain);
-    gain.connect(state.audio.fxSend);
+    const melodyGainNode = state.audio.melodyGain;
+    if (isMelodyVoice && melodyGainNode) {
+        gain.connect(melodyGainNode);
+    } else {
+        gain.connect(state.audio.dryGain);
+        gain.connect(state.audio.fxSend);
+    }
     const key = `${chan}:${note}`;
     stopVoiceInternal(key);
     if (sample) {
@@ -3832,7 +3845,7 @@ function getPresetState() {
         samplerMaxVoices: state.audio.maxSamplerVoices,
         sampleLoop: state.audio.loopGlobal,
         // Fade settings
-        fadeSeconds: els.fadeSeconds ? els.fadeSeconds.value : '5',
+        fadeSeconds: (els.fadeSeconds || els.fadeTime) ? (els.fadeSeconds || els.fadeTime).value : '5',
         // FX settings
         fx: { ...state.audio.fx },
         fxEnabled: state.audio.fxEnabled
@@ -3894,24 +3907,24 @@ function applyPresetState(presetState) {
             if (state.midi.input) state.midi.input.onmidimessage = handleExternalMIDI;
         }
     }
-    els.linkPressToY.checked = presetState.linkPressToY;
-    els.linkYToVelocity.checked = presetState.linkYToVelocity ?? els.linkYToVelocity.checked;
-    els.smoothAmt.value = presetState.smoothAmt ?? els.smoothAmt.value;
-    els.curveType.value = presetState.curveType ?? els.curveType.value;
-    els.yDeadzone.value = presetState.yDeadzone ?? els.yDeadzone.value;
+    if (els.linkPressToY) els.linkPressToY.checked = presetState.linkPressToY;
+    if (els.linkYToVelocity) els.linkYToVelocity.checked = presetState.linkYToVelocity ?? els.linkYToVelocity.checked;
+    if (els.smoothAmt) els.smoothAmt.value = presetState.smoothAmt ?? els.smoothAmt.value;
+    if (els.curveType) els.curveType.value = presetState.curveType ?? els.curveType.value;
+    if (els.yDeadzone) els.yDeadzone.value = presetState.yDeadzone ?? els.yDeadzone.value;
     if (els.touchSensitivity) els.touchSensitivity.value = presetState.touchSensitivity ?? 75;
-    els.quantizeRelease.checked = presetState.quantizeRelease ?? els.quantizeRelease.checked;
-    els.holdNotes.checked = presetState.holdNotes;
+    if (els.quantizeRelease) els.quantizeRelease.checked = presetState.quantizeRelease ?? els.quantizeRelease.checked;
+    if (els.holdNotes) els.holdNotes.checked = presetState.holdNotes;
     updateHoldButtonUI();
-    els.pbRange.value = presetState.pbRange;
-    els.midiThru.checked = presetState.midiThru;
+    if (els.pbRange) els.pbRange.value = presetState.pbRange;
+    if (els.midiThru) els.midiThru.checked = presetState.midiThru;
     if (els.midiInMpe) els.midiInMpe.checked = presetState.midiInMpe ?? els.midiInMpe.checked;
-    els.arpEnabled.checked = !!presetState.arpEnabled;
-    els.arpRate.value = presetState.arpRate ?? els.arpRate.value;
-    els.arpGate.value = presetState.arpGate ?? els.arpGate.value;
-    els.arpSync.value = presetState.arpSync ?? els.arpSync.value;
-    els.arpBpm.value = presetState.arpBpm ?? els.arpBpm.value;
-    els.arpLatch.checked = !!presetState.arpLatch;
+    if (els.arpEnabled) els.arpEnabled.checked = !!presetState.arpEnabled;
+    if (els.arpRate) els.arpRate.value = presetState.arpRate ?? els.arpRate.value;
+    if (els.arpGate) els.arpGate.value = presetState.arpGate ?? els.arpGate.value;
+    if (els.arpSync) els.arpSync.value = presetState.arpSync ?? els.arpSync.value;
+    if (els.arpBpm) els.arpBpm.value = presetState.arpBpm ?? els.arpBpm.value;
+    if (els.arpLatch) els.arpLatch.checked = !!presetState.arpLatch;
     state.currentOctave = presetState.currentOctave || 0;
     els.octVal.innerText = (state.currentOctave > 0 ? "+" : "") + state.currentOctave;
     setPitchBendRange(parseInt(presetState.pbRange, 10));
@@ -3983,8 +3996,8 @@ function applyPresetState(presetState) {
         if (els.sampleLoopBtn) els.sampleLoopBtn.classList.toggle('active', presetState.sampleLoop);
     }
     // Fade settings
-    if (presetState.fadeSeconds !== undefined && els.fadeSeconds) {
-        els.fadeSeconds.value = presetState.fadeSeconds;
+    if (presetState.fadeSeconds !== undefined && (els.fadeSeconds || els.fadeTime)) {
+        (els.fadeSeconds || els.fadeTime).value = presetState.fadeSeconds;
     }
     // FX settings
     if (presetState.fx) {
@@ -4239,10 +4252,12 @@ function updateArpControlsUI() {
 }
 
 function updateHoldButtonUI() {
-    const isOn = !!els.holdNotes.checked;
-    els.holdBtn.classList.toggle('active', isOn);
-    els.holdBtn.classList.toggle('toggle-on', isOn);
-    els.holdBtn.classList.toggle('toggle-off', !isOn);
+    const isOn = !!els.holdNotes?.checked;
+    if (els.holdBtn) {
+        els.holdBtn.classList.toggle('active', isOn);
+        els.holdBtn.classList.toggle('toggle-on', isOn);
+        els.holdBtn.classList.toggle('toggle-off', !isOn);
+    }
 }
 
 function updateLoopKnobUI() {
@@ -4279,6 +4294,7 @@ function updateKeepButtonUI() {
     els.keepBtn.setAttribute('aria-label', label);
     els.keepBtn.title = label;
 }
+
 
 function loadCustomScaleByName(name) {
     if (state.customScales[name]) {
@@ -4453,7 +4469,7 @@ function setCurrentOctave(next, options = {}) {
         if (state.melody.running) restartMelodyGenerator();
     }
     if (!state.melody.latchEnabled && state.melody.enabled) {
-        updateMelodyFromUI(false);
+        updateMelodyFromUI(!state.melody.imported);
         if (state.melody.running) restartMelodyGenerator();
     }
     requestDraw();
@@ -4500,7 +4516,8 @@ function ensureVisibleForNotes(notes, options = {}) {
 }
 
 function retuneActiveNotes(deltaSemis) {
-    if (!state.midi.output || !Number.isFinite(deltaSemis) || deltaSemis === 0) return;
+    if (!Number.isFinite(deltaSemis) || deltaSemis === 0) return;
+    const canSendMidi = !!state.midi.output;
     const clampNote = note => Math.max(0, Math.min(127, Math.round(note)));
     const retuneVoice = (chan, voice, m) => {
         if (!chan || !voice) return;
@@ -4509,14 +4526,29 @@ function retuneActiveNotes(deltaSemis) {
         const nextVoice = makeVoiceFromNote(nextFloat);
         const oldNote = clampNote(voice.note);
         const newNote = clampNote(nextVoice.note);
-        sendMidi([0x80 + chan - 1, oldNote, 0]);
+        const vel = Math.max(1, Math.min(127, Math.round(m?.press ?? 90)));
+        const oldKey = `${chan}:${oldNote}`;
+        const wasMelody = !!state.melody.voiceKeys?.has?.(oldKey);
+
+        // Keep the internal synth in sync with the MIDI retune to avoid stuck notes.
+        stopVoiceInternal(`${chan}:${oldNote}`);
+        sendMidiHardware([0x80 + chan - 1, oldNote, 0], { isMelody: wasMelody });
+        if (canSendMidi) sendMidi([0x80 + chan - 1, oldNote, 0]);
+        state.melody.voiceKeys?.delete?.(oldKey);
+
         if (m) {
             const pb = getVoicePb(m, nextVoice);
-            sendMidi([0xB0 + chan - 1, 74, m.slide || 0]);
-            sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-            sendMidi([0xD0 + chan - 1, m.press ?? 90]);
+            if (canSendMidi) {
+                sendMidi([0xB0 + chan - 1, 74, m.slide || 0]);
+                sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+                sendMidi([0xD0 + chan - 1, m.press ?? 90]);
+            }
         }
-        sendMidi([0x90 + chan - 1, newNote, Math.max(1, Math.min(127, Math.round(m?.press ?? 90)))]);
+
+        void noteOnInternal(newNote, vel, chan, null, { isMelody: wasMelody });
+        sendMidiHardware([0x90 + chan - 1, newNote, vel], { isMelody: wasMelody });
+        if (canSendMidi) sendMidi([0x90 + chan - 1, newNote, vel]);
+        if (wasMelody) state.melody.voiceKeys?.add?.(`${chan}:${newNote}`);
         voice.note = newNote;
         voice.basePb = nextVoice.basePb;
     };
@@ -4552,8 +4584,10 @@ function retuneActiveNotes(deltaSemis) {
         state.arp.active.forEach(entry => {
             const oldNote = clampNote(entry.note);
             const newNote = clampNote(entry.note + deltaSemis);
-            sendMidi([0x80 + entry.chan - 1, oldNote, 0]);
-            sendMidi([0x90 + entry.chan - 1, newNote, 80]);
+            if (canSendMidi) {
+                sendMidi([0x80 + entry.chan - 1, oldNote, 0]);
+                sendMidi([0x90 + entry.chan - 1, newNote, 80]);
+            }
             entry.note = newNote;
         });
     }
@@ -4776,7 +4810,7 @@ function sendMidi(data) {
     state.midi.output.send(data);
 }
 
-function sendMidiHardware(data) {
+function sendMidiHardware(data, options = {}) {
     if (state.midi.hardwareOutput) state.midi.hardwareOutput.send(data);
 }
 
@@ -5893,7 +5927,8 @@ function releaseMelodyVoices(minRelease = 0) {
     if (!voices.length) return;
     voices.forEach(v => {
         noteOffInternal(v.note, v.chan, minRelease);
-        sendMidiHardware([0x80 + v.chan - 1, v.note, 0]);
+        sendMidiHardware([0x80 + v.chan - 1, v.note, 0], { isMelody: true });
+        state.melody.voiceKeys?.delete?.(`${v.chan}:${v.note}`);
         if (state.melody.mpePerNote && v.chan > 1 && v.chan <= 16) {
             state.mpeChannels.push(v.chan);
         }
@@ -6275,6 +6310,7 @@ function stopMelodyGenerator() {
     state.melody.lastNotes = [];
     state.melody.lastNote = null;
     state.melody.lastVoices = [];
+    state.melody.voiceKeys?.clear?.();
     state.melody.virtualPhase = null;
     state.melody.lastVirtualY = null;
     state.melody.activeLabel = { note: null, until: 0 };
@@ -6387,11 +6423,13 @@ function melodyStep() {
                         graceChan = state.mpeChannels.shift() || state.melody.chan;
                         applyMelodyMpe(graceChan, press, slide, pbValue);
                     }
-                    void noteOnInternal(graceNote, graceVel, graceChan);
-                    sendMidiHardware([0x90 + graceChan - 1, graceNote, Math.max(1, Math.min(127, Math.round(graceVel)))]);
+                    void noteOnInternal(graceNote, graceVel, graceChan, null, { isMelody: true });
+                    sendMidiHardware([0x90 + graceChan - 1, graceNote, Math.max(1, Math.min(127, Math.round(graceVel)))], { isMelody: true });
+                    state.melody.voiceKeys?.add?.(`${graceChan}:${graceNote}`);
                     const graceOff = setTimeout(() => {
                         stopVoiceInternal(`${graceChan}:${graceNote}`);
-                        sendMidiHardware([0x80 + graceChan - 1, graceNote, 0]);
+                        sendMidiHardware([0x80 + graceChan - 1, graceNote, 0], { isMelody: true });
+                        state.melody.voiceKeys?.delete?.(`${graceChan}:${graceNote}`);
                         if (state.melody.mpePerNote && graceChan > 1 && graceChan <= 16) {
                             state.mpeChannels.push(graceChan);
                             state.mpeChannels.sort((a, b) => a - b);
@@ -6417,6 +6455,7 @@ function melodyStep() {
             state.melody.lastNote = null;
         }
         state.melody.lastVoices = [];
+        state.melody.voiceKeys?.clear?.();
         setSyntheticTouch('melody', [], 'MELODY');
     }
     updateMelodyEditStatus();
@@ -6559,6 +6598,7 @@ function updateMelodyLatchUI() {
     els.melodyLatchPerf.setAttribute('aria-label', label);
     els.melodyLatchPerf.title = label;
 }
+
 
 function setMelodyLatch(enabled) {
     state.melody.latchEnabled = !!enabled;
@@ -6862,6 +6902,8 @@ function initEnhancedPianoRoll() {
         startWasOnNote: false,
         suppressClick: false
     };
+    let lastTap = { time: 0, step: -1, onNote: false };
+    const DOUBLE_TAP_MS = 380;
 
     const getCoords = (e) => {
         const rect = roll.getBoundingClientRect();
@@ -6936,10 +6978,10 @@ function initEnhancedPianoRoll() {
     });
 
     // Doppio tocco per cancellare la nota (gestione touch)
-    let lastTap = 0;
+    let lastTapTouch = 0;
     roll.addEventListener('touchend', e => {
         const now = Date.now();
-        if (now - lastTap < 400 && e.changedTouches.length === 1) {
+        if (now - lastTapTouch < 400 && e.changedTouches.length === 1) {
             const touch = e.changedTouches[0];
             const rect = roll.getBoundingClientRect();
             const x = touch.clientX - rect.left;
@@ -6957,7 +6999,7 @@ function initEnhancedPianoRoll() {
                 setTimeout(() => { dragData.suppressClick = false; }, 250);
             }
         }
-        lastTap = now;
+        lastTapTouch = now;
     });
 
     roll.addEventListener('pointermove', e => {
@@ -7057,11 +7099,24 @@ function initEnhancedPianoRoll() {
 
         if (!dragData.moved) {
             const { stepIdx, noteFloat } = getCoords(e);
+            const existingNote = state.melody.notes[stepIdx];
+            const isOnNote = existingNote != null && Math.abs(existingNote - noteFloat) < 0.8;
+            const now = Date.now();
+            const isDoubleTap = lastTap.step === stepIdx && (now - lastTap.time) <= DOUBLE_TAP_MS;
+            const wasOnNote = lastTap.onNote;
+            lastTap = { time: now, step: stepIdx, onNote: isOnNote };
+            if (isDoubleTap && isOnNote && wasOnNote) {
+                applyMelodyEdit(stepIdx, null, { live: true, finalize: true });
+                updateMelodyPreview();
+                dragData.suppressClick = true;
+                setTimeout(() => { dragData.suppressClick = false; }, 250);
+                return;
+            }
             if (dragData.mode === 'edit' && !dragData.startWasOnNote) {
                 const note = getNearestScaleNote(noteFloat);
                 state.melody.roll.selection.clear();
                 state.melody.roll.selection.add(stepIdx);
-                applyMelodyEdit(stepIdx, note, { live: true, finalize: true });
+                applyMelodyEdit(stepIdx, note, { live: false, finalize: true });
                 showMelodyNotePanel(stepIdx, e.clientX, e.clientY);
             } else if (dragData.mode === 'move' && dragData.startWasOnNote) {
                 showMelodyNotePanel(stepIdx, e.clientX, e.clientY);
@@ -7144,6 +7199,8 @@ function initSequencerMatrix() {
         selectionAtStart: [],
         suppressClick: false
     };
+    let lastTap = { time: 0, step: -1 };
+    const DOUBLE_TAP_MS = 380;
 
     const getStepFromTarget = (target) => {
         const btn = target?.closest?.('[data-step]');
@@ -7262,11 +7319,22 @@ function initSequencerMatrix() {
         if (dragData.suppressClick) return;
         const stepIdx = getStepFromPoint(e.clientX, e.clientY) ?? dragData.startStep;
         if (!dragData.moved) {
+            const now = Date.now();
+            const isDoubleTap = lastTap.step === stepIdx && (now - lastTap.time) <= DOUBLE_TAP_MS;
+            lastTap = { time: now, step: stepIdx };
+            if (isDoubleTap) {
+                seqEnsureNotes();
+                applyMelodyEdit(stepIdx, null, { live: true, finalize: true });
+                updateMelodyPreview();
+                dragData.suppressClick = true;
+                setTimeout(() => { dragData.suppressClick = false; }, 250);
+                return;
+            }
             if (!dragData.startWasOnNote) {
                 const note = getMelodyDefaultNote();
                 state.melody.roll.selection.clear();
                 state.melody.roll.selection.add(stepIdx);
-                applyMelodyEdit(stepIdx, note, { live: true, finalize: true });
+                applyMelodyEdit(stepIdx, note, { live: false, finalize: true });
                 showMelodyNotePanel(stepIdx, e.clientX, e.clientY);
             } else {
                 showMelodyNotePanel(stepIdx, e.clientX, e.clientY);
@@ -7323,8 +7391,9 @@ function updateMelodyLiveNotes(rootNote, options = {}) {
                 const scaled = Math.round((base + jitter + yVel) * volumeScale);
                 const velocity = Math.max(0, Math.min(127, scaled));
                 if (velocity <= 0) return;
-                void noteOnInternal(v.note, velocity, v.chan);
-                sendMidiHardware([0x90 + v.chan - 1, v.note, velocity]);
+                void noteOnInternal(v.note, velocity, v.chan, null, { isMelody: true });
+                sendMidiHardware([0x90 + v.chan - 1, v.note, velocity], { isMelody: true });
+                state.melody.voiceKeys?.add?.(`${v.chan}:${v.note}`);
             });
             state.melody.lastVirtualY = virtualY ?? state.melody.lastVirtualY;
             setSyntheticTouch('melody', notesToPlay, 'MELODY', voices, state.melody.lastVirtualY);
@@ -8083,7 +8152,7 @@ function fadeOutAll() {
             }
         });
     }
-    const seconds = Math.max(1, Math.min(20, parseFloat(els.fadeSeconds?.value) || 5));
+    const seconds = Math.max(1, Math.min(20, parseFloat((els.fadeSeconds || els.fadeTime)?.value) || 5));
     const channels = collectActiveChannels();
     const targets = collectFadeTargets();
     if (!channels.length) return;
@@ -8837,6 +8906,7 @@ const perfToggle = document.getElementById('perfToggle');
 function setupChordKnob() {
     const select = els.chordMode;
     const wheel = els.chordWheel;
+    if (!wheel) return;
     const options = Array.from(select.options);
     let currentIndex = Math.max(0, options.findIndex(o => o.value === select.value));
     let lastModeValue = select.value !== 'off' ? select.value : 'triad';
@@ -8945,6 +9015,7 @@ function setupChordKnob() {
 function setupArpKnob() {
     const select = els.arpRate;
     const wheel = els.arpWheel;
+    if (!wheel) return;
     const options = Array.from(select.options);
     let currentIndex = Math.max(0, options.findIndex(o => o.value === select.value));
     let lastAngle = null;
@@ -9582,22 +9653,27 @@ function bindUI() {
         els.performance.classList.toggle('compact');
         refreshLayout();
     };
-    els.fsBtn.onclick = () => {
-        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-        else document.exitFullscreen();
-    };
-    els.octDownBtn.onclick = () => changeOctave(-1);
-    els.octUpBtn.onclick = () => changeOctave(1);
-    els.holdBtn.onclick = () => {
-        const hold = els.holdNotes;
-        hold.checked = !hold.checked;
-        updateHoldButtonUI();
-        if (!hold.checked) {
-            if (!state.keepEnabled) {
-                releaseHeldCollections();
+    if (els.fsBtn) {
+        els.fsBtn.onclick = () => {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else document.exitFullscreen();
+        };
+    }
+    if (els.octDownBtn) els.octDownBtn.onclick = () => changeOctave(-1);
+    if (els.octUpBtn) els.octUpBtn.onclick = () => changeOctave(1);
+    if (els.holdBtn) {
+        els.holdBtn.onclick = () => {
+            const hold = els.holdNotes;
+            if (!hold) return;
+            hold.checked = !hold.checked;
+            updateHoldButtonUI();
+            if (!hold.checked) {
+                if (!state.keepEnabled) {
+                    releaseHeldCollections();
+                }
             }
-        }
-    };
+        };
+    }
     if (els.keepBtn) {
         updateKeepButtonUI();
         els.keepBtn.onclick = () => {
@@ -9622,25 +9698,31 @@ function bindUI() {
             }
         };
     }
-    els.pbRange.onchange = e => setPitchBendRange(parseInt(e.target.value, 10));
-    els.holdNotes.onchange = e => {
-        updateHoldButtonUI();
-        if (!e.target.checked) {
-            if (!state.keepEnabled) {
-                releaseHeldCollections();
+    if (els.pbRange) {
+        els.pbRange.onchange = e => setPitchBendRange(parseInt(e.target.value, 10));
+    }
+    if (els.holdNotes) {
+        els.holdNotes.onchange = e => {
+            updateHoldButtonUI();
+            if (!e.target.checked) {
+                if (!state.keepEnabled) {
+                    releaseHeldCollections();
+                }
             }
-        }
-    };
-    els.panicBtn.onclick = () => {
-        if (state.melody.enabled) {
-            state.melody.enabled = false;
-            stopMelodyGenerator();
-            updateMelodyToggleUI();
-        }
-        allNotesOff();
-        els.midiStatus.innerText = 'STOP';
-    };
-    els.fadeBtn.onclick = () => {
+        };
+    }
+    if (els.panicBtn) {
+        els.panicBtn.onclick = () => {
+            if (state.melody.enabled) {
+                state.melody.enabled = false;
+                stopMelodyGenerator();
+                updateMelodyToggleUI();
+            }
+            allNotesOff();
+            if (els.midiStatus) els.midiStatus.innerText = 'STOP';
+        };
+    }
+    if (els.fadeBtn) els.fadeBtn.onclick = () => {
         fadeOutAll();
     };
     els.arpEnabled.onchange = syncArpFromUI;
@@ -9685,8 +9767,7 @@ function bindUI() {
         els.melodyLatchPerf.onclick = () => {
             setMelodyLatch(!state.melody.latchEnabled);
         };
-    }
-    if (els.melodyRebuild) {
+    }        if (els.melodyRebuild) {
         els.melodyRebuild.onclick = () => {
             if (state.melody.latchEnabled) return;
             state.melody.imported = false;
@@ -10091,10 +10172,40 @@ function bindUI() {
         };
     }
     if (els.melodyVolumePerf) {
+        const applyMelodyVolumeLive = (nextVol, prevVol) => {
+            const melodyGain = state.audio?.melodyGain;
+            const ctx = state.audio?.ctx;
+            if (!melodyGain || !ctx) return;
+            const now = ctx.currentTime;
+            const safePrev = Math.max(0, Number.isFinite(prevVol) ? prevVol : 1);
+            const safeNext = Math.max(0, Number.isFinite(nextVol) ? nextVol : 1);
+            if (typeof melodyGain.gain.cancelAndHoldAtTime === 'function') {
+                melodyGain.gain.cancelAndHoldAtTime(now);
+            } else {
+                melodyGain.gain.cancelScheduledValues(now);
+                melodyGain.gain.setValueAtTime(melodyGain.gain.value, now);
+            }
+            const current = Math.max(0, melodyGain.gain.value || safePrev);
+            melodyGain.gain.setValueAtTime(current, now);
+            melodyGain.gain.setTargetAtTime(safeNext, now, 0.04);
+        };
+        const sendMelodyExpression = (vol) => {
+            if (!state.midi?.hardwareOutput) return;
+            const value = Math.max(0, Math.min(127, Math.round(vol * 127)));
+            const chans = new Set([state.melody?.chan || 1]);
+            (state.melody?.lastVoices || []).forEach(v => chans.add(v.chan));
+            chans.forEach(ch => {
+                const chan = Math.max(1, Math.min(16, ch));
+                sendMidiHardware([0xB0 + chan - 1, 11, value], { isMelody: true });
+            });
+        };
         const applyVol = () => {
             const raw = parseInt(els.melodyVolumePerf.value, 10);
             const vol = Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) / 100 : 1;
+            const prev = Number.isFinite(state.melody.volume) ? state.melody.volume : 1;
             state.melody.volume = vol;
+            applyMelodyVolumeLive(vol, prev);
+            sendMelodyExpression(vol);
             updateRangeProgress(els.melodyVolumePerf);
         };
         els.melodyVolumePerf.oninput = applyVol;
@@ -10617,7 +10728,7 @@ function updateScaleNotes() {
     const notes = buildScaleNotesFromDefinition(def);
     state.scaleNotes = { notes, root: def.root, scale: `${def.mode}:${def.name}` };
     if (state.melody.enabled && !state.melody.latchEnabled) {
-        updateMelodyFromUI(false);
+        updateMelodyFromUI(!state.melody.imported);
         if (state.melody.running) restartMelodyGenerator();
     }
     requestDraw();
