@@ -1,6 +1,7 @@
 /* MELODY/LAYER perf-alt: attivo azzurro come i principali */
 #melodyPerfToggle.active, #melodyPerfToggle.toggle-on,
-#melodyLayerPerf.active, #melodyLayerPerf.toggle-on {
+#melodyLayerPerf.active, #melodyLayerPerf.toggle-on,
+#melodyLatchPerf.active, #melodyLatchPerf.toggle-on {
     background: var(--primary);
     color: #000;
     box-shadow: 0 0 10px rgba(0, 242, 255, 0.4);
@@ -381,6 +382,40 @@ body {
     overflow-x: auto;
     overflow-y: hidden;
     min-width: 0;
+    padding-left: 56px;
+}
+
+/* Make container positioned so absolute children (selection rect, editor) align correctly */
+.melody-roll-scroll { position: relative; }
+.melody-roll-labels {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 56px;
+    height: 100%;
+    pointer-events: none;
+    z-index: 3;
+    background: linear-gradient(90deg, rgba(15,18,23,0.98), rgba(15,18,23,0.65));
+    border-right: 1px solid rgba(255,255,255,0.08);
+}
+.melody-roll-label {
+    position: absolute;
+    left: 8px;
+    transform: translateY(-50%);
+    font-size: 10px;
+    letter-spacing: 0.02em;
+    color: rgba(195, 205, 215, 0.7);
+    text-shadow: 0 1px 0 rgba(0,0,0,0.55);
+    white-space: nowrap;
+}
+.melody-roll-label.is-active {
+    color: #ffffff;
+    font-weight: 600;
+    text-shadow: 0 0 6px rgba(0, 255, 200, 0.4);
+    background: rgba(0, 255, 200, 0.15);
+    padding: 1px 4px;
+    border-radius: 4px;
 }
 .melody-roll {
     width: 100%;
@@ -400,6 +435,21 @@ body {
 .melody-save-inline input {
     flex: 1 1 auto;
     min-width: 120px;
+}
+
+/* Melody params disabled visual state */
+#tabMelody input:disabled,
+#tabMelody select:disabled,
+#tabMelody button:disabled {
+    opacity: 0.45;
+    filter: grayscale(70%);
+    cursor: not-allowed;
+}
+#tabMelody input:disabled,
+#tabMelody select:disabled {
+    background: rgba(10, 12, 16, 0.65);
+    border-color: rgba(255,255,255,0.08);
+    color: #77808a;
 }
 
 /* === MPE CONTROLS: Two-row layout === */
@@ -2099,5 +2149,78 @@ canvas { display: block; width: 100%; height: 100%; }
 } */
 
 /* Old sample-row/sample-grid styles kept for compatibility */
+
+
+/* Rettangolo di selezione (Marquee) */
+.melody-roll-selection-rect {
+    position: absolute;
+    border: 1px solid var(--primary);
+    background: rgba(0, 242, 255, 0.1);
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Box di input per editing rapido della nota */
+#melodyNoteEditorBox {
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-glass-heavy);
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    padding: 6px 8px;
+    display: none;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+    min-width: 120px;
+}
+
+.melody-note-label {
+    font-size: 11px;
+    color: #d0d7de;
+    margin-bottom: 4px;
+    text-align: center;
+}
+
+.melody-note-select {
+    width: 100%;
+    background: #0f1115;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #cfd6dd;
+    font-size: 12px;
+    border-radius: 4px;
+    padding: 4px 6px;
+    outline: none;
+}
+
+.melody-seq-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 100%;
+}
+
+.melody-seq-cell {
+    min-width: 34px;
+    height: 30px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: #15181d;
+    color: #cfd6dd;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.melody-seq-cell.has-note {
+    background: #1b222b;
+}
+
+.melody-seq-cell.is-selected {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px rgba(0, 242, 255, 0.25);
+}
+
+.melody-seq-cell.is-active {
+    background: #2c3e2c;
+}
 
 

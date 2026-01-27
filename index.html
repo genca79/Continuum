@@ -475,14 +475,19 @@
             <div class="box melody-roll-box">
                 <label>Piano Roll</label>
                 <div id="melodyRollScrollWrap" class="melody-roll-scroll">
+                    <div id="melodyRollLabels" class="melody-roll-labels" aria-hidden="true"></div>
                     <canvas id="melodyRollCanvas" class="melody-roll" height="520"></canvas>
+                    <div id="melodyNoteEditorBox" class="melody-note-panel">
+                        <div class="melody-note-label">--</div>
+                        <select id="melodyNoteEditorSelect" class="melody-note-select"></select>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="ui-group-inline">
             <div class="box" style="min-width:260px;">
                 <label>Sequence</label>
-                <div id="melodySeqEditor" style="display:flex; flex-wrap:wrap; gap:4px; max-width:520px;"></div>
+                <div id="melodySeqEditor" class="melody-seq-grid"></div>
             </div>
         </div>
         </div>
@@ -555,6 +560,14 @@
                     <label>Import</label>
                     <button id="melodyImportBtn" class="menu-btn btn-accent">IMPORT</button>
                 </div>
+                <div class="box" style="max-width:160px;">
+                    <label>Snap Import</label>
+                    <select id="melodyImportSnap">
+                        <option value="off" selected>Off</option>
+                        <option value="semitone">Semitone</option>
+                        <option value="scale">Scale</option>
+                    </select>
+                </div>
                 <div class="box" style="min-width:220px;">
                     <label>Status</label>
                     <div id="melodyImportStatus" style="font-size:11px; color:#9aa;">Idle</div>
@@ -592,12 +605,6 @@
                 <div class="box" style="max-width:160px;">
                     <label>Rhythm Similarity</label>
                     <input type="range" id="melodyContinueRhythm" min="0" max="100" step="1" value="70">
-                </div>
-                <div class="box" style="max-width:160px;">
-                    <label>Auto Regenerate</label>
-                    <label class="microtonalize-row" style="font-size:10px; white-space:nowrap;">
-                        <input type="checkbox" id="melodyContinueAuto" checked> On
-                    </label>
                 </div>
                 <div class="box" style="max-width:160px;">
                     <label>Force Scale</label>
@@ -863,6 +870,16 @@
                     <path d="M9 16h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 </svg>
             </button>
+        </div>
+        <div class="perf-item">
+            <div class="perf-label-top">LATCH</div>
+            <button id="melodyLatchPerf" class="perf-btn toggle-btn" title="Melody Latch" aria-label="Melody Latch" data-legend="Latch the melody to the current scale/chord context." data-legend-group="perf">
+                LATCH
+            </button>
+        </div>
+        <div class="perf-item">
+            <div class="perf-label-top">MELODY VOL</div>
+            <input id="melodyVolumePerf" type="range" min="0" max="100" step="1" value="100" title="Melody Volume" data-legend="Melody volume (velocity scale)." data-legend-group="perf">
         </div>
         <div class="perf-item">
             <div class="perf-label-top">RATE</div>
