@@ -635,12 +635,38 @@
         <!-- Sub-tab: ARP -->
         <div class="ui-subtab-content active" data-subtab-content="arp">
             <div class="ui-group-inline">
+                <div class="box" style="min-width:180px;">
+                    <label>ARP Preset</label>
+                    <select id="arpPresetSelect">
+                        <option value="Init" selected>Init</option>
+                        <option value="SlowPulse">Slow Pulse</option>
+                        <option value="Classic">Classic</option>
+                        <option value="Tight">Tight</option>
+                        <option value="Legato">Legato</option>
+                        <option value="HalfTime">Half Time</option>
+                        <option value="FastRoll">Fast Roll</option>
+                        <option value="UltraRoll">Ultra Roll</option>
+                        <option value="TripletGroove">Triplet Groove</option>
+                        <option value="TripletTight">Triplet Tight</option>
+                        <option value="Odd5">Odd 5 (1/20)</option>
+                        <option value="Odd7">Odd 7 (1/28)</option>
+                        <option value="Odd9">Odd 9 (1/36)</option>
+                        <option value="Odd5Wide">Odd 5 Wide (1/10)</option>
+                        <option value="Odd7Wide">Odd 7 Wide (1/14)</option>
+                        <option value="Odd9Wide">Odd 9 Wide (1/18)</option>
+                    </select>
+                </div>
                 <div class="box" style="max-width:100px;"><label>Gate</label><input type="range" id="arpGate" min="10" max="100" value="60" data-param="arpGate"></div>
                 <div class="box" style="max-width:100px;"><label>Sync</label><select id="arpSync" data-param="arpSync">
                     <option value="internal" selected>Internal</option>
                     <option value="midi">MIDI</option>
                 </select></div>
                 <div class="box" style="max-width:100px;"><label>BPM</label><input type="number" id="arpBpm" min="40" max="300" value="120" data-param="arpBpm"></div>
+                <div class="box" style="max-width:140px;">
+                    <label>Humanize su ARP</label>
+                    <input type="checkbox" id="melodyHumanApplyArp">
+                    <div class="param-effective" id="melodyHumanApplyArpEff">Effective: Off</div>
+                </div>
             </div>
         </div>
 
@@ -834,9 +860,18 @@
                 <option value="1/4">1/4</option>
                 <option value="1/8">1/8</option>
                 <option value="1/8T">1/8T</option>
+                <option value="1/10">1/10</option>
+                <option value="1/12">1/12</option>
+                <option value="1/14">1/14</option>
                 <option value="1/16" selected>1/16</option>
                 <option value="1/16T">1/16T</option>
+                <option value="1/18">1/18</option>
+                <option value="1/20">1/20</option>
+                <option value="1/24">1/24</option>
+                <option value="1/28">1/28</option>
                 <option value="1/32">1/32</option>
+                <option value="1/36">1/36</option>
+                <option value="1/48">1/48</option>
             </select>
         </div>
         <div class="perf-item">
@@ -929,9 +964,18 @@
         <option value="1/4">1/4</option>
         <option value="1/8">1/8</option>
         <option value="1/8T">1/8T</option>
+        <option value="1/10">1/10</option>
+        <option value="1/12">1/12</option>
+        <option value="1/14">1/14</option>
         <option value="1/16" selected>1/16</option>
         <option value="1/16T">1/16T</option>
+        <option value="1/18">1/18</option>
+        <option value="1/20">1/20</option>
+        <option value="1/24">1/24</option>
+        <option value="1/28">1/28</option>
         <option value="1/32">1/32</option>
+        <option value="1/36">1/36</option>
+        <option value="1/48">1/48</option>
     </select>
 </div>
 

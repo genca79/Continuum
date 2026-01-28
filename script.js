@@ -61,6 +61,7 @@ const els = {
     arpEnabled: document.getElementById('arpEnabled'),
     arpRate: document.getElementById('arpRate'),
     arpRateSelect: document.getElementById('arpRateSelect'),
+    arpPresetSelect: document.getElementById('arpPresetSelect'),
     arpGate: document.getElementById('arpGate'),
     arpSync: document.getElementById('arpSync'),
     arpBpm: document.getElementById('arpBpm'),
@@ -202,6 +203,7 @@ const els = {
     melodyHumanPitch: document.getElementById('melodyHumanPitch'),
     melodyHumanYMotion: document.getElementById('melodyHumanYMotion'),
     melodyHumanYMotionToggle: document.getElementById('melodyHumanYMotionToggle'),
+    melodyHumanApplyArp: document.getElementById('melodyHumanApplyArp'),
     melodyHumanTimingEff: document.getElementById('melodyHumanTimingEff'),
     melodyHumanVelocityEff: document.getElementById('melodyHumanVelocityEff'),
     melodyHumanSwingEff: document.getElementById('melodyHumanSwingEff'),
@@ -212,6 +214,7 @@ const els = {
     melodyHumanPitchEff: document.getElementById('melodyHumanPitchEff'),
     melodyHumanYMotionEff: document.getElementById('melodyHumanYMotionEff'),
     melodyHumanYMotionToggleEff: document.getElementById('melodyHumanYMotionToggleEff'),
+    melodyHumanApplyArpEff: document.getElementById('melodyHumanApplyArpEff'),
     melodyMpePerNote: document.getElementById('melodyMpePerNote'),
     melodyImportFile: document.getElementById('melodyImportFile'),
     melodyImportBtn: document.getElementById('melodyImportBtn'),
@@ -464,6 +467,24 @@ const SAMPLE_ACTIVE_SET_KEY = 'genca_sample_active_set_v1';
 const SAMPLE_DB_NAME = 'genca_sample_db_v1';
 const SAMPLE_DB_STORE = 'samples';
 const FX_USER_PRESETS_KEY = 'genca_fx_presets_v1';
+const ARP_PRESETS = {
+    Init: { rate: '1/16', gate: 60, sync: 'internal', bpm: 120, latch: false },
+    SlowPulse: { rate: '1/4', gate: 80, sync: 'internal', bpm: 90, latch: false },
+    Classic: { rate: '1/16', gate: 60, sync: 'internal', bpm: 120, latch: false },
+    Tight: { rate: '1/16', gate: 35, sync: 'internal', bpm: 120, latch: false },
+    Legato: { rate: '1/16', gate: 85, sync: 'internal', bpm: 100, latch: false },
+    HalfTime: { rate: '1/8', gate: 75, sync: 'internal', bpm: 90, latch: false },
+    FastRoll: { rate: '1/32', gate: 30, sync: 'internal', bpm: 120, latch: false },
+    UltraRoll: { rate: '1/48', gate: 25, sync: 'internal', bpm: 120, latch: false },
+    TripletGroove: { rate: '1/8T', gate: 55, sync: 'internal', bpm: 120, latch: false },
+    TripletTight: { rate: '1/16T', gate: 35, sync: 'internal', bpm: 128, latch: false },
+    Odd5: { rate: '1/20', gate: 45, sync: 'internal', bpm: 120, latch: false },
+    Odd7: { rate: '1/28', gate: 40, sync: 'internal', bpm: 120, latch: false },
+    Odd9: { rate: '1/36', gate: 35, sync: 'internal', bpm: 120, latch: false },
+    Odd5Wide: { rate: '1/10', gate: 55, sync: 'internal', bpm: 120, latch: false },
+    Odd7Wide: { rate: '1/14', gate: 50, sync: 'internal', bpm: 120, latch: false },
+    Odd9Wide: { rate: '1/18', gate: 45, sync: 'internal', bpm: 120, latch: false }
+};
 const DEFAULT_SAMPLE_GAINS = [1, 1, 1, 1, 1, 1, 1];
 const DEFAULT_SAMPLER_GAIN = 1;
 const DEFAULT_FX = {
@@ -679,7 +700,8 @@ const state = {
             timbre: 80,
             pitch: 10,
             yMotion: 100,
-            yMotionEnabled: true
+            yMotionEnabled: true,
+            applyToArp: false
         },
         pendingTimers: [],
         saves: {}
@@ -4823,9 +4845,18 @@ function getRateFactor(rate) {
     if (rate === '1/4T') return 2 / 3;
     if (rate === '1/8') return 0.5;
     if (rate === '1/8T') return 1 / 3;
+    if (rate === '1/10') return 0.1;
+    if (rate === '1/12') return 1 / 12;
+    if (rate === '1/14') return 1 / 14;
     if (rate === '1/16') return 0.25;
     if (rate === '1/16T') return 1 / 6;
+    if (rate === '1/18') return 1 / 18;
+    if (rate === '1/20') return 0.2;
+    if (rate === '1/24') return 1 / 24;
+    if (rate === '1/28') return 1 / 7;
     if (rate === '1/32') return 0.125;
+    if (rate === '1/36') return 1 / 9;
+    if (rate === '1/48') return 1 / 48;
     if (rate === '1/32T') return 1 / 12;
     if (rate === '1/64') return 0.0625;
     return 0.25;
@@ -4839,6 +4870,18 @@ function updateArpTiming() {
 function getStepMs() {
     const factor = getRateFactor(state.arp.rate);
     return (60 / Math.max(40, state.arp.bpm)) * 1000 * factor;
+}
+
+function applyArpPreset(name) {
+    const preset = ARP_PRESETS[name];
+    if (!preset) return;
+    if (els.arpRate) els.arpRate.value = preset.rate;
+    if (els.arpRateSelect) els.arpRateSelect.value = preset.rate;
+    if (els.arpGate) els.arpGate.value = preset.gate;
+    if (els.arpSync) els.arpSync.value = preset.sync;
+    if (els.arpBpm) els.arpBpm.value = preset.bpm;
+    if (els.arpLatch) els.arpLatch.checked = !!preset.latch;
+    syncArpFromUI();
 }
 
 function createSeededRng(seed) {
@@ -6158,6 +6201,9 @@ function applyMelodySaveParams(saved) {
         if (els.melodyHumanPitch && Number.isFinite(params.humanize.pitch)) els.melodyHumanPitch.value = params.humanize.pitch;
         if (els.melodyHumanYMotion && Number.isFinite(params.humanize.yMotion)) els.melodyHumanYMotion.value = params.humanize.yMotion;
         if (els.melodyHumanYMotionToggle) els.melodyHumanYMotionToggle.checked = !!params.humanize.yMotionEnabled;
+        if (els.melodyHumanApplyArp && params.humanize.applyToArp != null) {
+            els.melodyHumanApplyArp.checked = !!params.humanize.applyToArp;
+        }
     }
     if (els.melodyMpePerNote && params.mpePerNote != null) {
         els.melodyMpePerNote.checked = !!params.mpePerNote;
@@ -6269,6 +6315,7 @@ function updateMelodyHumanizeEffective() {
     const pitch = parseInt(els.melodyHumanPitch?.value, 10) || 0;
     const yMotion = parseInt(els.melodyHumanYMotion?.value, 10) || 0;
     const yOn = !!els.melodyHumanYMotionToggle?.checked;
+    const applyToArp = !!els.melodyHumanApplyArp?.checked;
     const toPct = (value, max = 100) => Math.round((Math.max(0, Math.min(max, value)) / max) * 100);
     if (els.melodyHumanTimingEff) els.melodyHumanTimingEff.textContent = `Effective: ${toPct(timing * master, 30)}%`;
     if (els.melodyHumanVelocityEff) els.melodyHumanVelocityEff.textContent = `Effective: ${toPct(velocity * master, 60)}%`;
@@ -6280,6 +6327,9 @@ function updateMelodyHumanizeEffective() {
     if (els.melodyHumanPitchEff) els.melodyHumanPitchEff.textContent = `Effective: ${toPct(pitch * master, 40)}%`;
     if (els.melodyHumanYMotionEff) els.melodyHumanYMotionEff.textContent = `Effective: ${toPct(yMotion * master, 100)}%`;
     if (els.melodyHumanYMotionToggleEff) els.melodyHumanYMotionToggleEff.textContent = `Effective: ${yOn && master > 0 ? 'On' : 'Off'}`;
+    if (els.melodyHumanApplyArpEff) {
+        els.melodyHumanApplyArpEff.textContent = `Effective: ${applyToArp && master > 0 ? 'On' : 'Off'}`;
+    }
 }
 
 function updateMelodyRuleSummary() {
@@ -7482,7 +7532,8 @@ function updateMelodyFromUI(regenerate = false) {
         timbre: parseInt(els.melodyHumanTimbre?.value, 10) || 80,
         pitch: parseInt(els.melodyHumanPitch?.value, 10) || 10,
         yMotion: parseInt(els.melodyHumanYMotion?.value, 10) || 100,
-        yMotionEnabled: !!els.melodyHumanYMotionToggle?.checked
+        yMotionEnabled: !!els.melodyHumanYMotionToggle?.checked,
+        applyToArp: !!els.melodyHumanApplyArp?.checked
     };
     state.melody.humanize = {
         timing: Math.round(base.timing * master),
@@ -7494,7 +7545,8 @@ function updateMelodyFromUI(regenerate = false) {
         timbre: Math.round(base.timbre * master),
         pitch: Math.round(base.pitch * master),
         yMotion: Math.round(base.yMotion * master),
-        yMotionEnabled: base.yMotionEnabled && master > 0
+        yMotionEnabled: base.yMotionEnabled && master > 0,
+        applyToArp: base.applyToArp
     };
     state.melody.rules = { ...styleConfig.rules };
     state.melody.rhythmMode = styleConfig.rhythmMode || state.melody.rhythmMode || 'rule';
@@ -7577,45 +7629,92 @@ function stopArpActiveNotes(noteObjs) {
     noteObjs.forEach(n => stopArpActiveNote(n.note));
 }
 
-function arpNoteOn(noteObj, stepMs) {
+function arpNoteOn(noteObj, stepMs, stepIdx) {
     if (!state.midi.output) return;
     const chan = state.mpeChannels.shift();
     if (!chan) {
         els.midiStatus.innerText = 'MPE CHANNELS FULL';
         return;
     }
-    const m = noteObj.lastM || { pbValue: 8192, slide: 0, press: 90 };
-    const vel = Math.max(0, Math.min(127, Math.round(m.press ?? 90)));
-    if (vel <= 0) {
+    const baseM = noteObj.lastM || { pbValue: 8192, slide: 0, press: 90 };
+    const basePress = Number.isFinite(baseM.press) ? baseM.press : 90;
+    const baseSlide = Number.isFinite(baseM.slide) ? baseM.slide : 0;
+    const basePb = Number.isFinite(baseM.pbValue) ? baseM.pbValue : 8192;
+    let press = basePress;
+    let slide = baseSlide;
+    let pbValue = basePb;
+    let velocity = basePress;
+    let delayMs = 0;
+    let gateMs = Math.max(10, stepMs * state.arp.gate);
+    const human = state.melody.humanize || {};
+    if (human.applyToArp) {
+        const curve = 1.7;
+        const timingMs = Math.max(0, human.timing || 0);
+        const swingPct = Math.max(0, Math.min(60, human.swing || 0));
+        const legatoPct = Math.max(0, Math.min(100, human.legato ?? 70));
+        const pressRange = Math.max(0, Math.min(40, human.press || 0));
+        const timbreRange = Math.max(0, Math.min(80, human.timbre || 0)) * 1.5;
+        const pitchRange = Math.max(0, Math.min(40, human.pitch || 0));
+        const velJitter = Math.max(0, human.velocity || 0) * 1.5;
+        const jitter = timingMs ? (Math.random() * 2 - 1) * timingMs : 0;
+        const swingMs = (stepIdx % 2 === 1) ? (stepMs * 0.5 * (swingPct / 100)) : 0;
+        delayMs = Math.max(0, Math.min(stepMs * 0.6, swingMs + jitter));
+        const gateScale = 0.5 + (legatoPct / 100) * 0.7;
+        gateMs = Math.max(10, Math.min(stepMs * 1.2, stepMs * state.arp.gate * gateScale));
+        const pressJitter = pressRange ? randomCurve(pressRange * 0.15, curve) : 0;
+        const timbreJitter = timbreRange ? randomCurve(timbreRange * 0.12, curve) : 0;
+        const virtualY = human.yMotionEnabled ? getMelodyVirtualY() : 0.5;
+        press = basePress + ((virtualY - 0.5) * (pressRange * 2)) + pressJitter;
+        slide = baseSlide + ((virtualY - 0.5) * (timbreRange * 2)) + timbreJitter;
+        velocity = press + (velJitter ? randomCurve(velJitter, curve) : 0);
+        if (pitchRange > 0) {
+            const pbSemis = parseInt(els.pbRange?.value, 10) || 48;
+            const maxSemis = (pitchRange / 40) * 0.5;
+            const offset = randomCurve(1, curve) * (8192 * (maxSemis / pbSemis));
+            pbValue = clampPb(basePb + offset);
+        }
+    }
+    press = Math.max(0, Math.min(127, Math.round(press)));
+    slide = Math.max(0, Math.min(127, Math.round(slide)));
+    velocity = Math.max(0, Math.min(127, Math.round(velocity)));
+    if (velocity <= 0) {
         state.mpeChannels.push(chan);
         state.mpeChannels.sort((a,b)=>a-b);
         return;
     }
-    const pb = getVoicePb(m, noteObj);
-    sendMidi([0xB0 + chan - 1, 74, m.slide]);
-    sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-    sendMidi([0xD0 + chan - 1, m.press]);
-    sendMidi([0x90 + chan - 1, noteObj.note, vel]);
-    markLocalNoteOn(noteObj.note);
-    const entry = { chan, note: noteObj.note, color: noteObj.color, offTimer: null };
-    state.arp.active.push(entry);
-    const gateMs = Math.max(10, stepMs * state.arp.gate);
-    entry.offTimer = setTimeout(() => {
-        if (!state.arp.active.includes(entry)) return;
-        sendMidi([0x80 + entry.chan - 1, entry.note, 0]);
-        state.mpeChannels.push(entry.chan);
-        state.mpeChannels.sort((a,b)=>a-b);
-        state.arp.active = state.arp.active.filter(e => e !== entry);
-    }, gateMs);
+    const m = { ...baseM, press, slide, pbValue };
+    const sendNote = () => {
+        const pb = getVoicePb(m, noteObj);
+        sendMidi([0xB0 + chan - 1, 74, slide]);
+        sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+        sendMidi([0xD0 + chan - 1, press]);
+        sendMidi([0x90 + chan - 1, noteObj.note, velocity]);
+        markLocalNoteOn(noteObj.note);
+        const entry = { chan, note: noteObj.note, color: noteObj.color, offTimer: null };
+        state.arp.active.push(entry);
+        entry.offTimer = setTimeout(() => {
+            if (!state.arp.active.includes(entry)) return;
+            sendMidi([0x80 + entry.chan - 1, entry.note, 0]);
+            state.mpeChannels.push(entry.chan);
+            state.mpeChannels.sort((a,b)=>a-b);
+            state.arp.active = state.arp.active.filter(e => e !== entry);
+        }, gateMs);
+    };
+    if (delayMs > 0) {
+        setTimeout(sendNote, delayMs);
+    } else {
+        sendNote();
+    }
 }
 
 function arpStep(stepMsOverride) {
     if (state.fadeState.active) return;
     if ((!state.arp.enabled && !state.arp.keepHold) || !state.arp.notes.length) return;
     const stepMs = stepMsOverride || getStepMs();
-    const noteObj = state.arp.notes[state.arp.stepIndex % state.arp.notes.length];
+    const stepIdx = state.arp.stepIndex % state.arp.notes.length;
+    const noteObj = state.arp.notes[stepIdx];
     state.arp.stepIndex++;
-    arpNoteOn(noteObj, stepMs);
+    arpNoteOn(noteObj, stepMs, stepIdx);
     requestDraw();
 }
 
@@ -9726,6 +9825,9 @@ function bindUI() {
         fadeOutAll();
     };
     els.arpEnabled.onchange = syncArpFromUI;
+    if (els.arpPresetSelect) {
+        els.arpPresetSelect.onchange = e => applyArpPreset(e.target.value);
+    }
     els.arpRate.onchange = syncArpFromUI;
     // ARP Rate select dropdown (visible in performance bar)
     if (els.arpRateSelect) {
@@ -10083,6 +10185,7 @@ function bindUI() {
         [els.melodyHumanPitch, 'Pitch Bend: micro pitch variation.'],
         [els.melodyHumanYMotion, 'Y virtual motion: amount of virtual Y movement.'],
         [els.melodyHumanYMotionToggle, 'Y motion on: enable/disable virtual Y movement.'],
+        [els.melodyHumanApplyArp, 'Humanize su ARP: reuse these humanize settings for the arpeggiator.'],
         [els.melodyMpePerNote, 'MPE per note: one channel per note (per-note expression).'],
         [els.melodyImportBtn, 'Import: detect a melody from the WAV using fast analysis.'],
         [els.melodyImportSnap, 'Snap import: off, semitone, or scale.'],
@@ -10135,6 +10238,7 @@ function bindUI() {
         els.melodyHumanPitch,
         els.melodyHumanYMotion,
         els.melodyHumanYMotionToggle,
+        els.melodyHumanApplyArp,
         els.melodyLayerMode,
         els.melodyLayerLevel,
         els.melodyMpePerNote
