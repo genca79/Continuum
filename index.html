@@ -81,6 +81,15 @@
     <!-- === TAB CONTENT: MIDI === -->
     <div class="ui-tab-content active" id="tabMidi" data-tab-content="midi">
         <div class="ui-group-inline">
+            <div class="box preset-box"><label>Global Preset</label>
+                <div class="preset-controls">
+                    <select id="presetSelect" style="min-width:90px;" data-param="presetSelect"></select>
+                    <input type="text" id="presetName" placeholder="Name" style="width:70px;">
+                    <button id="presetSave" class="menu-btn btn-ok" aria-label="Save"><span class="btn-text">SAVE</span></button>
+                    <button id="presetDel" class="menu-btn btn-danger" aria-label="Delete"><span class="btn-text">DEL</span></button>
+                </div>
+                <div id="presetDesc" style="font-size:8px; color:#888; margin-top:2px;">&nbsp;</div>
+            </div>
             <div class="box"><label>MIDI In</label><select id="midiInSelect" data-param="midiInSelect"><option value="">Nessun Input</option></select></div>
             <div class="box"><label>MIDI Out</label><select id="midiOutSelect" data-param="midiOutSelect"></select></div>
             <div class="box" style="max-width:60px;"><label>Thru</label><input type="checkbox" id="midiThru" data-param="midiThru"></div>
@@ -624,7 +633,6 @@
     <div class="ui-tab-content" id="tabAdvanced" data-tab-content="advanced">
         <!-- Row 2: Sub-tabs for advanced sections -->
         <div class="ui-tabs-row ui-subtabs" id="advSubTabs">
-            <button class="ui-tab" data-subtab="preset">PRESET</button>
             <button class="ui-tab active" data-subtab="arp">ARP</button>
             <button class="ui-tab" data-subtab="chord">CHORD</button>
             <button class="ui-tab" data-subtab="mpe">MPE</button>
@@ -696,6 +704,7 @@
                     <option value="2">+/-2</option><option value="12">+/-12</option><option value="24">+/-24</option><option value="48" selected>+/-48</option>
                 </select></div>
                 <div class="box mpe-box-slider"><label>Snap Rate</label><input type="range" id="roundRate" min="0" max="80" value="80" data-param="roundRate"></div>
+                <div class="box mpe-box-check"><label>Hold Detune</label><input type="checkbox" id="holdDetune" data-param="holdDetune"></div>
                 <div class="box mpe-box-check"><label>Dead-Cntr</label><input type="checkbox" id="deadCenter" data-param="deadCenter" checked></div>
                 <div class="box mpe-box-slider" id="boxDeadCenterForce"><label>DC Force</label><input type="range" id="deadCenterForce" min="0" max="100" value="100" data-param="deadCenterForce"></div>
                 <div class="box mpe-box-small"><label>Ex. Curve</label>
@@ -715,22 +724,6 @@
                 <div class="box mpe-box-check"><label>Q Release</label><input type="checkbox" id="quantizeRelease" data-param="quantizeRelease" checked></div>
             </div>
         </div>
-
-        <!-- Sub-tab: PRESET -->
-        <div class="ui-subtab-content" data-subtab-content="preset">
-            <div class="ui-group-inline">
-                <div class="box"><label>Global Preset</label>
-                    <div style="display:flex; gap:2px;">
-                        <select id="presetSelect" style="min-width:90px;" data-param="presetSelect"></select>
-                        <input type="text" id="presetName" placeholder="Name" style="width:70px;">
-                        <button id="presetSave" class="menu-btn btn-ok" aria-label="Save"><span class="btn-icon">💾</span></button>
-                        <button id="presetDel" class="menu-btn btn-danger" aria-label="Delete"><span class="btn-icon">🗑</span></button>
-                    </div>
-                    <div id="presetDesc" style="font-size:8px; color:#888; margin-top:2px;">&nbsp;</div>
-                </div>
-            </div>
-        </div>
-
         <div class="ui-subtab-content" data-subtab-content="matrix">
             <div class="ui-group-inline">
                 <div class="box" style="max-width:120px;">

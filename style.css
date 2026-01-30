@@ -192,6 +192,28 @@ body {
     max-width: 180px;
 }
 
+.ui-group-inline .box.preset-box {
+    flex: 2 1 220px;
+    min-width: 200px;
+    max-width: 340px;
+}
+
+.preset-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.preset-controls select,
+.preset-controls input {
+    flex: 1 1 90px;
+    min-width: 90px;
+}
+
+.preset-controls .menu-btn {
+    flex: 0 0 auto;
+}
+
 /* === MELODY: ACCORDION + EDITOR === */
 .melody-accordion {
     display: flex;

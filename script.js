@@ -31,6 +31,7 @@ const els = {
     midiThru: document.getElementById('midiThru'),
     midiInMpe: document.getElementById('midiInMpe'),
     roundRate: document.getElementById('roundRate'),
+    holdDetune: document.getElementById('holdDetune'),
     deadCenter: document.getElementById('deadCenter'),
     deadCenterForce: document.getElementById('deadCenterForce'),
     linkPressToY: document.getElementById('linkPressToY'),
@@ -807,7 +808,8 @@ const PRESET_DESCRIPTIONS = {
 const MPE_PRESET_DESCRIPTIONS = {
     Expressive: 'Loose feel with minimal snap and magnetism.',
     Tight: 'High precision snap and strong dead-center.',
-    Glide: 'Free pitch glide with no snap or dead-center.'
+    Glide: 'Free pitch glide with no snap or dead-center.',
+    'Super Glide': 'Glide + free detune on Hold (no snap on release).'
 };
 const MATRIX_SCENES = {
     Aether: {
@@ -3813,6 +3815,7 @@ function nextArpColor() {
 
 function getPresetState() {
     return {
+        keepEnabled: state.keepEnabled,
         rootNote: els.rootNote.value,
         scaleType: els.scaleType.value,
         scaleMode: els.scaleModeDiatonic.checked ? 'diatonic' : (els.scaleModeMicro.checked ? 'microtonal' : 'custom'),
@@ -3827,6 +3830,7 @@ function getPresetState() {
         chordInversion: els.chordInversion.value,
         chordSpread: els.chordSpread.value,
         roundRate: els.roundRate.value,
+        holdDetune: !!els.holdDetune?.checked,
         deadCenter: els.deadCenter.checked,
         deadCenterForce: els.deadCenterForce.value,
         midiOutId: els.midiOutSelect.value || "",
@@ -3860,12 +3864,37 @@ function getPresetState() {
         crossModDepth: state.audio.crossMod.depth,
         amTone: state.audio.crossMod.amTone,
         amBias: state.audio.crossMod.amBias,
+        fxActiveGroup: state.audio.fxActiveGroup || 'filter',
         matrixEnabled: state.audio.matrix.enabled,
         matrixScene: state.audio.matrix.scene,
         matrixMacros: { ...state.audio.matrix.macros },
         // Sampler settings
+        sampleSetName: state.audio.activeSet || (els.sampleSetSelectMini ? els.sampleSetSelectMini.value : (els.sampleSetSelect ? els.sampleSetSelect.value : 'Default')),
+        samplerGain: state.audio.samplerGain,
         samplerMaxVoices: state.audio.maxSamplerVoices,
+        sampleRoots: sampleRootEls.map(input => input ? input.value : null),
+        sampleGains: sampleGainEls.map(input => {
+            if (!input) return null;
+            const value = parseFloat(input.value);
+            return Number.isFinite(value) ? value : null;
+        }),
         sampleLoop: state.audio.loopGlobal,
+        loopVariation: state.audio.loopVariation ?? 0,
+        // Melody settings
+        melody: {
+            enabled: !!state.melody.enabled,
+            volume: Number.isFinite(state.melody.volume) ? state.melody.volume : 1,
+            latchEnabled: !!state.melody.latchEnabled,
+            imported: !!state.melody.imported,
+            notes: Array.isArray(state.melody.notes) ? [...state.melody.notes] : [],
+            params: getMelodySaveParams()
+        },
+        melodyImportSnap: els.melodyImportSnap?.value,
+        melodyRoll: {
+            zoomH: els.melodyRollZoomH?.value,
+            zoom: els.melodyRollZoom?.value,
+            scroll: els.melodyRollScroll?.value
+        },
         // Fade settings
         fadeSeconds: (els.fadeSeconds || els.fadeTime) ? (els.fadeSeconds || els.fadeTime).value : '5',
         // FX settings
@@ -3914,6 +3943,7 @@ function applyPresetState(presetState) {
     els.chordInversion.value = presetState.chordInversion;
     els.chordSpread.value = presetState.chordSpread;
     els.roundRate.value = presetState.roundRate;
+    if (els.holdDetune) els.holdDetune.checked = !!presetState.holdDetune;
     els.deadCenter.checked = presetState.deadCenter;
     els.deadCenterForce.value = presetState.deadCenterForce;
     if (state.midi.access) {
@@ -3938,6 +3968,14 @@ function applyPresetState(presetState) {
     if (els.quantizeRelease) els.quantizeRelease.checked = presetState.quantizeRelease ?? els.quantizeRelease.checked;
     if (els.holdNotes) els.holdNotes.checked = presetState.holdNotes;
     updateHoldButtonUI();
+    if (presetState.keepEnabled != null) {
+        if (!presetState.keepEnabled) {
+            disableKeep();
+        } else {
+            state.keepEnabled = true;
+            updateKeepButtonUI();
+        }
+    }
     if (els.pbRange) els.pbRange.value = presetState.pbRange;
     if (els.midiThru) els.midiThru.checked = presetState.midiThru;
     if (els.midiInMpe) els.midiInMpe.checked = presetState.midiInMpe ?? els.midiInMpe.checked;
@@ -3994,6 +4032,9 @@ function applyPresetState(presetState) {
     if (presetState.macroTexture !== undefined) {
         setMacroTexture(presetState.macroTexture);
     }
+    if (presetState.fxActiveGroup) {
+        setFxGroup(presetState.fxActiveGroup);
+    }
     if (presetState.matrixScene !== undefined) {
         setMatrixScene(presetState.matrixScene);
     }
@@ -4015,7 +4056,57 @@ function applyPresetState(presetState) {
     }
     if (presetState.sampleLoop !== undefined) {
         state.audio.loopGlobal = presetState.sampleLoop;
-        if (els.sampleLoopBtn) els.sampleLoopBtn.classList.toggle('active', presetState.sampleLoop);
+        if (els.sampleLoopBtn) {
+            els.sampleLoopBtn.className = `menu-btn ${state.audio.loopGlobal ? 'toggle-on' : 'toggle-off'}`;
+            els.sampleLoopBtn.textContent = state.audio.loopGlobal ? 'LOOP ON' : 'LOOP OFF';
+        }
+        updateLoopKnobUI();
+    }
+    if (Number.isFinite(presetState.loopVariation)) {
+        state.audio.loopVariation = Math.max(0, Math.min(1, presetState.loopVariation));
+        updateLoopKnobUI();
+    }
+    const applySampleSlotOverrides = () => {
+        if (Array.isArray(presetState.sampleRoots)) {
+            presetState.sampleRoots.forEach((raw, idx) => {
+                if (raw == null || !sampleRootEls[idx]) return;
+                const parsed = parseNoteName(String(raw));
+                if (parsed == null) return;
+                sampleRootEls[idx].value = midiToNoteName(parsed);
+                if (state.audio.samples[idx]) state.audio.samples[idx].root = parsed;
+            });
+            saveSampleRootsForSet(state.audio.activeSet);
+        }
+        if (Array.isArray(presetState.sampleGains)) {
+            presetState.sampleGains.forEach((raw, idx) => {
+                if (raw == null || !sampleGainEls[idx]) return;
+                const next = Math.max(0, Math.min(5, parseFloat(raw)));
+                if (!Number.isFinite(next)) return;
+                sampleGainEls[idx].value = next.toFixed(2);
+                if (state.audio.samples[idx]) state.audio.samples[idx].gain = next;
+            });
+            saveSampleGainsForSet(state.audio.activeSet);
+            updateSamplerGainNodes();
+        }
+    };
+    if (presetState.sampleSetName) {
+        const targetSet = presetState.sampleSetName.trim() || 'Default';
+        if (targetSet !== state.audio.activeSet) {
+            loadSampleSet(targetSet).then(applySampleSlotOverrides);
+        } else {
+            refreshSampleSetSelect(state.audio.activeSet);
+            applySampleSlotOverrides();
+        }
+    } else {
+        applySampleSlotOverrides();
+    }
+    if (Number.isFinite(presetState.samplerGain)) {
+        state.audio.samplerGain = Math.max(0, Math.min(5, presetState.samplerGain));
+        if (els.samplerGain) {
+            els.samplerGain.value = state.audio.samplerGain.toFixed(2);
+            updateRangeProgress(els.samplerGain);
+        }
+        updateSamplerGainNodes();
     }
     // Fade settings
     if (presetState.fadeSeconds !== undefined && (els.fadeSeconds || els.fadeTime)) {
@@ -4053,6 +4144,80 @@ function applyPresetState(presetState) {
         setFxEnabled(!!presetState.fxEnabled);
     } else {
         updateFxToggleButtons();
+    }
+    if (presetState.melody) {
+        const melodyState = presetState.melody;
+        if (melodyState.params) {
+            applyMelodySaveParams(melodyState.params);
+        }
+        if (Array.isArray(melodyState.notes)) {
+            state.melody.notes = [...melodyState.notes];
+            state.melody.length = state.melody.notes.length;
+            if (els.melodyLength) els.melodyLength.value = state.melody.length;
+            updateMelodyPreview();
+        }
+        if (melodyState.imported != null) {
+            state.melody.imported = !!melodyState.imported;
+        }
+        if (melodyState.latchEnabled != null) {
+            setMelodyLatch(!!melodyState.latchEnabled);
+        }
+        if (Number.isFinite(melodyState.volume)) {
+            state.melody.volume = clamp01(melodyState.volume);
+            if (els.melodyVolumePerf) {
+                els.melodyVolumePerf.value = Math.round(state.melody.volume * 100);
+                updateRangeProgress(els.melodyVolumePerf);
+            }
+            if (state.audio.melodyGain && state.audio.ctx) {
+                state.audio.melodyGain.gain.setTargetAtTime(state.melody.volume, state.audio.ctx.currentTime, 0.04);
+            }
+        }
+        if (melodyState.enabled != null) {
+            const wantOn = !!melodyState.enabled;
+            state.melody.enabled = wantOn;
+            updateMelodyToggleUI();
+            if (wantOn) {
+                if (!state.melody.imported && (!state.melody.notes || !state.melody.notes.length)) {
+                    state.melody.notes = buildMelodySequence();
+                    state.melody.length = state.melody.notes.length;
+                    if (els.melodyLength) els.melodyLength.value = state.melody.length;
+                }
+                if (state.melody.running) restartMelodyGenerator();
+                else startMelodyGenerator();
+            } else {
+                stopMelodyGenerator();
+            }
+        }
+    }
+    if (els.melodyImportSnap && presetState.melodyImportSnap != null) {
+        els.melodyImportSnap.value = presetState.melodyImportSnap;
+    }
+    if (presetState.melodyRoll) {
+        const roll = presetState.melodyRoll;
+        if (els.melodyRollZoomH && roll.zoomH != null) {
+            const stepPx = parseInt(roll.zoomH, 10);
+            if (Number.isFinite(stepPx)) {
+                state.melody.roll.stepPx = stepPx;
+                els.melodyRollZoomH.value = stepPx;
+                resizeMelodyRollCanvas();
+            }
+        }
+        if (els.melodyRollZoom && roll.zoom != null) {
+            const zoom = parseFloat(roll.zoom);
+            if (Number.isFinite(zoom)) {
+                state.melody.roll.zoom = zoom;
+                els.melodyRollZoom.value = zoom;
+                resizeMelodyRollCanvas();
+            }
+        }
+        if (els.melodyRollScroll && roll.scroll != null) {
+            const offset = parseInt(roll.scroll, 10);
+            if (Number.isFinite(offset)) {
+                state.melody.roll.offset = offset;
+                els.melodyRollScroll.value = offset;
+                drawMelodyPianoRoll();
+            }
+        }
     }
     // Update range slider progress bars
     [els.chordSpread, els.roundRate, els.deadCenterForce, els.smoothAmt, els.yDeadzone, els.touchSensitivity, els.arpGate].forEach(input => {
@@ -4148,6 +4313,7 @@ function getMpePresetState() {
     return {
         pbRange: els.pbRange.value,
         roundRate: els.roundRate.value,
+        holdDetune: !!els.holdDetune?.checked,
         deadCenter: els.deadCenter.checked,
         deadCenterForce: els.deadCenterForce.value,
         linkPressToY: els.linkPressToY.checked,
@@ -4164,6 +4330,7 @@ function applyMpePresetState(mpePresetState) {
     if (!mpePresetState) return;
     els.pbRange.value = mpePresetState.pbRange ?? els.pbRange.value;
     els.roundRate.value = mpePresetState.roundRate ?? els.roundRate.value;
+    if (els.holdDetune) els.holdDetune.checked = !!mpePresetState.holdDetune;
     els.deadCenter.checked = !!mpePresetState.deadCenter;
     els.deadCenterForce.value = mpePresetState.deadCenterForce ?? els.deadCenterForce.value;
     els.linkPressToY.checked = mpePresetState.linkPressToY ?? els.linkPressToY.checked;
@@ -4227,14 +4394,6 @@ function fillDatalistFromNames(datalist, names) {
 }
 
 function refreshPresetSelect(presets, selected) {
-    applyPresetState(state.presets.Init);
-    const setGain = loadSamplerGainForSet(state.audio.activeSet);
-    state.audio.samplerGain = setGain;
-    if (els.samplerGain) {
-        els.samplerGain.value = setGain.toFixed(2);
-        updateRangeProgress(els.samplerGain);
-    }
-    updateSamplerGainNodes();
     const names = Object.keys(presets).sort();
     fillSelectFromNames(els.presetSelect, names);
     if (selected && names.includes(selected)) els.presetSelect.value = selected;
@@ -4315,6 +4474,22 @@ function updateKeepButtonUI() {
     els.keepBtn.setAttribute('aria-pressed', isOn ? 'true' : 'false');
     els.keepBtn.setAttribute('aria-label', label);
     els.keepBtn.title = label;
+}
+
+function disableKeep() {
+    if (!state.keepEnabled) return;
+    state.keepEnabled = false;
+    updateKeepButtonUI();
+    if (!els.holdNotes.checked) {
+        releaseHeldCollections();
+    }
+    if (!els.arpEnabled.checked) {
+        state.arp.keepHold = false;
+        stopInternalArp();
+        stopAllArpNotes();
+        state.arp.notes = [];
+        state.arpHoldTouches = [];
+    }
 }
 
 
@@ -4540,6 +4715,7 @@ function ensureVisibleForNotes(notes, options = {}) {
 function retuneActiveNotes(deltaSemis) {
     if (!Number.isFinite(deltaSemis) || deltaSemis === 0) return;
     const canSendMidi = !!state.midi.output;
+    const keepHeld = !!state.keepEnabled;
     const clampNote = note => Math.max(0, Math.min(127, Math.round(note)));
     const retuneVoice = (chan, voice, m) => {
         if (!chan || !voice) return;
@@ -4582,36 +4758,38 @@ function retuneActiveNotes(deltaSemis) {
         if (t.lastM && Number.isFinite(t.lastM.exact)) t.lastM.exact += deltaSemis;
     });
 
-    state.heldVoices.forEach(v => {
-        const m = v.lastM || { slide: 0, press: 90, pbValue: 8192 };
-        retuneVoice(v.chan, v, m);
-        if (Number.isFinite(v.rootNote)) v.rootNote += deltaSemis;
-        if (v.lastM && Number.isFinite(v.lastM.exact)) v.lastM.exact += deltaSemis;
-    });
-
-    if (state.arp && state.arp.notes) {
-        state.arp.notes.forEach(n => {
-            if (!Number.isFinite(n.noteFloat)) return;
-            n.noteFloat += deltaSemis;
-            const voice = makeVoiceFromNote(n.noteFloat);
-            n.note = voice.note;
-            n.basePb = voice.basePb;
+    if (!keepHeld) {
+        state.heldVoices.forEach(v => {
+            const m = v.lastM || { slide: 0, press: 90, pbValue: 8192 };
+            retuneVoice(v.chan, v, m);
+            if (Number.isFinite(v.rootNote)) v.rootNote += deltaSemis;
+            if (v.lastM && Number.isFinite(v.lastM.exact)) v.lastM.exact += deltaSemis;
         });
-    }
-    state.arpHoldTouches.forEach(t => {
-        if (t.lastM && Number.isFinite(t.lastM.exact)) t.lastM.exact += deltaSemis;
-    });
 
-    if (state.arp && state.arp.active) {
-        state.arp.active.forEach(entry => {
-            const oldNote = clampNote(entry.note);
-            const newNote = clampNote(entry.note + deltaSemis);
-            if (canSendMidi) {
-                sendMidi([0x80 + entry.chan - 1, oldNote, 0]);
-                sendMidi([0x90 + entry.chan - 1, newNote, 80]);
-            }
-            entry.note = newNote;
+        if (state.arp && state.arp.notes) {
+            state.arp.notes.forEach(n => {
+                if (!Number.isFinite(n.noteFloat)) return;
+                n.noteFloat += deltaSemis;
+                const voice = makeVoiceFromNote(n.noteFloat);
+                n.note = voice.note;
+                n.basePb = voice.basePb;
+            });
+        }
+        state.arpHoldTouches.forEach(t => {
+            if (t.lastM && Number.isFinite(t.lastM.exact)) t.lastM.exact += deltaSemis;
         });
+
+        if (state.arp && state.arp.active) {
+            state.arp.active.forEach(entry => {
+                const oldNote = clampNote(entry.note);
+                const newNote = clampNote(entry.note + deltaSemis);
+                if (canSendMidi) {
+                    sendMidi([0x80 + entry.chan - 1, oldNote, 0]);
+                    sendMidi([0x90 + entry.chan - 1, newNote, 80]);
+                }
+                entry.note = newNote;
+            });
+        }
     }
 }
 
@@ -8020,6 +8198,19 @@ function getNearestNoteX(noteFloat) {
     return best;
 }
 
+function getHeldVoiceX(voice) {
+    const m = voice?.lastM;
+    if (!voice?.chordHold && els.holdDetune?.checked && m && Number.isFinite(m.x)) return m.x;
+    const noteFloat = getVoiceNoteFloat(voice);
+    return getNearestNoteX(noteFloat) ?? m?.x ?? 0;
+}
+
+function getArpHoldNoteX(noteObj, m) {
+    if (els.holdDetune?.checked && m && Number.isFinite(m.x)) return m.x;
+    const noteFloat = noteObj?.noteFloat ?? noteObj?.note;
+    return getNearestNoteX(noteFloat) ?? m?.x ?? 0;
+}
+
 function drawNoteBubble(x, y, radius, color, label) {
     ctx.shadowBlur = 20;
     ctx.shadowColor = color;
@@ -8572,7 +8763,10 @@ canvas.addEventListener('pointerdown', e => {
 
         for (const v of targets) {
             const noteFloat = getVoiceNoteFloat(v);
-            const nx = getNearestNoteX(noteFloat);
+            const isHeld = state.heldVoices.includes(v);
+            const nx = (isHeld && !v.chordHold && els.holdDetune?.checked && v.lastM && Number.isFinite(v.lastM.x))
+                ? v.lastM.x
+                : getNearestNoteX(noteFloat);
             if (nx != null) {
                 // Check bounds: nx is center. width is noteW.
                 const minX = nx - noteW/2;
@@ -8619,7 +8813,7 @@ canvas.addEventListener('pointerdown', e => {
         state.activeTouches.set(e.pointerId, { 
             voices: grabbed.map(gv => ({ chan: gv.chan, note: gv.note, basePb: gv.basePb, group: gv.group })), 
             initialExact: voiceNoteFloat, lastX: e.clientX, isGrab: false, isHoldGrab: true, holdGroup: groupId,
-            vibratoSpeed: 0, phase: hv.phase || 0, color: hv.color, lastM: m, rootNote: hv.rootNote
+            vibratoSpeed: 0, phase: hv.phase || 0, color: hv.color, lastM: m, rootNote: hv.rootNote, isChordHold: !!hv.chordHold
         });
         return;
     }
@@ -8756,6 +8950,7 @@ canvas.addEventListener('pointerdown', e => {
         initialExact: rootNote,
         lastX: e.clientX,
         isGrab: false,
+        isChordHold: chordNotes.length > 1,
         vibratoSpeed: 0,
         phase: 0,
         color: `hsl(${voices[0]?.chan * 25 || 0}, 85%, 55%)`,
@@ -8859,6 +9054,16 @@ canvas.addEventListener('pointermove', e => {
 
 canvas.addEventListener('pointerup', e => {
     try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+    const finalizePointerUp = () => {
+        state.pointerIds.delete(e.pointerId);
+        // Remove note-dragging class when no more active pointers
+        if (state.pointerIds.size === 0) {
+            document.body.classList.remove('note-dragging');
+        }
+        if (state.audio.enabled && state.audio.wavetable.mode !== 'sampler' && state.activeTouches.size === 0 && !els.holdNotes.checked && !state.keepEnabled) {
+            stopAllVoicesInternal();
+        }
+    };
     const t = state.activeTouches.get(e.pointerId);
     if (t) {
         requestDraw();
@@ -8876,6 +9081,7 @@ canvas.addEventListener('pointerup', e => {
                 item.color = item.noteObjs?.[0]?.color || t.color;
             }
             state.activeTouches.delete(e.pointerId);
+            finalizePointerUp();
             return;
         }
         // FIX: Avoid double-quantization if Hold is active (snapHoldVoicesToScale handles it)
@@ -8899,14 +9105,26 @@ canvas.addEventListener('pointerup', e => {
                 state.arpHoldTouches.push({ lastM: t.lastM, color: holdColor, phase: t.phase || 0, noteObjs: t.arpNotes });
             }
             state.activeTouches.delete(e.pointerId);
+            finalizePointerUp();
             return;
         }
         if (t.isHoldGrab) {
             if (hold || keepHeld) {
-                snapHoldVoicesToScale(t);
+                const freeDetune = !!els.holdDetune?.checked && !t.isChordHold;
+                if (!freeDetune) snapHoldVoicesToScale(t);
                 const groupId = t.holdGroup || state.holdGroupSeq++;
                 t.voices.forEach(v => {
-                    state.heldVoices.push({ chan: v.chan, note: v.note, basePb: v.basePb, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId, rootNote: t.rootNote ?? t.initialExact });
+                    state.heldVoices.push({
+                        chan: v.chan,
+                        note: v.note,
+                        basePb: v.basePb,
+                        lastM: t.lastM,
+                        color: t.color,
+                        phase: t.phase,
+                        group: groupId,
+                        rootNote: t.rootNote ?? t.initialExact,
+                        chordHold: !!t.isChordHold
+                    });
                 });
             } else {
                 t.voices.forEach(v => {
@@ -8916,10 +9134,12 @@ canvas.addEventListener('pointerup', e => {
             }
             state.mpeChannels.sort((a,b)=>a-b);
             state.activeTouches.delete(e.pointerId);
+            finalizePointerUp();
             return;
         }
         if (!t.isGrab && hold) {
-            snapHoldVoicesToScale(t);
+            const freeDetune = !!els.holdDetune?.checked && !t.isChordHold;
+            if (!freeDetune) snapHoldVoicesToScale(t);
         }
         t.voices.forEach(v => {
             if(!t.isGrab) {
@@ -8927,7 +9147,17 @@ canvas.addEventListener('pointerup', e => {
                     const groupId = t.holdGroup || state.holdGroupSeq++;
                     sendMidi([0xB0 + v.chan - 1, 74, t.lastM.slide]);
                     sendMidi([0xD0 + v.chan - 1, t.lastM.press]);
-                    state.heldVoices.push({ chan: v.chan, note: v.note, basePb: v.basePb, lastM: t.lastM, color: t.color, phase: t.phase, group: groupId, rootNote: t.initialExact });
+                    state.heldVoices.push({
+                        chan: v.chan,
+                        note: v.note,
+                        basePb: v.basePb,
+                        lastM: t.lastM,
+                        color: t.color,
+                        phase: t.phase,
+                        group: groupId,
+                        rootNote: t.initialExact,
+                        chordHold: !!t.isChordHold
+                    });
                     t.holdGroup = groupId;
                 } else {
                     sendMidi([0x80 + v.chan - 1, v.note, 0]);
@@ -8950,14 +9180,7 @@ canvas.addEventListener('pointerup', e => {
         if (!hold) state.mpeChannels.sort((a,b)=>a-b);
         state.activeTouches.delete(e.pointerId);
     }
-    state.pointerIds.delete(e.pointerId);
-    // Remove note-dragging class when no more active pointers
-    if (state.pointerIds.size === 0) {
-        document.body.classList.remove('note-dragging');
-    }
-    if (state.audio.enabled && state.audio.wavetable.mode !== 'sampler' && state.activeTouches.size === 0 && !els.holdNotes.checked && !state.keepEnabled) {
-        stopAllVoicesInternal();
-    }
+    finalizePointerUp();
 });
 
 function cancelActivePointer(pointerId) {
@@ -9298,8 +9521,7 @@ function findHeldVoiceAt(x, y) {
         const m = state.heldVoices[i].lastM;
         if (!m) continue;
         const radius = 12 + (m.press / 127) * 22;
-        const noteFloat = getVoiceNoteFloat(state.heldVoices[i]);
-        const px = getNearestNoteX(noteFloat) ?? m.x;
+        const px = getHeldVoiceX(state.heldVoices[i]);
         const py = m.y;
         const dx = x - px;
         const dy = y - py;
@@ -9319,7 +9541,7 @@ function findArpHoldNoteAt(x, y) {
             const m = noteObj.lastM || hold.lastM;
             if (!m) continue;
             const radius = 10 + (m.press / 127) * 18;
-            const px = getNearestNoteX(noteObj.noteFloat ?? noteObj.note) ?? m.x;
+            const px = getArpHoldNoteX(noteObj, m);
             const py = m.y;
             const dx = x - px;
             const dy = y - py;
@@ -9403,7 +9625,8 @@ if (!Object.keys(state.mpePresets).length) {
     state.mpePresets = {
         Expressive: { ...mpeBase, roundRate: '10', deadCenter: false, deadCenterForce: '30', smoothAmt: '10', curveType: 'linear', yDeadzone: '2', quantizeRelease: false },
         Tight: { ...mpeBase, roundRate: '80', deadCenter: true, deadCenterForce: '100', smoothAmt: '35', curveType: 'soft', yDeadzone: '8', quantizeRelease: true },
-        Glide: { ...mpeBase, roundRate: '0', deadCenter: false, deadCenterForce: '0', smoothAmt: '5', curveType: 'linear', yDeadzone: '0', quantizeRelease: false }
+        Glide: { ...mpeBase, roundRate: '0', deadCenter: false, deadCenterForce: '0', smoothAmt: '5', curveType: 'linear', yDeadzone: '0', quantizeRelease: false },
+        'Super Glide': { ...mpeBase, roundRate: '0', holdDetune: true, deadCenter: false, deadCenterForce: '0', smoothAmt: '5', curveType: 'linear', yDeadzone: '0', quantizeRelease: false }
     };
 }
 saveMpePresets(state.mpePresets);
@@ -9817,11 +10040,13 @@ function bindUI() {
                 stopMelodyGenerator();
                 updateMelodyToggleUI();
             }
+            disableKeep();
             allNotesOff();
             if (els.midiStatus) els.midiStatus.innerText = 'STOP';
         };
     }
     if (els.fadeBtn) els.fadeBtn.onclick = () => {
+        disableKeep();
         fadeOutAll();
     };
     els.arpEnabled.onchange = syncArpFromUI;
@@ -11088,8 +11313,7 @@ function drawHeldVoices(fadeMul, fadeDrop, height) {
 
         const radius = (12 + (m.press / 127) * 22) + (flash * 10);
         v.phase = (v.phase || 0) + 0.2;
-        const noteFloat = getVoiceNoteFloat(v);
-        const x = getNearestNoteX(noteFloat) ?? m.x;
+        const x = getHeldVoiceX(v);
         let y = m.y + ((height - m.y) * fadeDrop);
         y = getClampedVisualY(y, radius, height);
 
@@ -11142,7 +11366,7 @@ function drawArpHoldTouches(fadeMul, fadeDrop, height) {
             if (!m) return;
             const radius = 10 + (m.press / 127) * 18;
             t.phase = (t.phase || 0) + 0.2;
-            const x = getNearestNoteX(n.noteFloat ?? n.note) ?? m.x;
+            const x = getArpHoldNoteX(n, m);
             let y = m.y + ((height - m.y) * fadeDrop);
             y = getClampedVisualY(y, radius, height);
             const glow = n.color || t.color || '#ffaa00';
