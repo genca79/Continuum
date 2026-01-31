@@ -563,7 +563,7 @@
             <div class="ui-group-inline">
                 <div class="box" style="min-width:240px;">
                     <label>Import WAV (melody)</label>
-                    <input type="file" id="melodyImportFile" accept=".wav,audio/wav">
+                    <input type="file" id="melodyImportFile" accept=".wav,audio/wav,.mid,.midi,audio/midi,.xml,.musicxml,application/xml,.mxl">
                 </div>
                 <div class="box" style="max-width:160px;">
                     <label>Import</label>
@@ -1226,6 +1226,7 @@
     </div>
 </div>
 
+<script src="https://unpkg.com/fflate@0.8.2/umd/index.js"></script>
 <script src="script.js" defer></script>
 </body>
 </html>

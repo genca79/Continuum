@@ -8542,6 +8542,281 @@ function snapImportedMelodyNotes(notes) {
     return notes;
 }
 
+function getMelodyImportType(file) {
+    const name = (file?.name || '').toLowerCase();
+    const type = (file?.type || '').toLowerCase();
+    if (name.endsWith('.mid') || name.endsWith('.midi') || type.includes('midi')) return 'midi';
+    if (name.endsWith('.mxl')) return 'musicxml-compressed';
+    if (name.endsWith('.xml') || name.endsWith('.musicxml') || type.includes('xml')) return 'musicxml';
+    if (name.endsWith('.wav') || type.includes('wav') || type.startsWith('audio/')) return 'audio';
+    return 'unknown';
+}
+
+function applyImportedMelody(notes, statusEl, label = 'Imported') {
+    if (!Array.isArray(notes) || !notes.length) {
+        if (statusEl) statusEl.textContent = 'No melody found.';
+        return false;
+    }
+    const snappedNotes = snapImportedMelodyNotes(notes);
+    state.melody.notes = snappedNotes;
+    state.melody.length = snappedNotes.length;
+    state.melody.imported = true;
+    state.melody.importedFeatures = null;
+    clearMelodyContinuationState();
+    state.melody.stepIndex = 0;
+    if (els.melodyLength) els.melodyLength.value = snappedNotes.length;
+    updateMelodyPreview();
+    setMelodyEditStep(0);
+    if (state.melody.running) restartMelodyGenerator();
+    setMelodyStatusLog('import');
+    updateMelodyStatusUI();
+    if (statusEl) statusEl.textContent = `${label} ${snappedNotes.length} steps.`;
+    return true;
+}
+
+function readString(view, offset, len) {
+    let out = '';
+    for (let i = 0; i < len; i++) out += String.fromCharCode(view.getUint8(offset + i));
+    return out;
+}
+
+function readVarLen(view, offset) {
+    let value = 0;
+    let i = 0;
+    while (i < 4) {
+        const b = view.getUint8(offset + i);
+        value = (value << 7) | (b & 0x7F);
+        i++;
+        if ((b & 0x80) === 0) break;
+    }
+    return { value, next: offset + i };
+}
+
+function parseMidiFile(buffer) {
+    const view = new DataView(buffer);
+    if (readString(view, 0, 4) !== 'MThd') throw new Error('Invalid MIDI');
+    let pos = 4;
+    const headerLen = view.getUint32(pos); pos += 4;
+    const format = view.getUint16(pos); pos += 2;
+    const ntrks = view.getUint16(pos); pos += 2;
+    const division = view.getUint16(pos); pos += 2;
+    pos = 8 + headerLen;
+    const events = [];
+    let tempo = null;
+    for (let t = 0; t < ntrks; t++) {
+        if (readString(view, pos, 4) !== 'MTrk') break;
+        pos += 4;
+        const trackLen = view.getUint32(pos); pos += 4;
+        const trackEnd = pos + trackLen;
+        let tick = 0;
+        let runningStatus = null;
+        while (pos < trackEnd) {
+            const delta = readVarLen(view, pos); pos = delta.next;
+            tick += delta.value;
+            let status = view.getUint8(pos);
+            let data1;
+            if (status < 0x80) {
+                if (runningStatus == null) break;
+                status = runningStatus;
+                data1 = view.getUint8(pos); pos += 1;
+            } else {
+                pos += 1;
+                runningStatus = status;
+                data1 = view.getUint8(pos); pos += 1;
+            }
+            if (status === 0xFF) {
+                const metaType = data1;
+                const len = readVarLen(view, pos); pos = len.next;
+                if (metaType === 0x51 && len.value === 3 && tempo == null) {
+                    tempo = (view.getUint8(pos) << 16) | (view.getUint8(pos + 1) << 8) | view.getUint8(pos + 2);
+                }
+                pos += len.value;
+                continue;
+            }
+            if (status === 0xF0 || status === 0xF7) {
+                const len = readVarLen(view, pos); pos = len.next + len.value;
+                continue;
+            }
+            const type = status & 0xF0;
+            if (type === 0xC0 || type === 0xD0) {
+                // one data byte
+                continue;
+            }
+            const data2 = view.getUint8(pos); pos += 1;
+            if (type === 0x90 && data2 > 0) {
+                events.push({ tick, note: data1, velocity: data2 });
+            }
+        }
+    }
+    return { format, division, tempo, events };
+}
+
+function buildMelodyFromTimedNotes(timed, bpm, maxSteps = 256, totalDurationSec = null) {
+    const factor = getRateFactor(state.melody.rate || '1/16');
+    const stepSec = (60 / Math.max(40, bpm)) * factor;
+    let maxStep = 0;
+    const map = new Map();
+    timed.forEach(ev => {
+        const step = Math.max(0, Math.floor((ev.timeSec / stepSec) + 1e-6));
+        if (step > maxSteps - 1) return;
+        const existing = map.get(step);
+        if (!existing || ev.velocity > existing.velocity) {
+            map.set(step, ev);
+        }
+        if (step > maxStep) maxStep = step;
+    });
+    if (Number.isFinite(totalDurationSec)) {
+        const endStep = Math.max(0, Math.floor((totalDurationSec / stepSec) + 1e-6));
+        if (endStep > maxStep) maxStep = endStep;
+    }
+    const length = Math.max(4, Math.min(maxSteps, maxStep + 1));
+    const notes = new Array(length).fill(null);
+    map.forEach((ev, step) => {
+        if (step < length) notes[step] = ev.note;
+    });
+    return notes;
+}
+
+function parseMidiToMelody(buffer) {
+    const parsed = parseMidiFile(buffer);
+    const tempo = parsed.tempo || 500000;
+    const bpm = 60_000_000 / tempo;
+    const ppq = parsed.division > 0 ? parsed.division : 480;
+    const secPerTick = (tempo / 1_000_000) / ppq;
+    const timed = parsed.events.map(ev => ({
+        timeSec: ev.tick * secPerTick,
+        note: ev.note,
+        velocity: ev.velocity || 80
+    }));
+    const maxTick = parsed.events.reduce((m, ev) => Math.max(m, ev.tick || 0), 0);
+    const totalDurationSec = maxTick * secPerTick;
+    return buildMelodyFromTimedNotes(timed, bpm, 256, totalDurationSec);
+}
+
+function parseMusicXmlToMelody(xmlText) {
+    const parser = new DOMParser();
+    const xml = parser.parseFromString(xmlText, 'application/xml');
+    const tempoNode = xml.querySelector('sound[tempo]');
+    const bpm = tempoNode ? parseFloat(tempoNode.getAttribute('tempo')) : 120;
+    let keySignature = null;
+    let divisions = 1;
+    let timeDivs = 0;
+    const notes = [];
+    const part = xml.querySelector('part') || xml;
+    const measures = Array.from(part.getElementsByTagName('measure'));
+    const secPerQuarter = 60 / Math.max(40, bpm);
+    measures.forEach(measure => {
+        Array.from(measure.childNodes).forEach(node => {
+            if (node.nodeType !== 1) return;
+            if (node.nodeName === 'attributes') {
+                const divNode = node.querySelector('divisions');
+                if (divNode) {
+                    const div = parseInt(divNode.textContent, 10);
+                    if (Number.isFinite(div) && div > 0) divisions = div;
+                }
+                const keyNode = node.querySelector('key');
+                if (keyNode) {
+                    const fifths = parseInt(keyNode.querySelector('fifths')?.textContent || '0', 10);
+                    const mode = (keyNode.querySelector('mode')?.textContent || 'major').toLowerCase();
+                    if (Number.isFinite(fifths)) {
+                        keySignature = { fifths, mode };
+                    }
+                }
+                return;
+            }
+            if (node.nodeName === 'direction') {
+                const sound = node.querySelector('sound[tempo]');
+                if (sound) {
+                    const t = parseFloat(sound.getAttribute('tempo'));
+                    if (Number.isFinite(t) && t > 0) {
+                        // keep secPerQuarter from initial tempo for simplicity
+                    }
+                }
+                return;
+            }
+            if (node.nodeName === 'backup' || node.nodeName === 'forward') {
+                const durNode = node.querySelector('duration');
+                const dur = durNode ? parseInt(durNode.textContent, 10) : 0;
+                if (node.nodeName === 'backup') timeDivs -= Math.max(0, dur);
+                else timeDivs += Math.max(0, dur);
+                return;
+            }
+            if (node.nodeName !== 'note') return;
+            const isRest = node.getElementsByTagName('rest').length > 0;
+            const isChord = node.getElementsByTagName('chord').length > 0;
+            const tieNodes = Array.from(node.getElementsByTagName('tie'));
+            const hasTieStart = tieNodes.some(t => (t.getAttribute('type') || '').toLowerCase() === 'start');
+            const hasTieStop = tieNodes.some(t => (t.getAttribute('type') || '').toLowerCase() === 'stop');
+            const durNode = node.getElementsByTagName('duration')[0];
+            const dur = durNode ? parseInt(durNode.textContent, 10) : 0;
+            const pitchNode = node.getElementsByTagName('pitch')[0];
+            let note = null;
+            if (!isRest && pitchNode) {
+                const step = pitchNode.getElementsByTagName('step')[0]?.textContent || 'C';
+                const alter = parseInt(pitchNode.getElementsByTagName('alter')[0]?.textContent || '0', 10);
+                const octave = parseInt(pitchNode.getElementsByTagName('octave')[0]?.textContent || '4', 10);
+                const name = `${step}${alter === 1 ? '#' : alter === -1 ? 'b' : ''}${octave}`;
+                const midi = parseNoteName(name);
+                if (Number.isFinite(midi)) note = midi;
+            }
+            if (note != null && !hasTieStop) {
+                const timeSec = (timeDivs / divisions) * secPerQuarter;
+                notes.push({ timeSec, note, velocity: 80 });
+            }
+            if (!isChord) timeDivs += Math.max(0, dur);
+        });
+    });
+    const totalDurationSec = (timeDivs / divisions) * secPerQuarter;
+    const melody = buildMelodyFromTimedNotes(notes, bpm, 256, totalDurationSec);
+    return { notes: melody, keySignature };
+}
+
+function parseMxlToMelody(buffer) {
+    if (!window.fflate?.unzipSync) {
+        throw new Error('MXL support missing (fflate not loaded).');
+    }
+    const data = new Uint8Array(buffer);
+    const unzipped = window.fflate.unzipSync(data);
+    const names = Object.keys(unzipped);
+    let targetName = null;
+    const containerName = names.find(n => n.toLowerCase() === 'meta-inf/container.xml');
+    if (containerName) {
+        const containerText = new TextDecoder('utf-8').decode(unzipped[containerName]);
+        const doc = new DOMParser().parseFromString(containerText, 'application/xml');
+        const rootfile = doc.querySelector('rootfile');
+        const fullPath = rootfile?.getAttribute('full-path');
+        if (fullPath && unzipped[fullPath]) targetName = fullPath;
+    }
+    if (!targetName) {
+        targetName = names.find(n => n.toLowerCase().endsWith('.musicxml'))
+            || names.find(n => n.toLowerCase().endsWith('.xml') && !n.toLowerCase().includes('meta-inf/'));
+    }
+    if (!targetName) throw new Error('No MusicXML found in MXL.');
+    const text = new TextDecoder('utf-8').decode(unzipped[targetName]);
+    return parseMusicXmlToMelody(text);
+}
+
+function getKeySignatureMapping(fifths, mode) {
+    const majorMap = { '-7': 11, '-6': 6, '-5': 1, '-4': 8, '-3': 3, '-2': 10, '-1': 5, '0': 0, '1': 7, '2': 2, '3': 9, '4': 4, '5': 11, '6': 6, '7': 1 };
+    const minorMap = { '-7': 8, '-6': 3, '-5': 10, '-4': 5, '-3': 0, '-2': 7, '-1': 2, '0': 9, '1': 4, '2': 11, '3': 6, '4': 1, '5': 8, '6': 3, '7': 10 };
+    const key = String(fifths ?? 0);
+    const isMinor = String(mode || '').toLowerCase().includes('minor');
+    const root = isMinor ? (minorMap[key] ?? 9) : (majorMap[key] ?? 0);
+    const scaleType = isMinor ? 'minor' : 'major';
+    return { root, scaleType };
+}
+
+function applyMusicXmlKeySignature(keySignature) {
+    if (!keySignature || !els.rootNote || !els.scaleType) return false;
+    const { root, scaleType } = getKeySignatureMapping(keySignature.fifths, keySignature.mode);
+    els.rootNote.value = String(root);
+    els.scaleType.value = scaleType;
+    if (els.scaleModeDiatonic) els.scaleModeDiatonic.checked = true;
+    updateScaleModeUI();
+    scheduleScaleUpdate();
+    return true;
+}
+
 function snapHoldVoicesToScale(t) {
     if (!t || !t.voices || !t.voices.length) return;
     const exact = t.lastM?.exact ?? t.initialExact ?? 0;
@@ -10696,6 +10971,12 @@ function bindUI() {
             }
             const file = els.melodyImportFile?.files?.[0];
             if (!file) return;
+            if (getMelodyImportType(file) !== 'audio') {
+                if (els.melodyImportAdvancedStatus) {
+                    els.melodyImportAdvancedStatus.textContent = 'Advanced import supports audio only.';
+                }
+                return;
+            }
             if (els.melodyImportAdvancedStatus) els.melodyImportAdvancedStatus.textContent = 'Loading Magenta...';
             try {
                 const model = await loadMagenta();
@@ -10853,31 +11134,35 @@ function bindUI() {
             if (!file) return;
             if (els.melodyImportStatus) els.melodyImportStatus.textContent = 'Analyzing...';
             try {
+                const type = getMelodyImportType(file);
+                if (type === 'midi') {
+                    const arrayBuf = await file.arrayBuffer();
+                    const notes = parseMidiToMelody(arrayBuf);
+                    applyImportedMelody(notes, els.melodyImportStatus, 'Imported MIDI');
+                    return;
+                }
+                if (type === 'musicxml-compressed') {
+                    const arrayBuf = await file.arrayBuffer();
+                    const result = parseMxlToMelody(arrayBuf);
+                    const notes = Array.isArray(result) ? result : result?.notes;
+                    if (result?.keySignature) applyMusicXmlKeySignature(result.keySignature);
+                    applyImportedMelody(notes, els.melodyImportStatus, 'Imported MXL');
+                    return;
+                }
+                if (type === 'musicxml') {
+                    const text = await file.text();
+                    const result = parseMusicXmlToMelody(text);
+                    const notes = Array.isArray(result) ? result : result?.notes;
+                    if (result?.keySignature) applyMusicXmlKeySignature(result.keySignature);
+                    applyImportedMelody(notes, els.melodyImportStatus, 'Imported MusicXML');
+                    return;
+                }
                 const arrayBuf = await file.arrayBuffer();
                 const ctx = state.audio.ctx || new (window.AudioContext || window.webkitAudioContext)();
                 const audioBuf = await ctx.decodeAudioData(arrayBuf.slice(0));
                 const result = extractMelodyNotesFromAudio(audioBuf);
                 const notes = result?.notes || result;
-                if (!notes.length) {
-                    if (els.melodyImportStatus) els.melodyImportStatus.textContent = 'No melody found.';
-                    return;
-                }
-                const snappedNotes = snapImportedMelodyNotes(notes);
-                state.melody.notes = snappedNotes;
-                state.melody.length = snappedNotes.length;
-                state.melody.imported = true;
-                state.melody.importedFeatures = result?.features || null;
-                clearMelodyContinuationState();
-                state.melody.stepIndex = 0;
-                if (els.melodyLength) els.melodyLength.value = snappedNotes.length;
-                updateMelodyPreview();
-                setMelodyEditStep(0);
-                if (state.melody.running) restartMelodyGenerator();
-                setMelodyStatusLog('import');
-                updateMelodyStatusUI();
-                if (els.melodyImportStatus) {
-                    els.melodyImportStatus.textContent = `Imported ${snappedNotes.length} steps.`;
-                }
+                applyImportedMelody(notes, els.melodyImportStatus, 'Imported Audio');
             } catch (err) {
                 if (els.melodyImportStatus) els.melodyImportStatus.textContent = 'Import failed.';
             }
@@ -10913,7 +11198,7 @@ function bindUI() {
         [els.melodyHumanYMotionToggle, 'Y motion on: enable/disable virtual Y movement.'],
         [els.melodyHumanApplyArp, 'Humanize su ARP: reuse these humanize settings for the arpeggiator.'],
         [els.melodyMpePerNote, 'MPE per note: one channel per note (per-note expression).'],
-        [els.melodyImportBtn, 'Import: detect a melody from the WAV using fast analysis.'],
+        [els.melodyImportBtn, 'Import: load melody from WAV, MIDI, or MusicXML.'],
         [els.melodyImportSnap, 'Snap import: off, semitone, or scale.'],
         [els.melodyImportAdvancedBtn, 'Advanced import: Magenta transcription for better pitch accuracy.'],
         [els.melodyContinueBtn, 'Continue: Magenta generates the next steps from the current melody.'],
