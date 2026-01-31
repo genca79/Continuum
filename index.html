@@ -677,25 +677,29 @@
                     <option value="upDown">Up/Down</option>
                     <option value="random">Random</option>
                     <option value="asPlayed">As Played</option>
+                    <option value="brownian">Brownian</option>
                 </select></div>
                 <div class="box" style="max-width:100px;"><label>Oct Range</label><input type="number" id="arpOctaveRange" min="1" max="4" value="1"></div>
                 <div class="box" style="max-width:120px;"><label>Oct Mode</label><select id="arpOctaveMode">
                     <option value="serial" selected>Serial</option>
                     <option value="interleaved">Interleaved</option>
                 </select></div>
-                <div class="box" style="max-width:120px;"><label title="Probability per step: 100% plays every step, lower values randomly mute steps.">Prob</label><input type="range" id="arpProbability" min="0" max="100" value="100" title="Probability per step: 100% plays every step, lower values randomly mute steps."></div>
+                <div class="box" style="max-width:120px;"><label title="Probability per step: 100% plays every step, lower values randomly mute steps.">Prob</label><input type="range" id="arpProbability" min="0" max="100" value="100" title="Probability per step: 100% plays every step, lower values randomly mute steps."><div class="param-effective" id="arpProbabilityVal">100%</div></div>
                 <div class="box" style="max-width:100px;">
                     <label title="Ratchet repeats the note within the same step (stutter/roll).">Ratchet</label>
                     <div style="display:flex; gap:6px; align-items:center;">
                         <select id="arpRatchet" title="Ratchet repeats the note within the same step (stutter/roll).">
-                    <option value="1" selected>1</option>
-                    <option value="2">2</option>
-                    <option value="3">3</option>
-                    <option value="4">4</option>
+                            <option value="1" selected>1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
                         </select>
                         <button id="arpRatchetReset" class="menu-btn" style="min-width:26px; padding:0 6px;" title="Reset ratchet pattern to 1">R</button>
                     </div>
                 </div>
+                <div class="box" style="max-width:140px;"><label>Euclidean</label><input type="range" id="arpEuclid" min="0" max="16" value="0"><div class="param-effective" id="arpEuclidVal">0</div></div>
+                <div class="box" style="max-width:120px;"><label>Shift (ms)</label><input type="range" id="arpShift" min="-50" max="50" value="0"><div class="param-effective" id="arpShiftVal">0 ms</div></div>
+                <div class="box" style="max-width:120px;"><label>Swing</label><input type="range" id="arpSwing" min="0" max="100" value="0"><div class="param-effective" id="arpSwingVal">0%</div></div>
                 <div class="box" style="min-width:220px;">
                     <label>Step Pattern</label>
                     <div id="arpStepPattern" style="display:grid; grid-template-columns: repeat(8, 24px); gap:8px; padding-top:6px;">

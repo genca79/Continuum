@@ -74,6 +74,13 @@ const els = {
     arpProbability: document.getElementById('arpProbability'),
     arpRatchet: document.getElementById('arpRatchet'),
     arpRatchetReset: document.getElementById('arpRatchetReset'),
+    arpEuclid: document.getElementById('arpEuclid'),
+    arpShift: document.getElementById('arpShift'),
+    arpSwing: document.getElementById('arpSwing'),
+    arpProbabilityVal: document.getElementById('arpProbabilityVal'),
+    arpEuclidVal: document.getElementById('arpEuclidVal'),
+    arpShiftVal: document.getElementById('arpShiftVal'),
+    arpSwingVal: document.getElementById('arpSwingVal'),
     arpStepPattern: document.getElementById('arpStepPattern'),
     octDownBtn: document.getElementById('octDownBtn'),
     octUpBtn: document.getElementById('octUpBtn'),
@@ -3708,11 +3715,16 @@ state.arp = {
     probability: 1,
     ratchet: 1,
     ratchetPattern: Array.from({ length: 16 }, () => 1),
+    euclideanDensity: 0,
+    shiftMs: 0,
+    swing: 0,
+    brownianIndex: 0,
     stepPattern: Array.from({ length: 16 }, () => true),
     hold: false,
     latch: false,
     running: false,
     stepIndex: 0,
+    noteIndex: 0,
     notes: [],
     active: [],
     sequence: [],
@@ -3876,6 +3888,9 @@ function getPresetState() {
         arpRatchet: state.arp.ratchet,
         arpStepPattern: state.arp.stepPattern ? state.arp.stepPattern.slice(0) : undefined,
         arpRatchetPattern: state.arp.ratchetPattern ? state.arp.ratchetPattern.slice(0) : undefined,
+        arpEuclideanDensity: state.arp.euclideanDensity,
+        arpShift: state.arp.shiftMs,
+        arpSwing: state.arp.swing,
         currentOctave: state.currentOctave,
         // Internal Synth settings
         audioEnabled: state.audio.enabled,
@@ -4021,6 +4036,9 @@ function applyPresetState(presetState) {
         octaveMode: presetState.arpOctaveMode,
         probability: presetState.arpProbability,
         ratchet: presetState.arpRatchet,
+        euclideanDensity: presetState.arpEuclideanDensity,
+        shiftMs: presetState.arpShift,
+        swing: presetState.arpSwing,
         ratchetPattern: presetState.arpRatchetPattern,
         stepPattern: presetState.arpStepPattern
     });
@@ -4253,7 +4271,7 @@ function applyPresetState(presetState) {
         }
     }
     // Update range slider progress bars
-    [els.chordSpread, els.roundRate, els.deadCenterForce, els.smoothAmt, els.yDeadzone, els.touchSensitivity, els.arpGate, els.arpProbability].forEach(input => {
+    [els.chordSpread, els.roundRate, els.deadCenterForce, els.smoothAmt, els.yDeadzone, els.touchSensitivity, els.arpGate, els.arpProbability, els.arpEuclid, els.arpShift, els.arpSwing].forEach(input => {
         if (input) updateRangeProgress(input);
     });
 }
@@ -7858,7 +7876,7 @@ function stopArpActiveNotes(noteObjs) {
 }
 
 function normalizeArpMode(mode) {
-    const allowed = new Set(['up', 'down', 'upDown', 'random', 'asPlayed']);
+    const allowed = new Set(['up', 'down', 'upDown', 'random', 'asPlayed', 'brownian']);
     return allowed.has(mode) ? mode : 'up';
 }
 
@@ -7889,6 +7907,26 @@ function updateArpPresetDesc() {
     els.arpPresetDesc.textContent = `Mode ${state.arp.mode} | Oct ${state.arp.octaveRange} ${state.arp.octaveMode} | Prob ${prob}% | Ratchet ${ratchetLabel} | Steps ${stepsOn}/${pattern.length || 0}`;
 }
 
+function updateArpValueLabels() {
+    if (els.arpProbabilityVal) {
+        const pct = Math.round((Number.isFinite(state.arp.probability) ? state.arp.probability : 1) * 100);
+        els.arpProbabilityVal.textContent = `${pct}%`;
+    }
+    if (els.arpEuclidVal) {
+        const dens = Number.isFinite(state.arp.euclideanDensity) ? state.arp.euclideanDensity : 0;
+        els.arpEuclidVal.textContent = `${dens}`;
+    }
+    if (els.arpShiftVal) {
+        const shift = Math.round(Number.isFinite(state.arp.shiftMs) ? state.arp.shiftMs : 0);
+        const label = shift > 0 ? `+${shift}` : `${shift}`;
+        els.arpShiftVal.textContent = `${label} ms`;
+    }
+    if (els.arpSwingVal) {
+        const pct = Math.round((Number.isFinite(state.arp.swing) ? state.arp.swing : 0) * 100);
+        els.arpSwingVal.textContent = `${pct}%`;
+    }
+}
+
 function setArpStepIndicator(stepIdx) {
     if (!els.arpStepPattern) return;
     const checks = els.arpStepPattern.querySelectorAll('input[type="checkbox"][data-step]');
@@ -7909,6 +7947,8 @@ function setArpStepIndicator(stepIdx) {
 function invalidateArpSequenceCache() {
     state.arp.sequenceKey = '';
     state.arp.sequence = [];
+    state.arp.brownianIndex = 0;
+    state.arp.noteIndex = 0;
 }
 
 function readArpStepPatternFromUI() {
@@ -7958,8 +7998,12 @@ function syncArpParamsToUI() {
     if (els.arpOctaveMode) els.arpOctaveMode.value = state.arp.octaveMode || 'serial';
     if (els.arpProbability) els.arpProbability.value = Math.round((state.arp.probability || 0) * 100);
     if (els.arpRatchet) els.arpRatchet.value = state.arp.ratchet || 1;
+    if (els.arpEuclid) els.arpEuclid.value = state.arp.euclideanDensity || 0;
+    if (els.arpShift) els.arpShift.value = state.arp.shiftMs || 0;
+    if (els.arpSwing) els.arpSwing.value = Math.round((state.arp.swing || 0) * 100);
     writeArpStepPatternToUI(state.arp.stepPattern);
     writeArpRatchetPatternToUI(state.arp.ratchetPattern);
+    updateArpValueLabels();
 }
 
 function updateArpParams(params = {}) {
@@ -7982,12 +8026,25 @@ function updateArpParams(params = {}) {
     if (params.ratchetPattern !== undefined) {
         state.arp.ratchetPattern = normalizeArpRatchetPattern(params.ratchetPattern);
     }
+    if (params.euclideanDensity !== undefined) {
+        const dens = parseInt(params.euclideanDensity, 10);
+        state.arp.euclideanDensity = Math.max(0, Math.min(16, Number.isFinite(dens) ? dens : 0));
+    }
+    if (params.shiftMs !== undefined) {
+        const shift = Number(params.shiftMs);
+        state.arp.shiftMs = Math.max(-50, Math.min(50, Number.isFinite(shift) ? shift : 0));
+    }
+    if (params.swing !== undefined) {
+        const swing = Number(params.swing);
+        state.arp.swing = Math.max(0, Math.min(1, Number.isFinite(swing) ? swing : 0));
+    }
     if (params.stepPattern !== undefined) {
         state.arp.stepPattern = normalizeArpStepPattern(params.stepPattern);
     }
     invalidateArpSequenceCache();
     syncArpParamsToUI();
     updateArpPresetDesc();
+    updateArpValueLabels();
 }
 
 function getArpNoteFloat(noteObj) {
@@ -8006,6 +8063,39 @@ function isChromaticScaleActive() {
         if (Math.abs((degrees[i] ?? 0) - i) > 1e-6) return false;
     }
     return true;
+}
+
+function generateEuclideanPattern(pulses, steps) {
+    const total = Math.max(1, parseInt(steps, 10) || 16);
+    const count = Math.max(0, Math.min(total, parseInt(pulses, 10) || 0));
+    const pattern = [];
+    let bucket = 0;
+    for (let i = 0; i < total; i++) {
+        bucket += count;
+        if (bucket >= total) {
+            bucket -= total;
+            pattern.push(true);
+        } else {
+            pattern.push(false);
+        }
+    }
+    return pattern;
+}
+
+function getArpNoteIndex(stepIdx, sequenceLen) {
+    if (!sequenceLen) return 0;
+    if (state.arp.mode !== 'brownian') return stepIdx % sequenceLen;
+    let idx = Number.isFinite(state.arp.brownianIndex) ? state.arp.brownianIndex : 0;
+    if (idx < 0 || idx >= sequenceLen) idx = 0;
+    const r = Math.random();
+    let next = idx;
+    if (r < 0.5) next = idx + 1;
+    else if (r < 0.75) next = idx - 1;
+    else next = idx;
+    if (next < 0) next = 0;
+    if (next >= sequenceLen) next = sequenceLen - 1;
+    state.arp.brownianIndex = next;
+    return next;
 }
 
 function buildArpSequenceKey() {
@@ -8106,7 +8196,7 @@ function getArpSequenceCached(stepIdx) {
     return state.arp.sequence || [];
 }
 
-function arpNoteOn(noteObj, stepMs, stepIdx) {
+function arpNoteOn(noteObj, stepMs, stepIdx, offsetMs = 0) {
     if (!state.midi.output) return;
     const chan = state.mpeChannels.shift();
     if (!chan) {
@@ -8127,7 +8217,7 @@ function arpNoteOn(noteObj, stepMs, stepIdx) {
     if (human.applyToArp) {
         const curve = 1.7;
         const timingMs = Math.max(0, human.timing || 0);
-        const swingPct = Math.max(0, Math.min(60, human.swing || 0));
+        const swingPct = (state.arp.swing > 0) ? 0 : Math.max(0, Math.min(60, human.swing || 0));
         const legatoPct = Math.max(0, Math.min(100, human.legato ?? 70));
         const pressRange = Math.max(0, Math.min(40, human.press || 0));
         const timbreRange = Math.max(0, Math.min(80, human.timbre || 0)) * 1.5;
@@ -8204,23 +8294,31 @@ function arpStep(stepMsOverride) {
         requestDraw();
         return;
     }
-    const noteObj = sequence[stepIdx % sequence.length];
+    const playIndex = Number.isFinite(state.arp.noteIndex) ? state.arp.noteIndex : 0;
+    const noteObj = sequence[getArpNoteIndex(playIndex, sequence.length)];
     const ratchetPattern = state.arp.ratchetPattern || [];
     const ratchetLen = ratchetPattern.length || 0;
     const stepRatchet = ratchetLen ? ratchetPattern[stepIdx % ratchetLen] : state.arp.ratchet;
     const ratchetCount = Math.max(1, Math.min(4, parseInt(stepRatchet, 10) || 1));
+    state.arp.noteIndex = playIndex + 1;
+    const subStepMs = stepMs / ratchetCount;
+    const swingAmt = Math.max(0, Math.min(1, Number(state.arp.swing) || 0));
+    const swingOffset = (stepIdx % 2 === 1) ? (subStepMs * 0.33 * swingAmt) : 0;
+    const shiftMs = Math.max(-50, Math.min(50, Number(state.arp.shiftMs) || 0));
+    const baseOffset = shiftMs + swingOffset;
     if (ratchetCount === 1) {
-        arpNoteOn(noteObj, stepMs, stepIdx);
+        arpNoteOn(noteObj, stepMs, stepIdx, baseOffset);
         requestDraw();
         return;
     }
-    const subStepMs = stepMs / ratchetCount;
     for (let r = 0; r < ratchetCount; r++) {
         const offset = r * subStepMs;
-        if (offset <= 0) {
-            arpNoteOn(noteObj, subStepMs, stepIdx);
+        const localOffset = r === 0 ? baseOffset : 0;
+        const totalOffset = localOffset + offset;
+        if (totalOffset <= 0) {
+            arpNoteOn(noteObj, subStepMs, stepIdx, localOffset);
         } else {
-            setTimeout(() => arpNoteOn(noteObj, subStepMs, stepIdx), offset);
+            setTimeout(() => arpNoteOn(noteObj, subStepMs, stepIdx, localOffset), totalOffset);
         }
     }
     requestDraw();
@@ -8254,6 +8352,9 @@ function syncArpFromUI() {
         octaveMode: els.arpOctaveMode ? els.arpOctaveMode.value : undefined,
         probability: els.arpProbability ? (parseInt(els.arpProbability.value, 10) / 100) : undefined,
         ratchet: els.arpRatchet ? els.arpRatchet.value : undefined,
+        euclideanDensity: els.arpEuclid ? els.arpEuclid.value : undefined,
+        shiftMs: els.arpShift ? els.arpShift.value : undefined,
+        swing: els.arpSwing ? (parseInt(els.arpSwing.value, 10) / 100) : undefined,
         stepPattern: els.arpStepPattern ? readArpStepPatternFromUI() : undefined,
         ratchetPattern: els.arpStepPattern ? readArpRatchetPatternFromUI() : undefined
     });
@@ -8266,6 +8367,7 @@ function syncArpFromUI() {
         state.arp.notes = [];
         state.arpHoldTouches = [];
         setArpStepIndicator(null);
+        state.arp.noteIndex = 0;
         return;
     }
     if (!wasEnabled && els.holdNotes.checked && state.heldVoices.length) {
@@ -8284,6 +8386,7 @@ function handleClockMessage(status) {
     if (status === 0xFA) {
         state.arp.running = true;
         state.arp.stepIndex = 0;
+        state.arp.noteIndex = 0;
         state.arp.clockTicks = 0;
         state.arp.lastClockTime = 0;
         stopAllArpNotes();
@@ -8292,6 +8395,7 @@ function handleClockMessage(status) {
     if (status === 0xFC) {
         state.arp.running = false;
         state.arp.lastClockTime = 0;
+        state.arp.noteIndex = 0;
         stopAllArpNotes();
         return;
     }
@@ -10415,6 +10519,26 @@ function bindUI() {
         els.arpProbability.oninput = () => {
             syncArpFromUI();
             updateRangeProgress(els.arpProbability);
+        };
+    }
+    if (els.arpEuclid) {
+        els.arpEuclid.oninput = () => {
+            const pulses = parseInt(els.arpEuclid.value, 10) || 0;
+            const pattern = generateEuclideanPattern(pulses, 16);
+            updateArpParams({ euclideanDensity: pulses, stepPattern: pattern });
+            updateRangeProgress(els.arpEuclid);
+        };
+    }
+    if (els.arpShift) {
+        els.arpShift.oninput = () => {
+            updateArpParams({ shiftMs: parseInt(els.arpShift.value, 10) || 0 });
+            updateRangeProgress(els.arpShift);
+        };
+    }
+    if (els.arpSwing) {
+        els.arpSwing.oninput = () => {
+            updateArpParams({ swing: (parseInt(els.arpSwing.value, 10) || 0) / 100 });
+            updateRangeProgress(els.arpSwing);
         };
     }
     if (els.arpRatchet) {
