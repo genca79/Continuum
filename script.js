@@ -63,10 +63,18 @@ const els = {
     arpRate: document.getElementById('arpRate'),
     arpRateSelect: document.getElementById('arpRateSelect'),
     arpPresetSelect: document.getElementById('arpPresetSelect'),
+    arpPresetDesc: document.getElementById('arpPresetDesc'),
     arpGate: document.getElementById('arpGate'),
     arpSync: document.getElementById('arpSync'),
     arpBpm: document.getElementById('arpBpm'),
     arpLatch: document.getElementById('arpLatch'),
+    arpMode: document.getElementById('arpMode'),
+    arpOctaveRange: document.getElementById('arpOctaveRange'),
+    arpOctaveMode: document.getElementById('arpOctaveMode'),
+    arpProbability: document.getElementById('arpProbability'),
+    arpRatchet: document.getElementById('arpRatchet'),
+    arpRatchetReset: document.getElementById('arpRatchetReset'),
+    arpStepPattern: document.getElementById('arpStepPattern'),
     octDownBtn: document.getElementById('octDownBtn'),
     octUpBtn: document.getElementById('octUpBtn'),
     octVal: document.getElementById('octVal'),
@@ -3694,12 +3702,21 @@ state.arp = {
     gate: 0.6,
     sync: 'internal',
     bpm: 120,
+    mode: 'up',
+    octaveRange: 1,
+    octaveMode: 'serial',
+    probability: 1,
+    ratchet: 1,
+    ratchetPattern: Array.from({ length: 16 }, () => 1),
+    stepPattern: Array.from({ length: 16 }, () => true),
     hold: false,
     latch: false,
     running: false,
     stepIndex: 0,
     notes: [],
     active: [],
+    sequence: [],
+    sequenceKey: '',
     timer: null,
     clockTicks: 0,
     ticksPerStep: 6,
@@ -3852,6 +3869,13 @@ function getPresetState() {
         arpSync: els.arpSync.value,
         arpBpm: els.arpBpm.value,
         arpLatch: els.arpLatch.checked,
+        arpMode: state.arp.mode,
+        arpOctaveRange: state.arp.octaveRange,
+        arpOctaveMode: state.arp.octaveMode,
+        arpProbability: state.arp.probability,
+        arpRatchet: state.arp.ratchet,
+        arpStepPattern: state.arp.stepPattern ? state.arp.stepPattern.slice(0) : undefined,
+        arpRatchetPattern: state.arp.ratchetPattern ? state.arp.ratchetPattern.slice(0) : undefined,
         currentOctave: state.currentOctave,
         // Internal Synth settings
         audioEnabled: state.audio.enabled,
@@ -3991,6 +4015,15 @@ function applyPresetState(presetState) {
     if (!presetState.holdNotes) releaseHeldNotes();
     updateScaleNotes();
     syncArpFromUI();
+    updateArpParams({
+        mode: presetState.arpMode,
+        octaveRange: presetState.arpOctaveRange,
+        octaveMode: presetState.arpOctaveMode,
+        probability: presetState.arpProbability,
+        ratchet: presetState.arpRatchet,
+        ratchetPattern: presetState.arpRatchetPattern,
+        stepPattern: presetState.arpStepPattern
+    });
     updateScaleModeUI();
     // Internal Synth settings
     if (presetState.audioEnabled !== undefined) {
@@ -4220,7 +4253,7 @@ function applyPresetState(presetState) {
         }
     }
     // Update range slider progress bars
-    [els.chordSpread, els.roundRate, els.deadCenterForce, els.smoothAmt, els.yDeadzone, els.touchSensitivity, els.arpGate].forEach(input => {
+    [els.chordSpread, els.roundRate, els.deadCenterForce, els.smoothAmt, els.yDeadzone, els.touchSensitivity, els.arpGate, els.arpProbability].forEach(input => {
         if (input) updateRangeProgress(input);
     });
 }
@@ -5059,6 +5092,14 @@ function applyArpPreset(name) {
     if (els.arpSync) els.arpSync.value = preset.sync;
     if (els.arpBpm) els.arpBpm.value = preset.bpm;
     if (els.arpLatch) els.arpLatch.checked = !!preset.latch;
+    updateArpParams({
+        mode: preset.mode,
+        octaveRange: preset.octaveRange,
+        octaveMode: preset.octaveMode,
+        probability: preset.probability,
+        ratchet: preset.ratchet,
+        stepPattern: preset.stepPattern
+    });
     syncArpFromUI();
 }
 
@@ -7132,6 +7173,13 @@ function initEnhancedPianoRoll() {
     };
     let lastTap = { time: 0, step: -1, onNote: false };
     const DOUBLE_TAP_MS = 380;
+    let twoFingerScroll = {
+        active: false,
+        startX: 0,
+        startY: 0,
+        startScrollLeft: 0,
+        startScrollTop: 0
+    };
 
     const getCoords = (e) => {
         const rect = roll.getBoundingClientRect();
@@ -7146,6 +7194,7 @@ function initEnhancedPianoRoll() {
     };
 
     roll.addEventListener('pointerdown', e => {
+        if (e.pointerType === 'touch') e.preventDefault();
         const { stepIdx, noteFloat } = getCoords(e);
         seqEnsureNotes();
         const existingNote = state.melody.notes[stepIdx];
@@ -7232,6 +7281,7 @@ function initEnhancedPianoRoll() {
 
     roll.addEventListener('pointermove', e => {
         if (!dragData.active) return;
+        if (e.pointerType === 'touch') e.preventDefault();
         const { stepIdx, noteFloat } = getCoords(e);
         if (!dragData.moved) {
             const dx = Math.abs(e.clientX - dragData.startClientX);
@@ -7807,6 +7857,255 @@ function stopArpActiveNotes(noteObjs) {
     noteObjs.forEach(n => stopArpActiveNote(n.note));
 }
 
+function normalizeArpMode(mode) {
+    const allowed = new Set(['up', 'down', 'upDown', 'random', 'asPlayed']);
+    return allowed.has(mode) ? mode : 'up';
+}
+
+function normalizeArpStepPattern(pattern) {
+    if (!Array.isArray(pattern) || !pattern.length) {
+        return Array.from({ length: 16 }, () => true);
+    }
+    return pattern.map(step => !!step);
+}
+
+function normalizeArpRatchetPattern(pattern) {
+    if (!Array.isArray(pattern) || !pattern.length) {
+        return Array.from({ length: 16 }, () => 1);
+    }
+    return pattern.map(step => {
+        const val = parseInt(step, 10);
+        return Math.max(1, Math.min(4, Number.isFinite(val) ? val : 1));
+    });
+}
+
+function updateArpPresetDesc() {
+    if (!els.arpPresetDesc) return;
+    const pattern = state.arp.stepPattern || [];
+    const stepsOn = pattern.filter(Boolean).length;
+    const prob = Math.round((Number.isFinite(state.arp.probability) ? state.arp.probability : 1) * 100);
+    const avgRatchet = (state.arp.ratchetPattern || []).reduce((a, b) => a + b, 0) / Math.max(1, (state.arp.ratchetPattern || []).length);
+    const ratchetLabel = Number.isFinite(avgRatchet) ? avgRatchet.toFixed(1) : state.arp.ratchet;
+    els.arpPresetDesc.textContent = `Mode ${state.arp.mode} | Oct ${state.arp.octaveRange} ${state.arp.octaveMode} | Prob ${prob}% | Ratchet ${ratchetLabel} | Steps ${stepsOn}/${pattern.length || 0}`;
+}
+
+function setArpStepIndicator(stepIdx) {
+    if (!els.arpStepPattern) return;
+    const checks = els.arpStepPattern.querySelectorAll('input[type="checkbox"][data-step]');
+    if (!checks.length) return;
+    const patternLen = checks.length;
+    const activeIdx = (stepIdx == null) ? -1 : ((stepIdx % patternLen) + patternLen) % patternLen;
+    checks.forEach((input, idx) => {
+        if (idx === activeIdx) {
+            input.classList.add('arp-step-active');
+            input.style.boxShadow = '0 0 0 2px rgba(255, 200, 0, 0.9)';
+        } else {
+            input.classList.remove('arp-step-active');
+            input.style.boxShadow = '';
+        }
+    });
+}
+
+function invalidateArpSequenceCache() {
+    state.arp.sequenceKey = '';
+    state.arp.sequence = [];
+}
+
+function readArpStepPatternFromUI() {
+    if (!els.arpStepPattern) return state.arp.stepPattern;
+    const checks = els.arpStepPattern.querySelectorAll('input[type="checkbox"][data-step]');
+    if (!checks.length) return state.arp.stepPattern;
+    return Array.from(checks).map(input => !!input.checked);
+}
+
+function readArpRatchetPatternFromUI() {
+    if (!els.arpStepPattern) return state.arp.ratchetPattern;
+    const checks = els.arpStepPattern.querySelectorAll('input[type="checkbox"][data-step]');
+    if (!checks.length) return state.arp.ratchetPattern;
+    return Array.from(checks).map(input => {
+        const wrap = input.closest('.arp-step-wrap');
+        const value = wrap?.dataset?.ratchet;
+        const parsed = parseInt(value, 10);
+        return Math.max(1, Math.min(4, Number.isFinite(parsed) ? parsed : 1));
+    });
+}
+
+function writeArpStepPatternToUI(pattern) {
+    if (!els.arpStepPattern) return;
+    const checks = els.arpStepPattern.querySelectorAll('input[type="checkbox"][data-step]');
+    if (!checks.length) return;
+    const data = normalizeArpStepPattern(pattern);
+    checks.forEach((input, idx) => { input.checked = !!data[idx]; });
+}
+
+function writeArpRatchetPatternToUI(pattern) {
+    if (!els.arpStepPattern) return;
+    const checks = els.arpStepPattern.querySelectorAll('input[type="checkbox"][data-step]');
+    if (!checks.length) return;
+    const data = normalizeArpRatchetPattern(pattern);
+    checks.forEach((input, idx) => {
+        const wrap = input.closest('.arp-step-wrap');
+        const value = data[idx] || 1;
+        if (wrap) wrap.dataset.ratchet = String(value);
+        const badge = wrap?.querySelector?.('.arp-step-badge');
+        if (badge) badge.textContent = String(value);
+    });
+}
+
+function syncArpParamsToUI() {
+    if (els.arpMode) els.arpMode.value = state.arp.mode || 'up';
+    if (els.arpOctaveRange) els.arpOctaveRange.value = state.arp.octaveRange || 1;
+    if (els.arpOctaveMode) els.arpOctaveMode.value = state.arp.octaveMode || 'serial';
+    if (els.arpProbability) els.arpProbability.value = Math.round((state.arp.probability || 0) * 100);
+    if (els.arpRatchet) els.arpRatchet.value = state.arp.ratchet || 1;
+    writeArpStepPatternToUI(state.arp.stepPattern);
+    writeArpRatchetPatternToUI(state.arp.ratchetPattern);
+}
+
+function updateArpParams(params = {}) {
+    if (params.mode !== undefined) state.arp.mode = normalizeArpMode(params.mode);
+    if (params.octaveRange !== undefined) {
+        const range = parseInt(params.octaveRange, 10);
+        state.arp.octaveRange = Math.max(1, Math.min(4, Number.isFinite(range) ? range : 1));
+    }
+    if (params.octaveMode !== undefined) {
+        state.arp.octaveMode = params.octaveMode === 'interleaved' ? 'interleaved' : 'serial';
+    }
+    if (params.probability !== undefined) {
+        const prob = Number(params.probability);
+        state.arp.probability = Math.max(0, Math.min(1, Number.isFinite(prob) ? prob : 1));
+    }
+    if (params.ratchet !== undefined) {
+        const ratchet = parseInt(params.ratchet, 10);
+        state.arp.ratchet = Math.max(1, Math.min(4, Number.isFinite(ratchet) ? ratchet : 1));
+    }
+    if (params.ratchetPattern !== undefined) {
+        state.arp.ratchetPattern = normalizeArpRatchetPattern(params.ratchetPattern);
+    }
+    if (params.stepPattern !== undefined) {
+        state.arp.stepPattern = normalizeArpStepPattern(params.stepPattern);
+    }
+    invalidateArpSequenceCache();
+    syncArpParamsToUI();
+    updateArpPresetDesc();
+}
+
+function getArpNoteFloat(noteObj) {
+    if (noteObj && Number.isFinite(noteObj.noteFloat)) return noteObj.noteFloat;
+    if (noteObj && Number.isFinite(noteObj.note)) return noteObj.note;
+    return 60;
+}
+
+function isChromaticScaleActive() {
+    const def = getScaleDefinition();
+    if (!def) return false;
+    if (def.name === 'chromatic') return true;
+    const degrees = def.degrees || [];
+    if (degrees.length !== 12) return false;
+    for (let i = 0; i < 12; i++) {
+        if (Math.abs((degrees[i] ?? 0) - i) > 1e-6) return false;
+    }
+    return true;
+}
+
+function buildArpSequenceKey() {
+    const def = getScaleDefinition();
+    const degrees = def?.degrees ? def.degrees.join(',') : '';
+    const notesKey = (state.arp.notes || []).map(n => getArpNoteFloat(n).toFixed(4)).join('|');
+    return [
+        normalizeArpMode(state.arp.mode),
+        state.arp.octaveRange,
+        state.arp.octaveMode,
+        def?.mode || '',
+        def?.name || '',
+        def?.root ?? '',
+        degrees,
+        notesKey
+    ].join('::');
+}
+
+function shuffleArpNotes(notes) {
+    const arr = notes.slice(0);
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+function sortArpNotesByMode(notes, mode) {
+    if (!notes.length) return [];
+    if (mode === 'asPlayed') return notes.slice(0);
+    if (mode === 'random') return shuffleArpNotes(notes);
+    const ordered = notes.slice(0).sort((a, b) => getArpNoteFloat(a) - getArpNoteFloat(b));
+    if (mode === 'down') return ordered.reverse();
+    if (mode === 'upDown') {
+        if (ordered.length <= 2) return ordered;
+        const down = ordered.slice(1, ordered.length - 1).reverse();
+        return ordered.concat(down);
+    }
+    return ordered;
+}
+
+function expandArpOctaves(notes, octaveRange, octaveMode) {
+    const range = Math.max(1, Math.min(4, parseInt(octaveRange, 10) || 1));
+    if (range === 1) return notes.map(noteObj => ({ baseNoteObj: noteObj, noteFloat: getArpNoteFloat(noteObj) }));
+    const expanded = [];
+    if (octaveMode === 'interleaved') {
+        notes.forEach(noteObj => {
+            const base = getArpNoteFloat(noteObj);
+            for (let o = 0; o < range; o++) {
+                expanded.push({ baseNoteObj: noteObj, noteFloat: base + (o * 12) });
+            }
+        });
+        return expanded;
+    }
+    for (let o = 0; o < range; o++) {
+        const offset = o * 12;
+        notes.forEach(noteObj => {
+            const base = getArpNoteFloat(noteObj);
+            expanded.push({ baseNoteObj: noteObj, noteFloat: base + offset });
+        });
+    }
+    return expanded;
+}
+
+function generateArpSequence() {
+    const baseNotes = state.arp.notes || [];
+    if (!baseNotes.length) return [];
+    const mode = normalizeArpMode(state.arp.mode);
+    const ordered = sortArpNotesByMode(baseNotes, mode);
+    const octaveMode = state.arp.octaveMode === 'interleaved' ? 'interleaved' : 'serial';
+    const expanded = expandArpOctaves(ordered, state.arp.octaveRange, octaveMode);
+    const chromatic = isChromaticScaleActive();
+    return expanded.map(item => {
+        const baseNoteObj = item.baseNoteObj || item;
+        const rawNote = Number.isFinite(item.noteFloat) ? item.noteFloat : getArpNoteFloat(baseNoteObj);
+        const snapped = chromatic ? rawNote : mapMidiNoteToScale(rawNote);
+        const voice = makeVoiceFromNote(snapped);
+        return {
+            baseNoteObj,
+            noteFloat: snapped,
+            note: voice.note,
+            basePb: voice.basePb,
+            color: baseNoteObj.color
+        };
+    });
+}
+
+function getArpSequenceCached(stepIdx) {
+    const key = buildArpSequenceKey();
+    const mode = normalizeArpMode(state.arp.mode);
+    const hadSequence = state.arp.sequence && state.arp.sequence.length;
+    const cycleReset = hadSequence && (stepIdx % state.arp.sequence.length === 0);
+    const keyChanged = key !== state.arp.sequenceKey;
+    if (!hadSequence || keyChanged || (mode === 'random' && cycleReset)) {
+        state.arp.sequence = generateArpSequence();
+        state.arp.sequenceKey = key;
+    }
+    return state.arp.sequence || [];
+}
+
 function arpNoteOn(noteObj, stepMs, stepIdx) {
     if (!state.midi.output) return;
     const chan = state.mpeChannels.shift();
@@ -7814,7 +8113,7 @@ function arpNoteOn(noteObj, stepMs, stepIdx) {
         els.midiStatus.innerText = 'MPE CHANNELS FULL';
         return;
     }
-    const baseM = noteObj.lastM || { pbValue: 8192, slide: 0, press: 90 };
+    const baseM = noteObj.baseNoteObj?.lastM || noteObj.lastM || { pbValue: 8192, slide: 0, press: 90 };
     const basePress = Number.isFinite(baseM.press) ? baseM.press : 90;
     const baseSlide = Number.isFinite(baseM.slide) ? baseM.slide : 0;
     const basePb = Number.isFinite(baseM.pbValue) ? baseM.pbValue : 8192;
@@ -7887,12 +8186,43 @@ function arpNoteOn(noteObj, stepMs, stepIdx) {
 
 function arpStep(stepMsOverride) {
     if (state.fadeState.active) return;
-    if ((!state.arp.enabled && !state.arp.keepHold) || !state.arp.notes.length) return;
+    if ((!state.arp.enabled && !state.arp.keepHold)) return;
+    const sequence = getArpSequenceCached(state.arp.stepIndex);
+    if (!sequence.length) return;
     const stepMs = stepMsOverride || getStepMs();
-    const stepIdx = state.arp.stepIndex % state.arp.notes.length;
-    const noteObj = state.arp.notes[stepIdx];
+    const stepIdx = state.arp.stepIndex;
     state.arp.stepIndex++;
-    arpNoteOn(noteObj, stepMs, stepIdx);
+    setArpStepIndicator(stepIdx);
+    const pattern = state.arp.stepPattern || [];
+    const patternLen = pattern.length || 0;
+    if (patternLen && !pattern[stepIdx % patternLen]) {
+        requestDraw();
+        return;
+    }
+    const probability = Number.isFinite(state.arp.probability) ? state.arp.probability : 1;
+    if (Math.random() >= Math.max(0, Math.min(1, probability))) {
+        requestDraw();
+        return;
+    }
+    const noteObj = sequence[stepIdx % sequence.length];
+    const ratchetPattern = state.arp.ratchetPattern || [];
+    const ratchetLen = ratchetPattern.length || 0;
+    const stepRatchet = ratchetLen ? ratchetPattern[stepIdx % ratchetLen] : state.arp.ratchet;
+    const ratchetCount = Math.max(1, Math.min(4, parseInt(stepRatchet, 10) || 1));
+    if (ratchetCount === 1) {
+        arpNoteOn(noteObj, stepMs, stepIdx);
+        requestDraw();
+        return;
+    }
+    const subStepMs = stepMs / ratchetCount;
+    for (let r = 0; r < ratchetCount; r++) {
+        const offset = r * subStepMs;
+        if (offset <= 0) {
+            arpNoteOn(noteObj, subStepMs, stepIdx);
+        } else {
+            setTimeout(() => arpNoteOn(noteObj, subStepMs, stepIdx), offset);
+        }
+    }
     requestDraw();
 }
 
@@ -7918,6 +8248,15 @@ function syncArpFromUI() {
     state.arp.sync = els.arpSync.value;
     state.arp.bpm = parseInt(els.arpBpm.value, 10) || 120;
     state.arp.latch = els.arpLatch.checked;
+    updateArpParams({
+        mode: els.arpMode ? els.arpMode.value : undefined,
+        octaveRange: els.arpOctaveRange ? els.arpOctaveRange.value : undefined,
+        octaveMode: els.arpOctaveMode ? els.arpOctaveMode.value : undefined,
+        probability: els.arpProbability ? (parseInt(els.arpProbability.value, 10) / 100) : undefined,
+        ratchet: els.arpRatchet ? els.arpRatchet.value : undefined,
+        stepPattern: els.arpStepPattern ? readArpStepPatternFromUI() : undefined,
+        ratchetPattern: els.arpStepPattern ? readArpRatchetPatternFromUI() : undefined
+    });
     updateArpTiming();
     updateArpControlsUI();
     if (!state.arp.enabled && !state.arp.keepHold) {
@@ -7926,6 +8265,7 @@ function syncArpFromUI() {
         stopAllArpNotes();
         state.arp.notes = [];
         state.arpHoldTouches = [];
+        setArpStepIndicator(null);
         return;
     }
     if (!wasEnabled && els.holdNotes.checked && state.heldVoices.length) {
@@ -10068,6 +10408,43 @@ function bindUI() {
         restartMelodyGenerator();
     };
     els.arpLatch.onchange = syncArpFromUI;
+    if (els.arpMode) els.arpMode.onchange = syncArpFromUI;
+    if (els.arpOctaveRange) els.arpOctaveRange.onchange = syncArpFromUI;
+    if (els.arpOctaveMode) els.arpOctaveMode.onchange = syncArpFromUI;
+    if (els.arpProbability) {
+        els.arpProbability.oninput = () => {
+            syncArpFromUI();
+            updateRangeProgress(els.arpProbability);
+        };
+    }
+    if (els.arpRatchet) {
+        els.arpRatchet.onchange = () => {
+            const value = parseInt(els.arpRatchet.value, 10) || 1;
+            updateArpParams({ ratchet: value, ratchetPattern: Array.from({ length: 16 }, () => value) });
+        };
+    }
+    if (els.arpRatchetReset) {
+        els.arpRatchetReset.onclick = () => {
+            updateArpParams({ ratchetPattern: Array.from({ length: 16 }, () => 1) });
+        };
+    }
+    if (els.arpStepPattern) {
+        els.arpStepPattern.addEventListener('change', () => {
+            updateArpParams({ stepPattern: readArpStepPatternFromUI() });
+        });
+        els.arpStepPattern.addEventListener('click', (e) => {
+            const target = e.target;
+            if (!(target instanceof HTMLElement)) return;
+            if (!target.classList.contains('arp-step-badge')) return;
+            const wrap = target.closest('.arp-step-wrap');
+            if (!wrap) return;
+            const current = parseInt(wrap.dataset.ratchet || '1', 10);
+            const next = (Number.isFinite(current) ? current : 1) % 4 + 1;
+            wrap.dataset.ratchet = String(next);
+            target.textContent = String(next);
+            updateArpParams({ ratchetPattern: readArpRatchetPatternFromUI() });
+        });
+    }
     const toggleMelody = () => {
         state.melody.enabled = !state.melody.enabled;
         updateMelodyToggleUI();

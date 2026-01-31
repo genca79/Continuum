@@ -663,6 +663,7 @@
                         <option value="Odd7Wide">Odd 7 Wide (1/14)</option>
                         <option value="Odd9Wide">Odd 9 Wide (1/18)</option>
                     </select>
+                    <div id="arpPresetDesc" style="font-size:9px; color:#8a8a8a; margin-top:4px;">&nbsp;</div>
                 </div>
                 <div class="box" style="max-width:100px;"><label>Gate</label><input type="range" id="arpGate" min="10" max="100" value="60" data-param="arpGate"></div>
                 <div class="box" style="max-width:100px;"><label>Sync</label><select id="arpSync" data-param="arpSync">
@@ -670,6 +671,52 @@
                     <option value="midi">MIDI</option>
                 </select></div>
                 <div class="box" style="max-width:100px;"><label>BPM</label><input type="number" id="arpBpm" min="40" max="300" value="120" data-param="arpBpm"></div>
+                <div class="box" style="max-width:120px;"><label>Mode</label><select id="arpMode">
+                    <option value="up" selected>Up</option>
+                    <option value="down">Down</option>
+                    <option value="upDown">Up/Down</option>
+                    <option value="random">Random</option>
+                    <option value="asPlayed">As Played</option>
+                </select></div>
+                <div class="box" style="max-width:100px;"><label>Oct Range</label><input type="number" id="arpOctaveRange" min="1" max="4" value="1"></div>
+                <div class="box" style="max-width:120px;"><label>Oct Mode</label><select id="arpOctaveMode">
+                    <option value="serial" selected>Serial</option>
+                    <option value="interleaved">Interleaved</option>
+                </select></div>
+                <div class="box" style="max-width:120px;"><label title="Probability per step: 100% plays every step, lower values randomly mute steps.">Prob</label><input type="range" id="arpProbability" min="0" max="100" value="100" title="Probability per step: 100% plays every step, lower values randomly mute steps."></div>
+                <div class="box" style="max-width:100px;">
+                    <label title="Ratchet repeats the note within the same step (stutter/roll).">Ratchet</label>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <select id="arpRatchet" title="Ratchet repeats the note within the same step (stutter/roll).">
+                    <option value="1" selected>1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                        </select>
+                        <button id="arpRatchetReset" class="menu-btn" style="min-width:26px; padding:0 6px;" title="Reset ratchet pattern to 1">R</button>
+                    </div>
+                </div>
+                <div class="box" style="min-width:220px;">
+                    <label>Step Pattern</label>
+                    <div id="arpStepPattern" style="display:grid; grid-template-columns: repeat(8, 24px); gap:8px; padding-top:6px;">
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="0" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="1" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="2" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="3" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="4" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="5" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="6" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="7" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="8" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="9" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="10" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="11" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="12" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="13" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="14" checked></div>
+                        <div class="arp-step-wrap"><span class="arp-step-badge" title="Tap to cycle ratchet (1-4)">1</span><input type="checkbox" class="arp-step" data-step="15" checked></div>
+                    </div>
+                </div>
                 <div class="box" style="max-width:140px;">
                     <label>Humanize su ARP</label>
                     <input type="checkbox" id="melodyHumanApplyArp">
