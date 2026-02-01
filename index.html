@@ -379,7 +379,7 @@
             </div>
             <div class="box" style="max-width:90px;">
                 <label>Length</label>
-                <input type="number" id="melodyLength" min="4" max="64" value="16">
+                <input type="number" id="melodyLength" min="4" max="512" value="16">
             </div>
             <div class="box" style="max-width:120px;">
                 <label>Density</label>
@@ -405,6 +405,13 @@
                     <option value="leading">Leading</option>
                     <option value="none">None</option>
                 </select>
+            </div>
+            <div class="box" style="max-width:160px;">
+                <label>Poly Gen</label>
+                <input type="checkbox" id="melodyPolyGen">
+                <div style="height:6px"></div>
+                <label>Chord %</label>
+                <input type="range" id="melodyPolyChance" min="0" max="100" step="1" value="35">
             </div>
         </div>
 
@@ -479,6 +486,23 @@
                 <label>Scroll</label>
                 <input type="range" id="melodyRollScroll" min="-24" max="24" step="1" value="0">
             </div>
+            <div class="box melody-page-box" style="min-width:210px;">
+                <label>Page</label>
+                <div class="melody-page-controls">
+                    <button id="melodyPagePrev" type="button" class="melody-page-btn">‹</button>
+                    <span id="melodyPageLabel" class="melody-page-label">Page 1/1 (1-1)</span>
+                    <button id="melodyPageNext" type="button" class="melody-page-btn">›</button>
+                    <button id="melodyPageGo" type="button" class="melody-page-btn">Go</button>
+                    <select id="melodyPageSize" class="melody-page-size">
+                        <option value="32">32</option>
+                        <option value="64" selected>64</option>
+                        <option value="128">128</option>
+                        <option value="256">256</option>
+                        <option value="512">512</option>
+                        <option value="1024">1024</option>
+                    </select>
+                </div>
+            </div>
         </div>
         <div class="ui-group-inline">
             <div class="box melody-roll-box">
@@ -544,6 +568,30 @@
                     <div class="param-effective" id="melodyHumanPitchEff">Effective: 0</div>
                 </div>
                 <div class="box" style="max-width:140px;">
+                    <label>Phrase Shape</label>
+                    <input type="range" id="melodyHumanPhrase" min="0" max="100" step="1" value="30">
+                    <div class="param-effective" id="melodyHumanPhraseEff">Effective: 0</div>
+                </div>
+                <div class="box" style="max-width:140px;">
+                    <label>Accent</label>
+                    <input type="range" id="melodyHumanAccent" min="0" max="100" step="1" value="25">
+                    <div class="param-effective" id="melodyHumanAccentEff">Effective: 0</div>
+                </div>
+                <div class="box" style="max-width:140px;">
+                    <label>Length Rand</label>
+                    <input type="range" id="melodyHumanLengthRand" min="0" max="40" step="1" value="10">
+                    <div class="param-effective" id="melodyHumanLengthRandEff">Effective: 0</div>
+                </div>
+                <div class="box" style="max-width:160px;">
+                    <label>Humanize Preset</label>
+                    <select id="melodyHumanPreset">
+                        <option value="dry">Dry</option>
+                        <option value="musical" selected>Musical</option>
+                        <option value="expressive">Expressive</option>
+                    </select>
+                    <div class="param-effective" id="melodyHumanPresetEff">Effective: Musical</div>
+                </div>
+                <div class="box" style="max-width:140px;">
                     <label>Y virtual motion</label>
                     <input type="range" id="melodyHumanYMotion" min="0" max="100" step="1" value="100">
                     <div class="param-effective" id="melodyHumanYMotionEff">Effective: 0</div>
@@ -562,8 +610,20 @@
         <div class="ui-subtab-content" data-subtab-content="melody-import">
             <div class="ui-group-inline">
                 <div class="box" style="min-width:240px;">
-                    <label>Import WAV (melody)</label>
+                    <label>Import WAV/MXL/MID (melody)</label>
                     <input type="file" id="melodyImportFile" accept=".wav,audio/wav,.mid,.midi,audio/midi,.xml,.musicxml,application/xml,.mxl">
+                    <label>Part</label>
+                    <select id="melodyImportPart">
+                        <option value="">(single)</option>
+                    </select>
+                    <label class="melody-import-all">
+                        <input type="checkbox" id="melodyImportAllParts">
+                        Import all parts
+                    </label>
+                </div>
+                <div class="box" style="max-width:160px;">
+                    <label>Export</label>
+                    <button id="melodyExportBtn" class="menu-btn btn-accent">EXPORT XML</button>
                 </div>
                 <div class="box" style="max-width:160px;">
                     <label>Import</label>
@@ -576,10 +636,15 @@
                         <option value="semitone">Semitone</option>
                         <option value="scale">Scale</option>
                     </select>
+                    <label class="melody-import-all">
+                        <input type="checkbox" id="melodyImportUseXmlTiming" checked>
+                        Use XML timing
+                    </label>
                 </div>
                 <div class="box" style="min-width:220px;">
                     <label>Status</label>
                     <div id="melodyImportStatus" style="font-size:11px; color:#9aa;">Idle</div>
+                    <div id="melodyImportMeta" style="font-size:11px; color:#9aa; margin-top:4px;">Tempo: -- | Time: --</div>
                 </div>
             </div>
             <div class="ui-group-inline">

@@ -477,6 +477,39 @@ body {
 .melody-roll-tools {
     align-items: flex-end;
 }
+.melody-page-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.melody-page-label {
+    font-size: 11px;
+    color: #b7c1cc;
+    min-width: 110px;
+    text-align: center;
+}
+.melody-page-btn {
+    min-width: 26px;
+    height: 24px;
+    line-height: 22px;
+    padding: 0 6px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+.melody-page-size {
+    height: 24px;
+    font-size: 11px;
+    padding: 0 6px;
+}
+.melody-import-all {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #b7c1cc;
+    margin-top: 6px;
+}
 .melody-save-inline {
     display: flex;
     gap: 6px;
