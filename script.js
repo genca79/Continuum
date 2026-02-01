@@ -245,7 +245,7 @@ const els = {
     melodyImportFile: document.getElementById('melodyImportFile'),
     melodyImportPart: document.getElementById('melodyImportPart'),
     melodyImportAllParts: document.getElementById('melodyImportAllParts'),
-    melodyImportUseXmlTiming: document.getElementById('melodyImportUseXmlTiming'),
+    melodyImportIgnoreXmlKey: document.getElementById('melodyImportIgnoreXmlKey'),
     melodyImportBtn: document.getElementById('melodyImportBtn'),
     melodyExportBtn: document.getElementById('melodyExportBtn'),
     melodyImportMeta: document.getElementById('melodyImportMeta'),
@@ -8997,6 +8997,14 @@ function snapImportedMelodyNotes(notes) {
     return notes;
 }
 
+function snapNotesToCurrentScale(notes) {
+    if (!Array.isArray(notes)) return notes;
+    return notes.map(n => {
+        if (Array.isArray(n)) return n.map(v => (Number.isFinite(v) ? getNearestScaleNote(v) : v));
+        return Number.isFinite(n) ? getNearestScaleNote(n) : n;
+    });
+}
+
 function normalizeMelodyNotes(notes) {
     if (!Array.isArray(notes)) return [];
     return notes.map(step => {
@@ -9309,6 +9317,7 @@ function parseMusicXmlToMelody(xmlText, options = {}) {
     let keySignature = null;
     let divisions = 1;
     let timeDivs = 0;
+    let maxTimeDivs = 0;
     let currentVelocity = 80;
     const events = [];
     const parts = extractMusicXmlParts(xml);
@@ -9319,7 +9328,6 @@ function parseMusicXmlToMelody(xmlText, options = {}) {
     const selectedParts = importAll
         ? partNodes
         : [partNodes.find(p => p.getAttribute('id') === requestedPartId) || partNodes[0] || xml];
-    const measures = selectedParts.flatMap(p => Array.from(p.getElementsByTagName('measure')));
     const tempoMap = [];
     const timeSignatures = [];
     const clefs = [];
@@ -9328,169 +9336,207 @@ function parseMusicXmlToMelody(xmlText, options = {}) {
     const wedgeSegments = [];
     let wedgeActive = null;
     const timeMods = [];
-    measures.forEach(measure => {
-        Array.from(measure.childNodes).forEach(node => {
-            if (node.nodeType !== 1) return;
-            if (node.nodeName === 'attributes') {
-                const divNode = node.querySelector('divisions');
-                if (divNode) {
-                    const div = parseInt(divNode.textContent, 10);
-                    if (Number.isFinite(div) && div > 0) divisions = div;
-                }
-                const keyNode = node.querySelector('key');
-                if (keyNode) {
-                    const fifths = parseInt(keyNode.querySelector('fifths')?.textContent || '0', 10);
-                    const mode = (keyNode.querySelector('mode')?.textContent || 'major').toLowerCase();
-                    if (Number.isFinite(fifths)) {
-                        keySignature = { fifths, mode };
+    selectedParts.forEach(partNode => {
+        timeDivs = 0;
+        currentVelocity = 80;
+        pedalDown = false;
+        wedgeActive = null;
+        const measures = Array.from(partNode.getElementsByTagName('measure'));
+        measures.forEach(measure => {
+            Array.from(measure.childNodes).forEach(node => {
+                if (node.nodeType !== 1) return;
+                if (node.nodeName === 'attributes') {
+                    const divNode = node.querySelector('divisions');
+                    if (divNode) {
+                        const div = parseInt(divNode.textContent, 10);
+                        if (Number.isFinite(div) && div > 0) divisions = div;
                     }
-                }
-                const timeNode = node.querySelector('time');
-                if (timeNode) {
-                    const beats = parseInt(timeNode.querySelector('beats')?.textContent || '4', 10);
-                    const beatType = parseInt(timeNode.querySelector('beat-type')?.textContent || '4', 10);
-                    if (Number.isFinite(beats) && Number.isFinite(beatType)) {
-                        timeSignatures.push({ timeDivs, beats, beatType });
+                    const keyNode = node.querySelector('key');
+                    if (keyNode) {
+                        const fifths = parseInt(keyNode.querySelector('fifths')?.textContent || '0', 10);
+                        const mode = (keyNode.querySelector('mode')?.textContent || 'major').toLowerCase();
+                        if (Number.isFinite(fifths)) {
+                            keySignature = { fifths, mode };
+                        }
                     }
+                    const timeNode = node.querySelector('time');
+                    if (timeNode) {
+                        const beats = parseInt(timeNode.querySelector('beats')?.textContent || '4', 10);
+                        const beatType = parseInt(timeNode.querySelector('beat-type')?.textContent || '4', 10);
+                        if (Number.isFinite(beats) && Number.isFinite(beatType)) {
+                            timeSignatures.push({ timeDivs, beats, beatType });
+                        }
+                    }
+                    const clefNode = node.querySelector('clef');
+                    if (clefNode) {
+                        const sign = clefNode.querySelector('sign')?.textContent || '';
+                        const line = parseInt(clefNode.querySelector('line')?.textContent || '0', 10);
+                        clefs.push({ timeDivs, sign, line });
+                    }
+                    return;
                 }
-                const clefNode = node.querySelector('clef');
-                if (clefNode) {
-                    const sign = clefNode.querySelector('sign')?.textContent || '';
-                    const line = parseInt(clefNode.querySelector('line')?.textContent || '0', 10);
-                    clefs.push({ timeDivs, sign, line });
+                if (node.nodeName === 'direction') {
+                    const sound = node.querySelector('sound');
+                    if (sound) {
+                        const t = parseFloat(sound.getAttribute('tempo'));
+                        if (Number.isFinite(t) && t > 0) tempoMap.push({ timeDivs, bpm: t });
+                        const dyn = parseFloat(sound.getAttribute('dynamics'));
+                        if (Number.isFinite(dyn)) currentVelocity = Math.max(1, Math.min(127, Math.round(dyn)));
+                    }
+                    const dynNode = node.querySelector('direction-type dynamics');
+                    if (dynNode) {
+                        const dynMark = dynNode.children?.[0]?.tagName || '';
+                        currentVelocity = mapMusicXmlDynamicToVelocity(dynMark);
+                    }
+                    const wedge = node.querySelector('direction-type wedge');
+                    if (wedge) {
+                        const type = (wedge.getAttribute('type') || '').toLowerCase();
+                        if (type === 'crescendo' || type === 'diminuendo') {
+                            wedgeActive = { type, startDivs: timeDivs, startVelocity: currentVelocity };
+                        } else if (type === 'stop' && wedgeActive) {
+                            wedgeSegments.push({
+                                ...wedgeActive,
+                                endDivs: timeDivs
+                            });
+                            wedgeActive = null;
+                        }
+                    }
+                    const ped = node.querySelector('pedal');
+                    if (ped) {
+                        const type = ped.getAttribute('type') || '';
+                        pedal.push({ timeDivs, type });
+                        if (type.toLowerCase() === 'start' || type.toLowerCase() === 'down') {
+                            pedalDown = true;
+                        }
+                        if (type.toLowerCase() === 'stop' || type.toLowerCase() === 'up') {
+                            pedalDown = false;
+                        }
+                    }
+                    return;
                 }
-                return;
-            }
-            if (node.nodeName === 'direction') {
-                const sound = node.querySelector('sound');
-                if (sound) {
-                    const t = parseFloat(sound.getAttribute('tempo'));
-                    if (Number.isFinite(t) && t > 0) tempoMap.push({ timeDivs, bpm: t });
-                    const dyn = parseFloat(sound.getAttribute('dynamics'));
-                    if (Number.isFinite(dyn)) currentVelocity = Math.max(1, Math.min(127, Math.round(dyn)));
+                if (node.nodeName === 'backup' || node.nodeName === 'forward') {
+                    const durNode = node.querySelector('duration');
+                    const dur = durNode ? parseInt(durNode.textContent, 10) : 0;
+                    if (node.nodeName === 'backup') timeDivs -= Math.max(0, dur);
+                    else timeDivs += Math.max(0, dur);
+                    return;
                 }
-                const dynNode = node.querySelector('direction-type dynamics');
+                if (node.nodeName !== 'note') return;
+                const isRest = node.getElementsByTagName('rest').length > 0;
+                const isChord = node.getElementsByTagName('chord').length > 0;
+                const tieNodes = Array.from(node.getElementsByTagName('tie'));
+                const hasTieStart = tieNodes.some(t => (t.getAttribute('type') || '').toLowerCase() === 'start');
+                const hasTieStop = tieNodes.some(t => (t.getAttribute('type') || '').toLowerCase() === 'stop');
+                const durNode = node.getElementsByTagName('duration')[0];
+                const dur = durNode ? parseInt(durNode.textContent, 10) : 0;
+                const pitchNode = node.getElementsByTagName('pitch')[0];
+                let note = null;
+                if (!isRest && pitchNode) {
+                    const step = pitchNode.getElementsByTagName('step')[0]?.textContent || 'C';
+                    const alterRaw = pitchNode.getElementsByTagName('alter')[0]?.textContent || '0';
+                    const alter = parseFloat(alterRaw);
+                    const octave = parseInt(pitchNode.getElementsByTagName('octave')[0]?.textContent || '4', 10);
+                    const stepMap = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+                    const base = stepMap[String(step).toUpperCase()] ?? 0;
+                    const acc = Number.isFinite(alter) ? alter : 0;
+                    const midi = (octave + 1) * 12 + base + acc;
+                    if (Number.isFinite(midi)) note = Math.max(0, Math.min(127, midi));
+                }
+                const noteSound = node.querySelector('sound');
+                let velocity = currentVelocity;
+                const velocityAttr = noteSound?.getAttribute('velocity');
+                if (velocityAttr != null) {
+                    const v = parseFloat(velocityAttr);
+                    if (Number.isFinite(v)) velocity = Math.max(1, Math.min(127, Math.round(v)));
+                }
+                const dynNode = node.querySelector('dynamics');
                 if (dynNode) {
                     const dynMark = dynNode.children?.[0]?.tagName || '';
-                    currentVelocity = mapMusicXmlDynamicToVelocity(dynMark);
+                    velocity = mapMusicXmlDynamicToVelocity(dynMark);
                 }
-                const wedge = node.querySelector('direction-type wedge');
-                if (wedge) {
-                    const type = (wedge.getAttribute('type') || '').toLowerCase();
-                    if (type === 'crescendo' || type === 'diminuendo') {
-                        wedgeActive = { type, startDivs: timeDivs, startVelocity: currentVelocity };
-                    } else if (type === 'stop' && wedgeActive) {
-                        wedgeSegments.push({
-                            ...wedgeActive,
-                            endDivs: timeDivs
-                        });
-                        wedgeActive = null;
+                let gateScale = 1;
+                let slurFlag = false;
+                const notations = node.querySelector('notations');
+                if (notations) {
+                    const articulations = notations.querySelector('articulations');
+                    if (articulations) {
+                        if (articulations.querySelector('staccato')) gateScale *= 0.55;
+                        if (articulations.querySelector('tenuto')) gateScale *= 1.2;
+                        if (articulations.querySelector('accent')) velocity = Math.min(127, velocity + 18);
+                    }
+                    const slur = notations.querySelector('slur');
+                    if (slur) {
+                        gateScale *= 1.15;
+                        slurFlag = true;
+                    }
+                    const ornaments = notations.querySelector('ornaments');
+                    if (ornaments) gateScale *= 0.9;
+                }
+                if (hasTieStart) gateScale *= 1.25;
+                const timeMod = node.querySelector('time-modification');
+                if (timeMod) {
+                    const actual = parseInt(timeMod.querySelector('actual-notes')?.textContent || '0', 10);
+                    const normal = parseInt(timeMod.querySelector('normal-notes')?.textContent || '0', 10);
+                    if (Number.isFinite(actual) && Number.isFinite(normal) && actual > 0 && normal > 0) {
+                        const ratio = normal / actual;
+                        gateScale *= Math.max(0.5, Math.min(1.2, ratio));
+                        timeMods.push({ timeDivs, actual, normal });
                     }
                 }
-                const ped = node.querySelector('pedal');
-                if (ped) {
-                    const type = ped.getAttribute('type') || '';
-                    pedal.push({ timeDivs, type });
-                    if (type.toLowerCase() === 'start' || type.toLowerCase() === 'down') {
-                        pedalDown = true;
-                    }
-                    if (type.toLowerCase() === 'stop' || type.toLowerCase() === 'up') {
-                        pedalDown = false;
-                    }
+                const lyricText = node.querySelector('lyric text')?.textContent?.trim() || null;
+                const ornamentFlag = !!node.querySelector('ornaments');
+                if (note != null && (!hasTieStop || hasTieStart)) {
+                    events.push({
+                        timeDivs,
+                        note,
+                        velocity,
+                        gateScale,
+                        ornament: ornamentFlag,
+                        lyric: lyricText,
+                        durationDivs: Math.max(0, dur),
+                        sustain: pedalDown,
+                        legato: hasTieStart || slurFlag
+                    });
                 }
-                return;
-            }
-            if (node.nodeName === 'backup' || node.nodeName === 'forward') {
-                const durNode = node.querySelector('duration');
-                const dur = durNode ? parseInt(durNode.textContent, 10) : 0;
-                if (node.nodeName === 'backup') timeDivs -= Math.max(0, dur);
-                else timeDivs += Math.max(0, dur);
-                return;
-            }
-            if (node.nodeName !== 'note') return;
-            const isRest = node.getElementsByTagName('rest').length > 0;
-            const isChord = node.getElementsByTagName('chord').length > 0;
-            const tieNodes = Array.from(node.getElementsByTagName('tie'));
-            const hasTieStart = tieNodes.some(t => (t.getAttribute('type') || '').toLowerCase() === 'start');
-            const hasTieStop = tieNodes.some(t => (t.getAttribute('type') || '').toLowerCase() === 'stop');
-            const durNode = node.getElementsByTagName('duration')[0];
-            const dur = durNode ? parseInt(durNode.textContent, 10) : 0;
-            const pitchNode = node.getElementsByTagName('pitch')[0];
-            let note = null;
-            if (!isRest && pitchNode) {
-                const step = pitchNode.getElementsByTagName('step')[0]?.textContent || 'C';
-                const alter = parseInt(pitchNode.getElementsByTagName('alter')[0]?.textContent || '0', 10);
-                const octave = parseInt(pitchNode.getElementsByTagName('octave')[0]?.textContent || '4', 10);
-                const name = `${step}${alter === 1 ? '#' : alter === -1 ? 'b' : ''}${octave}`;
-                const midi = parseNoteName(name);
-                if (Number.isFinite(midi)) note = midi;
-            }
-            const noteSound = node.querySelector('sound');
-            let velocity = currentVelocity;
-            const velocityAttr = noteSound?.getAttribute('velocity');
-            if (velocityAttr != null) {
-                const v = parseFloat(velocityAttr);
-                if (Number.isFinite(v)) velocity = Math.max(1, Math.min(127, Math.round(v)));
-            }
-            const dynNode = node.querySelector('dynamics');
-            if (dynNode) {
-                const dynMark = dynNode.children?.[0]?.tagName || '';
-                velocity = mapMusicXmlDynamicToVelocity(dynMark);
-            }
-            let gateScale = 1;
-            let slurFlag = false;
-            const notations = node.querySelector('notations');
-            if (notations) {
-                const articulations = notations.querySelector('articulations');
-                if (articulations) {
-                    if (articulations.querySelector('staccato')) gateScale *= 0.55;
-                    if (articulations.querySelector('tenuto')) gateScale *= 1.2;
-                    if (articulations.querySelector('accent')) velocity = Math.min(127, velocity + 18);
-                }
-                const slur = notations.querySelector('slur');
-                if (slur) {
-                    gateScale *= 1.15;
-                    slurFlag = true;
-                }
-                const ornaments = notations.querySelector('ornaments');
-                if (ornaments) gateScale *= 0.9;
-            }
-            if (hasTieStart) gateScale *= 1.25;
-            const timeMod = node.querySelector('time-modification');
-            if (timeMod) {
-                const actual = parseInt(timeMod.querySelector('actual-notes')?.textContent || '0', 10);
-                const normal = parseInt(timeMod.querySelector('normal-notes')?.textContent || '0', 10);
-                if (Number.isFinite(actual) && Number.isFinite(normal) && actual > 0 && normal > 0) {
-                    const ratio = normal / actual;
-                    gateScale *= Math.max(0.5, Math.min(1.2, ratio));
-                    timeMods.push({ timeDivs, actual, normal });
-                }
-            }
-            const lyricText = node.querySelector('lyric text')?.textContent?.trim() || null;
-            const ornamentFlag = !!node.querySelector('ornaments');
-            if (note != null && !hasTieStop) {
-                events.push({
-                    timeDivs,
-                    note,
-                    velocity,
-                    gateScale,
-                    ornament: ornamentFlag,
-                    lyric: lyricText,
-                    durationDivs: Math.max(0, dur),
-                    sustain: pedalDown,
-                    legato: hasTieStart || slurFlag
-                });
-            }
-            if (!isChord) timeDivs += Math.max(0, dur);
+                if (!isChord) timeDivs += Math.max(0, dur);
+            });
         });
+        if (timeDivs > maxTimeDivs) maxTimeDivs = timeDivs;
     });
     if (wedgeActive) {
-        wedgeSegments.push({ ...wedgeActive, endDivs: timeDivs });
+        wedgeSegments.push({ ...wedgeActive, endDivs: maxTimeDivs });
     }
     if (!tempoMap.length) {
         tempoMap.push({ timeDivs: 0, bpm: initialBpm });
     }
     tempoMap.sort((a, b) => a.timeDivs - b.timeDivs);
+    // Deduplicate tempo entries by timeDivs (keep last)
+    const tempoDeduped = [];
+    tempoMap.forEach(entry => {
+        const last = tempoDeduped[tempoDeduped.length - 1];
+        if (last && last.timeDivs === entry.timeDivs) {
+            tempoDeduped[tempoDeduped.length - 1] = entry;
+        } else {
+            tempoDeduped.push(entry);
+        }
+    });
+    tempoMap.length = 0;
+    tempoDeduped.forEach(t => tempoMap.push(t));
+    // Deduplicate time signatures/clefs (keep first per timeDivs)
+    const sigDeduped = new Map();
+    timeSignatures.forEach(sig => {
+        const key = `${sig.timeDivs}:${sig.beats}:${sig.beatType}`;
+        if (!sigDeduped.has(key)) sigDeduped.set(key, sig);
+    });
+    timeSignatures.length = 0;
+    sigDeduped.forEach(sig => timeSignatures.push(sig));
+    const clefDeduped = new Map();
+    clefs.forEach(c => {
+        const key = `${c.timeDivs}:${c.sign}:${c.line}`;
+        if (!clefDeduped.has(key)) clefDeduped.set(key, c);
+    });
+    clefs.length = 0;
+    clefDeduped.forEach(c => clefs.push(c));
     const computeSecondsFromDivs = (targetDivs) => {
         let seconds = 0;
         let lastDivs = 0;
@@ -9526,7 +9572,17 @@ function parseMusicXmlToMelody(xmlText, options = {}) {
     let built = null;
     if (useVariableRate) {
         const safeQuarterDivs = divisions || 1;
-        const uniqueTimes = Array.from(new Set(events.map(ev => ev.timeDivs))).sort((a, b) => a - b);
+        // Build boundary times from note onsets + note ends + start/end to preserve rests
+        const boundarySet = new Set();
+        boundarySet.add(0);
+        boundarySet.add(maxTimeDivs);
+        events.forEach(ev => {
+            boundarySet.add(ev.timeDivs);
+            if (Number.isFinite(ev.durationDivs)) {
+                boundarySet.add(ev.timeDivs + Math.max(0, ev.durationDivs));
+            }
+        });
+        const uniqueTimes = Array.from(boundarySet).filter(v => Number.isFinite(v)).sort((a, b) => a - b);
         const stepIndexByTime = new Map();
         uniqueTimes.forEach((t, idx) => stepIndexByTime.set(t, idx));
         const maxSteps = 1024;
@@ -9546,6 +9602,10 @@ function parseMusicXmlToMelody(xmlText, options = {}) {
             list.push(ev);
             map.set(idx, list);
         });
+        // Ensure time slots for rests (no events) still exist
+        for (let i = 0; i < length; i += 1) {
+            if (!map.has(i)) map.set(i, []);
+        }
         map.forEach((list, step) => {
             const pitches = list.map(ev => ev.note).sort((a, b) => a - b);
             notes[step] = pitches.length === 1 ? pitches[0] : pitches;
@@ -9583,7 +9643,7 @@ function parseMusicXmlToMelody(xmlText, options = {}) {
                 ? Math.max(0.01, computeSecondsFromDivs(ev.timeDivs + ev.durationDivs) - computeSecondsFromDivs(ev.timeDivs))
                 : null
         }));
-        const totalDurationSec = computeSecondsFromDivs(timeDivs);
+    const totalDurationSec = computeSecondsFromDivs(maxTimeDivs);
         built = buildMelodyFromTimedEvents(timedEvents, initialBpm, 1024, totalDurationSec);
     }
     const meta = {
@@ -12114,34 +12174,40 @@ function bindUI() {
                     const partId = els.melodyImportPart?.value || null;
                     const allParts = !!els.melodyImportAllParts?.checked;
                     const text = extractMusicXmlTextFromMxl(arrayBuf);
-                    const useTiming = els.melodyImportUseXmlTiming?.checked !== false;
-                    const result = parseMusicXmlToMelody(text, { partId, allParts, variableRate: useTiming });
+                    const result = parseMusicXmlToMelody(text, { partId, allParts, variableRate: false });
                     const notes = Array.isArray(result) ? result : result?.notes;
-                    if (result?.keySignature) applyMusicXmlKeySignature(result.keySignature);
+                    if (result?.keySignature && !els.melodyImportIgnoreXmlKey?.checked) {
+                        applyMusicXmlKeySignature(result.keySignature);
+                    }
+                    const ignoreXmlKey = !!els.melodyImportIgnoreXmlKey?.checked;
                     if (result?.meta?.parts?.length) populateMusicXmlPartSelect(result.meta.parts);
                     updateMusicXmlMetaUI(result?.meta || null);
                     if (result?.meta?.tempoMap?.length) {
                         const bpm = result.meta.tempoMap[0]?.bpm;
                         if (Number.isFinite(bpm) && els.arpBpm) els.arpBpm.value = Math.round(bpm);
                     }
-                    applyImportedMelody(notes, els.melodyImportStatus, 'Imported MXL', result?.features, result?.meta);
+                    const adjustedNotes = ignoreXmlKey ? snapNotesToCurrentScale(notes) : notes;
+                    applyImportedMelody(adjustedNotes, els.melodyImportStatus, 'Imported MXL', result?.features, result?.meta);
                     return;
                 }
                 if (type === 'musicxml') {
                     const text = await file.text();
                     const partId = els.melodyImportPart?.value || null;
                     const allParts = !!els.melodyImportAllParts?.checked;
-                    const useTiming = els.melodyImportUseXmlTiming?.checked !== false;
-                    const result = parseMusicXmlToMelody(text, { partId, allParts, variableRate: useTiming });
+                    const result = parseMusicXmlToMelody(text, { partId, allParts, variableRate: false });
                     const notes = Array.isArray(result) ? result : result?.notes;
-                    if (result?.keySignature) applyMusicXmlKeySignature(result.keySignature);
+                    if (result?.keySignature && !els.melodyImportIgnoreXmlKey?.checked) {
+                        applyMusicXmlKeySignature(result.keySignature);
+                    }
+                    const ignoreXmlKey = !!els.melodyImportIgnoreXmlKey?.checked;
                     if (result?.meta?.parts?.length) populateMusicXmlPartSelect(result.meta.parts);
                     updateMusicXmlMetaUI(result?.meta || null);
                     if (result?.meta?.tempoMap?.length) {
                         const bpm = result.meta.tempoMap[0]?.bpm;
                         if (Number.isFinite(bpm) && els.arpBpm) els.arpBpm.value = Math.round(bpm);
                     }
-                    applyImportedMelody(notes, els.melodyImportStatus, 'Imported MusicXML', result?.features, result?.meta);
+                    const adjustedNotes = ignoreXmlKey ? snapNotesToCurrentScale(notes) : notes;
+                    applyImportedMelody(adjustedNotes, els.melodyImportStatus, 'Imported MusicXML', result?.features, result?.meta);
                     return;
                 }
                 const arrayBuf = await file.arrayBuffer();
@@ -12173,7 +12239,7 @@ function bindUI() {
                 const xml = new DOMParser().parseFromString(text, 'application/xml');
                 const parts = extractMusicXmlParts(xml);
                 populateMusicXmlPartSelect(parts);
-                const preview = parseMusicXmlToMelody(text, { partId: parts[0]?.id || null });
+                const preview = parseMusicXmlToMelody(text, { partId: parts[0]?.id || null, variableRate: false });
                 updateMusicXmlMetaUI(preview?.meta || null);
                 if (els.melodyImportAllParts) {
                     els.melodyImportAllParts.disabled = parts.length <= 1;
@@ -12188,7 +12254,7 @@ function bindUI() {
                     const xml = new DOMParser().parseFromString(text, 'application/xml');
                     const parts = extractMusicXmlParts(xml);
                     populateMusicXmlPartSelect(parts);
-                    const preview = parseMusicXmlToMelody(text, { partId: parts[0]?.id || null });
+                    const preview = parseMusicXmlToMelody(text, { partId: parts[0]?.id || null, variableRate: false });
                     updateMusicXmlMetaUI(preview?.meta || null);
                     if (els.melodyImportAllParts) {
                         els.melodyImportAllParts.disabled = parts.length <= 1;
@@ -12250,7 +12316,7 @@ function bindUI() {
         [els.melodyMpePerNote, 'MPE per note: one channel per note (per-note expression).'],
         [els.melodyImportBtn, 'Import: load melody from WAV, MIDI, or MusicXML.'],
         [els.melodyExportBtn, 'Export XML: save current melody as MusicXML.'],
-        [els.melodyImportUseXmlTiming, 'Use XML timing: preserve original note durations instead of quantizing to the Rate grid.'],
+        [els.melodyImportIgnoreXmlKey, 'Use app scale: ignore key signature from MusicXML and keep the current app scale.'],
         [els.melodyImportPart, 'Part: select which score part to import from MusicXML/MXL.'],
         [els.melodyImportSnap, 'Snap import: off, semitone, or scale.'],
         [els.melodyImportAdvancedBtn, 'Advanced import: Magenta transcription for better pitch accuracy.'],
