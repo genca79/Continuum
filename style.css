@@ -2221,19 +2221,46 @@ canvas { display: block; width: 100%; height: 100%; }
 
 .custom-scale-row-compact {
     display: flex;
-    gap: 4px;
-    align-items: center;
-    flex-wrap: nowrap;
+    gap: 8px;
+    align-items: flex-start;
+    flex-wrap: wrap;
 }
 
-.custom-scale-row-compact select {
-    min-width: 70px;
-    max-width: 80px;
+.custom-scale-name-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 180px;
+    flex: 1 1 220px;
+}
+
+.custom-scale-name-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.custom-scale-saved-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 140px;
+}
+
+.custom-scale-row-compact select#customScaleSaved {
+    min-width: 140px;
 }
 
 .custom-scale-row-compact input[type="text"]#customScaleName {
-    width: 60px;
-    min-width: 60px;
+    width: 140px;
+    min-width: 140px;
+}
+
+.custom-scale-subtitle {
+    font-size: 9px;
+    color: #9aa;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
 }
 
 .custom-scale-row-compact .menu-btn {
@@ -2282,6 +2309,19 @@ canvas { display: block; width: 100%; height: 100%; }
 .custom-scale-input-wide:focus {
     border-color: var(--primary);
     outline: none;
+}
+
+.custom-scale-entry {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 260px;
+    min-width: 200px;
+}
+
+.custom-scale-help {
+    font-size: 9px;
+    color: #9aa;
 }
 
 /* Old styles kept for compatibility */

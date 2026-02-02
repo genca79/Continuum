@@ -282,16 +282,31 @@
             </div>
             <div class="box scale-menu scale-custom-wide" id="scaleCustomBox" data-scale-choice="custom"><label>Custom Scale</label>
                 <div class="custom-scale-row-compact">
-                    <select id="customScaleSaved"><option value="">(saved)</option></select>
-                    <input type="text" id="customScaleName" placeholder="Name" list="customScaleNames">
-                    <button id="customScaleSave" class="menu-btn btn-ok" aria-label="Save"><span class="btn-icon">💾</span></button>
-                    <button id="customScaleDel" class="menu-btn btn-danger" aria-label="Delete"><span class="btn-icon">🗑</span></button>
+                    <div class="custom-scale-name-block">
+                        <label class="custom-scale-subtitle">New scale name</label>
+                        <div class="custom-scale-name-row">
+                            <input type="text" id="customScaleName" placeholder="Type name here" list="customScaleNames">
+                            <button id="customScaleSave" class="menu-btn btn-ok" aria-label="Save"><span class="btn-icon">💾</span></button>
+                            <button id="customScaleDel" class="menu-btn btn-danger" aria-label="Delete"><span class="btn-icon">🗑</span></button>
+                        </div>
+                        <div class="custom-scale-help">Give your scale a name, then press Save.</div>
+                    </div>
+                    <div class="custom-scale-saved-block">
+                        <label class="custom-scale-subtitle">Saved scales</label>
+                        <select id="customScaleSaved"><option value="">(saved)</option></select>
+                    </div>
                     <span class="custom-mode-toggle">
                         <label><input type="radio" name="customScaleMode" value="notes" id="customModeNotes" checked> Notes</label>
                         <label><input type="radio" name="customScaleMode" value="cents" id="customModeCents"> Cents</label>
                     </span>
-                    <input type="text" id="customScaleNotes" placeholder="C, D#, F, G, A..." class="custom-scale-input-wide">
-                    <input type="text" id="customScaleCents" placeholder="0, 200, 400, 700..." class="custom-scale-input-wide hidden">
+                    <div class="custom-scale-entry">
+                        <input type="text" id="customScaleNotes" placeholder="Notes: C, D#, F, G, A..." class="custom-scale-input-wide">
+                        <div class="custom-scale-help">Separate notes with commas or spaces.</div>
+                    </div>
+                    <div class="custom-scale-entry hidden" id="customScaleCentsWrap">
+                        <input type="text" id="customScaleCents" placeholder="Cents: 0, 203.91, 386.31, 498..." class="custom-scale-input-wide">
+                        <div class="custom-scale-help">Decimals allowed (e.g., 905.87).</div>
+                    </div>
                 </div>
                 <datalist id="customScaleNames"></datalist>
             </div>

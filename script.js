@@ -453,8 +453,11 @@ const MPE_PRESET_KEY = 'genca_mpe_presets_v1';
 const MELODY_SAVE_KEY = 'genca_melody_saves_v1';
 const CUSTOM_SCALE_KEY = 'genca_custom_scales_v1';
 const MICROTONAL_SCALES = {
+    '12-TET (Standard)': { cents: makeEqualTemperament(12) },
     'Balinese Slendro': { cents: [0, 240, 480, 720, 960] },
     'Balinese Pelog': { cents: [0, 150, 350, 550, 700, 900, 1050] },
+    'Pythagorean (12-tone)': { cents: [0, 113.7, 203.9, 294.1, 407.8, 498.0, 611.7, 702.0, 815.6, 905.9, 996.1, 1109.8, 1200] },
+    'Meantone': { cents: [0, 76.0, 193.2, 310.3, 386.3, 503.4, 579.5, 696.6, 772.6, 889.7, 1006.8, 1082.9, 1200] },
     'Just Major (5-limit)': { cents: [0, 204, 386, 498, 702, 884, 1088] },
     'Just Minor (5-limit)': { cents: [0, 204, 316, 498, 702, 814, 1018] },
     'Maqam Rast': { cents: [0, 204, 350, 498, 702, 904, 1050] },
@@ -4389,7 +4392,11 @@ function parseCentsList(input) {
 }
 
 function formatCentsList(cents) {
-    return cents.map(c => String(Math.round(c))).join(', ');
+    return cents.map(c => {
+        const rounded = Math.round(c * 100) / 100;
+        if (Math.abs(rounded - Math.round(rounded)) < 0.005) return String(Math.round(rounded));
+        return rounded.toFixed(2).replace(/\.?0+$/, '');
+    }).join(', ');
 }
 
 function makeEqualTemperament(steps) {
@@ -4647,8 +4654,13 @@ function updateScaleModeUI() {
     els.scaleDiatonicBox.classList.toggle('active', mode === 'diatonic');
     els.scaleMicroBox.classList.toggle('active', mode === 'microtonal');
     els.scaleCustomBox.classList.toggle('active', mode === 'custom');
+    const centsWrap = document.getElementById('customScaleCentsWrap');
     els.customScaleNotes.classList.toggle('hidden', !els.customModeNotes.checked);
-    els.customScaleCents.classList.toggle('hidden', !els.customModeCents.checked);
+    if (centsWrap) {
+        centsWrap.classList.toggle('hidden', !els.customModeCents.checked);
+    } else {
+        els.customScaleCents.classList.toggle('hidden', !els.customModeCents.checked);
+    }
     document.querySelectorAll('[data-scale-choice]').forEach(choice => {
         const isActive = choice.getAttribute('data-scale-choice') === mode;
         choice.classList.toggle('active', isActive);
@@ -4800,6 +4812,8 @@ function changeOctave(delta) {
 
 function ensureVisibleForNotes(notes, options = {}) {
     if (!notes || !notes.length) return;
+    const chordMode = els.chordMode?.value || 'off';
+    if (chordMode !== 'off' && !options.allowChord) return;
     const allowSingle = !!options.allowSingle;
     if (notes.length === 1 && !allowSingle) return;
     const numOct = parseInt(els.visibleOctaves.value, 10) || 3;
