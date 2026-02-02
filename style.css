@@ -315,6 +315,74 @@ body {
     opacity: 0.6;
     filter: grayscale(0.4);
 }
+.melody-main-grid {
+    display: grid;
+    grid-template-columns: minmax(320px, 1fr) minmax(420px, 1.2fr);
+    gap: 16px;
+    align-items: start;
+}
+.melody-main-left,
+.melody-main-right {
+    min-width: 0;
+}
+.melody-main-right .melody-roll-box {
+    max-width: none;
+}
+.melody-main-right .melody-seq-grid {
+    max-width: none;
+}
+.melody-seq-box {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+}
+.melody-seq-box .melody-seq-grid {
+    width: 100%;
+}
+.melody-roll-tools {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: 8px;
+}
+.melody-roll-tools .box {
+    padding: 6px 8px;
+    max-width: none;
+    min-width: 0;
+}
+.melody-roll-tools label {
+    font-size: 10px;
+    margin-bottom: 2px;
+}
+.melody-roll-tools input,
+.melody-roll-tools select {
+    height: 28px;
+}
+.melody-roll-tools .melody-page-box {
+    min-width: 180px;
+}
+.melody-roll-tools .melody-page-controls {
+    gap: 4px;
+    flex-wrap: nowrap;
+}
+.melody-roll-tools #melodyPageGo {
+    min-width: 56px;
+    height: 32px;
+    font-size: 12px;
+}
+.melody-roll-tools #melodyPageSize {
+    min-width: 72px;
+    height: 32px;
+    font-size: 12px;
+}
+@media (max-width: 980px) {
+    .melody-main-grid {
+        grid-template-columns: 1fr;
+    }
+    .melody-roll-tools {
+        flex-wrap: wrap;
+    }
+}
 .group-title-box {
     max-width: 220px;
     min-width: 150px;
@@ -2273,11 +2341,37 @@ canvas { display: block; width: 100%; height: 100%; }
     outline: none;
 }
 
-.melody-seq-grid {
+.melody-note-len {
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
     gap: 6px;
-    max-width: 100%;
+    margin-top: 6px;
+    justify-content: center;
+}
+
+.melody-note-len-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: #15181d;
+    color: #cfd6dd;
+    cursor: pointer;
+}
+
+.melody-note-len-val {
+    font-size: 11px;
+    color: #cfd6dd;
+    min-width: 46px;
+    text-align: center;
+}
+
+.melody-seq-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+    gap: 6px;
+    width: 100%;
+    max-width: none;
 }
 
 .melody-seq-cell {

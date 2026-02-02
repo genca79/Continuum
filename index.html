@@ -308,10 +308,16 @@
         </div>
 
         <div class="ui-subtab-content active" data-subtab-content="melody-main">
+            <div class="melody-main-grid">
+                <div class="melody-main-left">
             <div class="ui-group-inline">
                 <div class="box" style="max-width:140px;">
                     <label>Melody</label>
                     <button id="melodyToggle" class="menu-btn toggle-off">MELODY OFF</button>
+                </div>
+                <div class="box" style="max-width:140px;">
+                    <label>Generate</label>
+                    <button id="melodyGenerate" class="menu-btn btn-accent">GENERATE</button>
                 </div>
                 <div class="box" style="min-width:220px;">
                     <label>Save Preset</label>
@@ -413,6 +419,22 @@
                 <label>Chord %</label>
                 <input type="range" id="melodyPolyChance" min="0" max="100" step="1" value="35">
             </div>
+            <div class="box" style="max-width:160px;">
+                <label>Dur Var</label>
+                <input type="range" id="melodyDurVar" min="0" max="100" step="1" value="0">
+            </div>
+            <div class="box" style="max-width:160px;">
+                <label>Rhythm Var</label>
+                <input type="range" id="melodyRhythmVar" min="0" max="100" step="1" value="0">
+            </div>
+            <div class="box" style="max-width:160px;">
+                <label>Motif Var</label>
+                <input type="range" id="melodyMotifVar" min="0" max="100" step="1" value="0">
+            </div>
+            <div class="box" style="max-width:160px;">
+                <label>Density Drift</label>
+                <input type="range" id="melodyDensityDrift" min="0" max="100" step="1" value="0">
+            </div>
         </div>
 
         <div class="ui-group-inline">
@@ -430,6 +452,10 @@
                     <option value="1/32T">1/32T</option>
                     <option value="1/64">1/64</option>
                 </select>
+            </div>
+            <div class="box" style="max-width:110px;">
+                <label>BPM</label>
+                <input type="number" id="melodyBpm" min="40" max="240" value="120">
             </div>
             <div class="box" style="max-width:160px;">
                 <label>General Humanize</label>
@@ -472,6 +498,14 @@
                 <div id="melodyPreview" style="font-size:11px; color:#9aa; max-width:520px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">&nbsp;</div>
             </div>
         </div>
+        <div class="ui-group-inline">
+            <div class="box melody-seq-box">
+                <label>Sequence</label>
+                <div id="melodySeqEditor" class="melody-seq-grid"></div>
+            </div>
+        </div>
+                </div>
+                <div class="melody-main-right">
 
         <div class="ui-group-inline melody-roll-tools">
             <div class="box" style="max-width:140px;">
@@ -492,7 +526,7 @@
                     <button id="melodyPagePrev" type="button" class="melody-page-btn">‹</button>
                     <span id="melodyPageLabel" class="melody-page-label">Page 1/1 (1-1)</span>
                     <button id="melodyPageNext" type="button" class="melody-page-btn">›</button>
-                    <button id="melodyPageGo" type="button" class="melody-page-btn">Go</button>
+                    <button id="melodyPageGo" type="button" class="melody-page-btn">STOP</button>
                     <select id="melodyPageSize" class="melody-page-size">
                         <option value="32">32</option>
                         <option value="64" selected>64</option>
@@ -513,16 +547,17 @@
                     <div id="melodyNoteEditorBox" class="melody-note-panel">
                         <div class="melody-note-label">--</div>
                         <select id="melodyNoteEditorSelect" class="melody-note-select"></select>
+                        <div class="melody-note-len">
+                            <button type="button" class="melody-note-len-btn" data-dir="-1">&lt;</button>
+                            <span class="melody-note-len-val">Len 1</span>
+                            <button type="button" class="melody-note-len-btn" data-dir="1">&gt;</button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="ui-group-inline">
-            <div class="box" style="min-width:260px;">
-                <label>Sequence</label>
-                <div id="melodySeqEditor" class="melody-seq-grid"></div>
+                </div>
             </div>
-        </div>
         </div>
 
         <div class="ui-subtab-content" data-subtab-content="melody-human-params">
@@ -1042,29 +1077,18 @@
             </select>
         </div>
         <div class="perf-item">
-            <div class="perf-label-top">LAYERS</div>
-            <button id="melodyLayerPerf" class="perf-btn toggle-btn" title="Melody Layer" aria-label="Melody Layer">
-                LAYERS
+            <div class="perf-label-top">GENERATE</div>
+            <button id="melodyGeneratePerf" class="perf-btn btn-accent" title="Generate Melody" aria-label="Generate Melody">
+                GENERATE
             </button>
         </div>
         <div class="perf-item">
-            <div class="perf-label-top">SEED</div>
-            <div class="perf-inline perf-inline-compact">
-                <button id="melodySeedPerfDown" class="perf-btn" title="Seed -">-</button>
-                <span class="perf-value" id="melodySeedPerfVal">1</span>
-                <button id="melodySeedPerfUp" class="perf-btn" title="Seed +">+</button>
+            <div class="perf-label-top">BPM</div>
+            <div class="perf-inline">
+                <button id="melodyBpmPerfDown" class="perf-btn" title="BPM -">-</button>
+                <input id="melodyBpmPerf" type="number" min="40" max="240" step="1" value="120" title="Melody BPM">
+                <button id="melodyBpmPerfUp" class="perf-btn" title="BPM +">+</button>
             </div>
-        </div>
-        <div class="perf-item">
-            <div class="perf-label-top">CADENCE</div>
-            <select id="melodyCadencePerf" class="perf-select" title="Melody Cadence">
-                <option value="tonic" selected>Tonic</option>
-                <option value="dominant">Dominant</option>
-                <option value="subdominant">Subdominant</option>
-                <option value="mediant">Mediant</option>
-                <option value="leading">Leading</option>
-                <option value="none">None</option>
-            </select>
         </div>
     </div>
     <input type="checkbox" id="arpEnabled" data-param="arpEnabled" style="display:none">

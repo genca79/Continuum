@@ -197,12 +197,17 @@ const els = {
     melodyStyle: document.getElementById('melodyStyle'),
     melodyLength: document.getElementById('melodyLength'),
     melodyRate: document.getElementById('melodyRate'),
+    melodyBpm: document.getElementById('melodyBpm'),
     melodyDensity: document.getElementById('melodyDensity'),
     melodyRange: document.getElementById('melodyRange'),
     melodySeed: document.getElementById('melodySeed'),
     melodyCadence: document.getElementById('melodyCadence'),
     melodyPolyGen: document.getElementById('melodyPolyGen'),
     melodyPolyChance: document.getElementById('melodyPolyChance'),
+    melodyDurVar: document.getElementById('melodyDurVar'),
+    melodyRhythmVar: document.getElementById('melodyRhythmVar'),
+    melodyMotifVar: document.getElementById('melodyMotifVar'),
+    melodyDensityDrift: document.getElementById('melodyDensityDrift'),
     melodyRebuild: document.getElementById('melodyRebuild'),
     melodyKeepImported: document.getElementById('melodyKeepImported'),
     melodyPreview: document.getElementById('melodyPreview'),
@@ -264,6 +269,7 @@ const els = {
     melodyLayerToggle: document.getElementById('melodyLayerToggle'),
     melodyLayerMode: document.getElementById('melodyLayerMode'),
     melodyLayerLevel: document.getElementById('melodyLayerLevel'),
+    melodyGenerate: document.getElementById('melodyGenerate'),
     melodySeqEditor: document.getElementById('melodySeqEditor'),
     melodyRollCanvas: document.getElementById('melodyRollCanvas'),
     melodyRollLabels: document.getElementById('melodyRollLabels'),
@@ -284,6 +290,10 @@ const els = {
     melodySeedPerfUp: document.getElementById('melodySeedPerfUp'),
     melodySeedPerfVal: document.getElementById('melodySeedPerfVal'),
     melodyCadencePerf: document.getElementById('melodyCadencePerf'),
+    melodyGeneratePerf: document.getElementById('melodyGeneratePerf'),
+    melodyBpmPerf: document.getElementById('melodyBpmPerf'),
+    melodyBpmPerfDown: document.getElementById('melodyBpmPerfDown'),
+    melodyBpmPerfUp: document.getElementById('melodyBpmPerfUp'),
     melodySaveName: document.getElementById('melodySaveName'),
     melodySaveBtn: document.getElementById('melodySaveBtn'),
     melodySaveSelect: document.getElementById('melodySaveSelect'),
@@ -681,6 +691,7 @@ const state = {
         stepIndex: 0,
         currentStep: 0,
         notes: [],
+        durations: [],
         lastNote: null,
         lastNotes: [],
         activeLabel: { note: null, until: 0 },
@@ -688,15 +699,21 @@ const state = {
         style: 'balanced',
         length: 16,
         rate: '1/16',
+        bpm: 120,
         density: 0.8,
         range: 14,
         cadence: 'tonic',
+        durationVar: 0,
+        rhythmVar: 0,
+        motifVar: 0,
+        densityDrift: 0,
         chan: 1,
         mpePerNote: true,
         lastVoices: [],
         voiceKeys: new Set(),
         virtualPhase: null,
         lastVirtualY: null,
+        holdUntil: 0,
         imported: false,
         importedFeatures: null,
         importedMeta: null,
@@ -5184,8 +5201,15 @@ function createSeededRng(seed) {
     };
 }
 
+function getMelodyBpm() {
+    const raw = parseInt(els.melodyBpm?.value, 10);
+    if (Number.isFinite(raw)) return Math.max(40, Math.min(240, raw));
+    const fallback = parseInt(els.arpBpm?.value, 10) || 120;
+    return Math.max(40, Math.min(240, fallback));
+}
+
 function getMelodyStepMs() {
-    const bpm = parseInt(els.arpBpm?.value, 10) || 120;
+    const bpm = getMelodyBpm();
     const factor = getRateFactor(state.melody.rate || '1/16');
     return (60 / Math.max(40, bpm)) * 1000 * factor;
 }
@@ -5211,7 +5235,7 @@ function getMelodyStepMsForStep(stepIdx) {
         const ms = meta.stepDurationsMs[stepIdx];
         if (Number.isFinite(ms) && ms > 0) return ms;
     }
-    const bpm = getTempoForMelodyStep(stepIdx);
+    const bpm = getMelodyBpm();
     if (!Number.isFinite(bpm) || bpm <= 0) return defaultMs;
     const factor = getRateFactor(state.melody.rate || '1/16');
     return (60 / Math.max(40, bpm)) * 1000 * factor;
@@ -5518,6 +5542,10 @@ function buildMelodySequence() {
     const length = Math.max(4, Math.min(512, parseInt(els.melodyLength.value, 10) || 16));
     const range = Math.max(5, Math.min(36, parseInt(els.melodyRange.value, 10) || 14));
     const density = Math.max(0.2, Math.min(1, (parseInt(els.melodyDensity.value, 10) || 80) / 100));
+    const durationVar = Math.max(0, Math.min(1, (parseInt(els.melodyDurVar?.value, 10) || 0) / 100));
+    const rhythmVar = Math.max(0, Math.min(1, (parseInt(els.melodyRhythmVar?.value, 10) || 0) / 100));
+    const motifVar = Math.max(0, Math.min(1, (parseInt(els.melodyMotifVar?.value, 10) || 0) / 100));
+    const densityDrift = Math.max(0, Math.min(1, (parseInt(els.melodyDensityDrift?.value, 10) || 0) / 100));
     const styleConfig = getMelodyStyleConfig();
     const style = styleConfig.style;
     const cadence = els.melodyCadence.value || 'tonic';
@@ -5535,6 +5563,10 @@ function buildMelodySequence() {
     state.melody.density = density;
     state.melody.style = style;
     state.melody.cadence = cadence;
+    state.melody.durationVar = durationVar;
+    state.melody.rhythmVar = rhythmVar;
+    state.melody.motifVar = motifVar;
+    state.melody.densityDrift = densityDrift;
     state.melody.rate = rate;
     state.melody.rules = { ...rules };
     state.melody.rhythmMode = rhythmMode;
@@ -5581,6 +5613,18 @@ function buildMelodySequence() {
     }
     const motifLen = rules.motif ? (2 + Math.floor(rng() * 3)) : 0;
     const motif = rules.motif ? [] : null;
+    const barSize = 16;
+    const densityByStep = new Array(length).fill(density);
+    if (densityDrift > 0) {
+        const barCount = Math.max(1, Math.ceil(length / barSize));
+        for (let b = 0; b < barCount; b++) {
+            const drift = (rng() * 2 - 1) * densityDrift * 0.45;
+            const d = Math.max(0.05, Math.min(1, density + drift));
+            const start = b * barSize;
+            const end = Math.min(length, start + barSize);
+            for (let i = start; i < end; i++) densityByStep[i] = d;
+        }
+    }
 
     function pickNote(activeStyle) {
         if (!pool.length) return null;
@@ -5605,10 +5649,18 @@ function buildMelodySequence() {
     const callLen = Math.ceil(length / 2);
     for (let i = 0; i < length; i++) {
         if (rhythmMask && !rhythmMask[i]) {
+            if (rhythmVar > 0 && rng() < (rhythmVar * 0.45)) {
+                // allow occasional hits even when mask says silence
+            } else {
+                notes.push(null);
+                continue;
+            }
+        } else if (rhythmMask && rhythmVar > 0 && rng() < (rhythmVar * 0.15)) {
+            // occasionally drop a hit from the mask
             notes.push(null);
             continue;
         }
-        if (rng() > density) {
+        if (rng() > (densityByStep[i] || density)) {
             notes.push(null);
             continue;
         }
@@ -5618,6 +5670,15 @@ function buildMelodySequence() {
             motif.push(note);
         } else if (rules.motif && motif && i >= motifLen) {
             note = motif[i % motifLen];
+            if (note != null && motifVar > 0 && rng() < motifVar) {
+                const dir = rng() < 0.5 ? -1 : 1;
+                const hops = rng() < 0.6 ? 1 : 2;
+                let next = note;
+                for (let h = 0; h < hops; h++) {
+                    next = getScaleNeighbor(next, dir);
+                }
+                note = next;
+            }
         } else if (style === 'call' && i >= callLen) {
             const anchor = notes[i - callLen];
             if (anchor != null) {
@@ -5657,6 +5718,28 @@ function buildMelodySequence() {
         else if (cadence === 'leading') cadencePc = (rootPc + 11) % 12;
         notes[notes.length - 1] = getCadenceNote(pool, cadencePc, base);
     }
+
+    const durations = new Array(length).fill(1);
+    if (durationVar > 0) {
+        const list = getMelodyDurationStepsList();
+        const baseIdx = Math.max(0, list.indexOf(1));
+        const span = Math.max(0, Math.round(durationVar * (list.length - 1)));
+        if (span > 0) {
+            const minIdx = Math.max(0, baseIdx - span);
+            const maxIdx = Math.min(list.length - 1, baseIdx + span);
+            const weights = [];
+            for (let i = minIdx; i <= maxIdx; i++) {
+                const dist = Math.abs(i - baseIdx);
+                const weight = 1 / (1 + dist);
+                weights.push({ value: list[i], weight });
+            }
+            for (let i = 0; i < length; i++) {
+                if (notes[i] == null) continue;
+                durations[i] = chooseWeighted(rng, weights);
+            }
+        }
+    }
+    state.melody.durations = durations;
 
     return notes;
 }
@@ -5983,18 +6066,22 @@ function buildNotesFromNoteSequence(seq) {
     const durationSec = seq.totalTime || Math.max(...seq.notes.map(n => n.endTime || 0));
     const steps = Math.max(4, Math.min(64, Math.round((durationSec * 1000) / stepMs)));
     const notes = new Array(steps).fill(null);
+    const durations = new Array(steps).fill(1);
     const velocities = new Array(steps).fill(null);
     seq.notes.forEach(n => {
         const tMs = (n.startTime || 0) * 1000;
         const idx = Math.max(0, Math.min(steps - 1, Math.round(tMs / stepMs)));
+        const durMs = Math.max(0, ((n.endTime || n.startTime || 0) * 1000) - tMs);
+        const durSteps = Math.max(1, Math.min(16, Math.round(durMs / stepMs)));
         const vel = Number.isFinite(n.velocity) ? n.velocity : 90;
         if (notes[idx] == null || vel > (velocities[idx] ?? 0)) {
             notes[idx] = Math.max(0, Math.min(127, n.pitch ?? 60));
             velocities[idx] = vel;
+            durations[idx] = durSteps;
         }
     });
     const features = { velocity: velocities.map(v => v ?? 90), press: [], slide: [] };
-    return { notes, features };
+    return { notes, durations, features };
 }
 
 function getEssentiaInstance() {
@@ -6465,11 +6552,16 @@ function getMelodySaveParams() {
         },
         length: state.melody.length,
         rate: state.melody.rate,
+        bpm: state.melody.bpm,
         range: state.melody.range,
         density: state.melody.density,
         style: state.melody.style,
         seed: state.melody.seed,
         cadence: state.melody.cadence,
+        durationVar: state.melody.durationVar,
+        rhythmVar: state.melody.rhythmVar,
+        motifVar: state.melody.motifVar,
+        densityDrift: state.melody.densityDrift,
         poly: { ...state.melody.poly },
         layer: { ...state.melody.layer },
         rules: { ...state.melody.rules },
@@ -6534,6 +6626,9 @@ function applyMelodySaveParams(saved) {
         if (Number.isFinite(len)) els.melodyLength.value = len;
     }
     if (els.melodyRate && params.rate) els.melodyRate.value = params.rate;
+    if (els.melodyBpm && Number.isFinite(params.bpm)) {
+        els.melodyBpm.value = Math.max(40, Math.min(240, Math.round(params.bpm)));
+    }
     if (els.melodyRange && Number.isFinite(params.range)) els.melodyRange.value = params.range;
     if (els.melodyDensity && Number.isFinite(params.density)) {
         const dens = params.density <= 1 ? Math.round(params.density * 100) : Math.round(params.density);
@@ -6541,6 +6636,22 @@ function applyMelodySaveParams(saved) {
     }
     if (els.melodySeed && Number.isFinite(params.seed)) els.melodySeed.value = params.seed;
     if (els.melodyCadence && params.cadence) els.melodyCadence.value = params.cadence;
+    if (els.melodyDurVar && Number.isFinite(params.durationVar)) {
+        const pct = params.durationVar <= 1 ? Math.round(params.durationVar * 100) : Math.round(params.durationVar);
+        els.melodyDurVar.value = Math.max(0, Math.min(100, pct));
+    }
+    if (els.melodyRhythmVar && Number.isFinite(params.rhythmVar)) {
+        const pct = params.rhythmVar <= 1 ? Math.round(params.rhythmVar * 100) : Math.round(params.rhythmVar);
+        els.melodyRhythmVar.value = Math.max(0, Math.min(100, pct));
+    }
+    if (els.melodyMotifVar && Number.isFinite(params.motifVar)) {
+        const pct = params.motifVar <= 1 ? Math.round(params.motifVar * 100) : Math.round(params.motifVar);
+        els.melodyMotifVar.value = Math.max(0, Math.min(100, pct));
+    }
+    if (els.melodyDensityDrift && Number.isFinite(params.densityDrift)) {
+        const pct = params.densityDrift <= 1 ? Math.round(params.densityDrift * 100) : Math.round(params.densityDrift);
+        els.melodyDensityDrift.value = Math.max(0, Math.min(100, pct));
+    }
     if (params.poly) {
         if (els.melodyPolyGen) els.melodyPolyGen.checked = !!params.poly.enabled;
         if (els.melodyPolyChance && Number.isFinite(params.poly.chance)) {
@@ -6621,6 +6732,7 @@ function applyMelodySaveParams(saved) {
 
 function updateMelodyPreview() {
     if (!els.melodyPreview) return;
+    syncMelodyDurationsToNotes(state.melody.notes.length);
     ensureMelodyPageBounds();
     const preview = state.melody.notes.map(n => {
         if (n == null) return '.';
@@ -6678,26 +6790,8 @@ function updateMelodyStatusUI() {
     }
     const genGroup = document.querySelector('#tabMelody .melody-gen-group');
     if (genGroup) {
-        genGroup.classList.toggle('melody-imported-muted', !!state.melody.imported);
+        genGroup.classList.remove('melody-imported-muted');
     }
-    const isImported = !!state.melody.imported;
-    const genControls = [
-        els.melodyStyle,
-        els.melodyLength,
-        els.melodyDensity,
-        els.melodyRange,
-        els.melodySeed,
-        els.melodyCadence,
-        els.melodyPolyGen,
-        els.melodyPolyChance,
-        els.melodyRuleSelect,
-        els.melodyRhythmMode,
-        els.melodyRhythmPattern
-    ];
-    genControls.forEach(el => {
-        if (!el) return;
-        el.disabled = isImported;
-    });
     if (els.melodyKeepImported) {
         els.melodyKeepImported.disabled = !state.melody.imported;
     }
@@ -6789,6 +6883,7 @@ function stopMelodyGenerator() {
     state.melody.lastNote = null;
     state.melody.lastVoices = [];
     state.melody.voiceKeys?.clear?.();
+    state.melody.holdUntil = 0;
     setMelodySustain(false);
     state.melody.virtualPhase = null;
     state.melody.lastVirtualY = null;
@@ -6811,11 +6906,11 @@ function melodyStep() {
         goToCurrentMelodyStep(false);
     }
     state.melody.stepIndex += 1;
-    if (state.melody.offTimer) clearTimeout(state.melody.offTimer);
     clearMelodyPendingTimers();
     state.melody.activeLabel = { note: null, until: 0 };
     if (note != null && Array.isArray(note) && note.length === 0) note = null;
     if (note != null) {
+        const durationSteps = getMelodyNoteLength(stepIdx);
         const stepMs = getMelodyStepMsForStep(stepIdx);
         const human = state.melody.humanize || {};
         const timingMs = Math.max(0, human.timing || 0);
@@ -6832,8 +6927,9 @@ function melodyStep() {
         const jitter = timingMs ? (Math.random() * 2 - 1) * timingMs : 0;
         const swingMs = (stepIdx % 2 === 1) ? (stepMs * 0.5 * (swingPct / 100)) : 0;
         const delayMs = Math.max(0, Math.min(stepMs * 0.6, swingMs + jitter));
-        const gate = 0.5 + (legatoPct / 100) * 0.7;
-        let gateMs = Math.max(30, Math.min(stepMs * 1.2, stepMs * gate));
+        const gate = 0.4 + (legatoPct / 100) * 0.6;
+        const stepDurMs = stepMs * Math.max(0.25, durationSteps);
+        let gateMs = Math.max(5, Math.min(stepDurMs * 0.98, stepDurMs * gate));
         const pressBase = 90;
         const timbreBase = 64;
         const imported = state.melody.imported && state.melody.importedFeatures;
@@ -6866,10 +6962,10 @@ function melodyStep() {
             if (Number.isFinite(g)) {
                 const scale = Math.max(0.4, Math.min(1.6, g));
                 const scaledGate = gateMs * scale;
-                gateMs = Math.max(25, Math.min(stepMs * 1.8, scaledGate));
+                gateMs = Math.max(25, Math.min(stepDurMs * 1.8, scaledGate));
             }
             if (sustainFlag) {
-                gateMs = Math.max(gateMs, stepMs * 1.8);
+                gateMs = Math.max(gateMs, stepDurMs * 1.8);
             }
             if (legatoFlag) {
                 const nextStepMs = getMelodyStepMsForStep(stepIdx + 1);
@@ -6877,6 +6973,7 @@ function melodyStep() {
             }
             setMelodySustain(sustainFlag);
         } else {
+            setMelodySustain(false);
             if (phraseAmt > 0) {
                 const phraseLen = Math.max(4, Math.min(32, state.melody.length || 16));
                 const phase = phraseLen > 1 ? (stepIdx % phraseLen) / (phraseLen - 1) : 0;
@@ -6982,6 +7079,9 @@ function melodyStep() {
                 state.melody.pendingTimers.push(graceOn);
             }
         }
+        const holdUntil = Date.now() + delayMs + gateMs;
+        state.melody.holdUntil = holdUntil;
+        if (state.melody.offTimer) clearTimeout(state.melody.offTimer);
         const releaseSec = Math.max(MELODY_MIN_RELEASE, (gateMs / 1000) * 0.18);
         state.melody.offTimer = setTimeout(() => {
             if (state.melody.lastNotes === notesToPlay) {
@@ -6992,14 +7092,22 @@ function melodyStep() {
             }
         }, Math.max(30, delayMs + gateMs));
     } else {
-        if (state.melody.lastNotes?.length) {
-            releaseMelodyVoices(MELODY_MIN_RELEASE);
-            state.melody.lastNotes = [];
-            state.melody.lastNote = null;
+        const now = Date.now();
+        if (!state.melody.holdUntil || now >= state.melody.holdUntil) {
+            if (state.melody.lastNotes?.length) {
+                releaseMelodyVoices(MELODY_MIN_RELEASE);
+                state.melody.lastNotes = [];
+                state.melody.lastNote = null;
+            }
+            state.melody.lastVoices = [];
+            state.melody.voiceKeys?.clear?.();
+            setSyntheticTouch('melody', [], 'MELODY');
+            state.melody.holdUntil = 0;
+            if (state.melody.offTimer) {
+                clearTimeout(state.melody.offTimer);
+                state.melody.offTimer = null;
+            }
         }
-        state.melody.lastVoices = [];
-        state.melody.voiceKeys?.clear?.();
-        setSyntheticTouch('melody', [], 'MELODY');
     }
     updateMelodyEditStatus();
     drawMelodyPianoRoll();
@@ -7063,11 +7171,10 @@ function syncMelodyPerfControls() {
     if (els.melodyRatePerf && els.melodyRate) {
         els.melodyRatePerf.value = els.melodyRate.value;
     }
-    if (els.melodySeedPerfVal && els.melodySeed) {
-        els.melodySeedPerfVal.textContent = els.melodySeed.value;
-    }
-    if (els.melodyCadencePerf && els.melodyCadence) {
-        els.melodyCadencePerf.value = els.melodyCadence.value;
+    // seed perf removed
+    if (els.melodyBpmPerf && els.melodyBpm) {
+        const val = parseInt(els.melodyBpm.value, 10) || 120;
+        els.melodyBpmPerf.value = String(val);
     }
     if (els.melodyLayerPerf) {
         const isOn = !!state.melody.layer.enabled;
@@ -7109,6 +7216,7 @@ function getAllMidiNoteOptionsHtml() {
 function renderMelodyEditor() {
   if (!els.melodySeqEditor) return;
   const notes = state.melody.notes || [];
+  syncMelodyDurationsToNotes(notes.length);
   const page = getMelodyPageInfo();
   els.melodySeqEditor.innerHTML = '';
 
@@ -7153,6 +7261,81 @@ function seqEnsureNotes() {
         state.melody.notes = buildMelodySequence();
         updateMelodyPreview();
     }
+}
+
+function syncMelodyDurationsToNotes(len) {
+    const target = Math.max(0, len || 0);
+    if (!Array.isArray(state.melody.durations)) state.melody.durations = [];
+    if (state.melody.durations.length < target) {
+        for (let i = state.melody.durations.length; i < target; i++) {
+            state.melody.durations[i] = 1;
+        }
+    } else if (state.melody.durations.length > target) {
+        state.melody.durations.length = target;
+    }
+}
+
+const MELODY_MIN_DUR = 0.1;
+const MELODY_MAX_DUR = 16;
+
+function getMelodyDurationStepsList() {
+    return [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8, 12, 16];
+}
+
+function snapMelodyDurationSteps(value) {
+    const list = getMelodyDurationStepsList();
+    const v = clampMelodyDuration(value);
+    let best = list[0];
+    let bestDist = Infinity;
+    list.forEach(step => {
+        const dist = Math.abs(step - v);
+        if (dist < bestDist) {
+            bestDist = dist;
+            best = step;
+        }
+    });
+    return best;
+}
+
+function clampMelodyDuration(value) {
+    const v = Number.isFinite(value) ? value : 1;
+    return Math.max(MELODY_MIN_DUR, Math.min(MELODY_MAX_DUR, v));
+}
+
+function stepMelodyDuration(cur, dir) {
+    const delta = dir >= 0 ? 0.1 : -0.1;
+    return Math.round(clampMelodyDuration(cur + delta) * 100) / 100;
+}
+
+function formatMelodyDuration(value) {
+    const v = clampMelodyDuration(value);
+    return Number.isInteger(v) ? String(v) : v.toFixed(2);
+}
+
+function getMelodyNoteLength(stepIdx) {
+    const val = state.melody.durations?.[stepIdx];
+    return clampMelodyDuration(val);
+}
+
+function getMelodyResizeHandleWidth(noteW) {
+    const raw = Math.max(8, noteW * 0.25);
+    return Math.min(16, raw);
+}
+
+function setMelodyNoteLength(stepIdx, next) {
+    syncMelodyDurationsToNotes(state.melody.notes.length);
+    state.melody.durations[stepIdx] = clampMelodyDuration(next);
+}
+
+function adjustMelodyNoteLengthForSelection(delta) {
+    if (!state.melody.roll?.selection || !state.melody.roll.selection.size) return;
+    syncMelodyDurationsToNotes(state.melody.notes.length);
+    state.melody.roll.selection.forEach(idx => {
+        const cur = getMelodyNoteLength(idx);
+        setMelodyNoteLength(idx, stepMelodyDuration(cur, delta));
+    });
+    updateMelodyPreview();
+    drawMelodyPianoRoll();
 }
 
 function updateMelodyLatchUI() {
@@ -7221,7 +7404,9 @@ function getMelodyNotePanelElements() {
     return {
         panel,
         label: panel.querySelector('.melody-note-label'),
-        select: panel.querySelector('select')
+        select: panel.querySelector('select'),
+        lenVal: panel.querySelector('.melody-note-len-val'),
+        lenBtns: panel.querySelectorAll('.melody-note-len-btn')
     };
 }
 
@@ -7238,6 +7423,7 @@ function showMelodyNotePanel(stepIdx, clientX, clientY) {
         setMelodyEditStep(stepIdx);
     }
     seqEnsureNotes();
+    syncMelodyDurationsToNotes(state.melody.notes.length);
     const { panel, label, select } = elsPanel;
     const note = state.melody.notes[stepIdx];
     const noteRoot = getMelodyStepRoot(note);
@@ -7256,6 +7442,9 @@ function showMelodyNotePanel(stepIdx, clientX, clientY) {
         } else {
             label.textContent = `Step ${stepIdx + 1}: ${midiToNoteName(note)} (${note})`;
         }
+    }
+    if (elsPanel.lenVal) {
+        elsPanel.lenVal.textContent = `Len ${formatMelodyDuration(getMelodyNoteLength(stepIdx))}`;
     }
     panel.style.display = 'block';
     const pad = 8;
@@ -7282,8 +7471,27 @@ function showMelodyNotePanel(stepIdx, clientX, clientY) {
                     ? `Step ${idx + 1}: (vuoto)`
                     : `Step ${idx + 1}: ${midiToNoteName(noteNow)} (${noteNow})`;
             }
+            if (elsPanel.lenVal) {
+                elsPanel.lenVal.textContent = `Len ${formatMelodyDuration(getMelodyNoteLength(idx))}`;
+            }
         };
         select.onblur = () => hideMelodyNotePanel();
+    }
+    if (elsPanel.lenBtns?.length) {
+        elsPanel.lenBtns.forEach(btn => {
+            btn.onclick = () => {
+                const idx = parseInt(panel.dataset.step, 10);
+                if (!Number.isFinite(idx)) return;
+                const delta = parseInt(btn.dataset.dir, 10) || 0;
+                const cur = getMelodyNoteLength(idx);
+                setMelodyNoteLength(idx, stepMelodyDuration(cur, delta));
+                if (elsPanel.lenVal) {
+                    elsPanel.lenVal.textContent = `Len ${formatMelodyDuration(getMelodyNoteLength(idx))}`;
+                }
+                updateMelodyPreview();
+                drawMelodyPianoRoll();
+            };
+        });
     }
 }
 
@@ -7335,6 +7543,15 @@ function updateMelodyPageUI() {
         const sizeValue = String(info.pageSize);
         if (els.melodyPageSize.value !== sizeValue) els.melodyPageSize.value = sizeValue;
     }
+    updateMelodyFollowUI();
+}
+
+function updateMelodyFollowUI() {
+    if (!els.melodyPageGo) return;
+    const follow = state.melody.roll?.followPlayhead !== false;
+    els.melodyPageGo.textContent = follow ? 'STOP' : 'FOLLOW';
+    els.melodyPageGo.classList.toggle('toggle-on', follow);
+    els.melodyPageGo.classList.toggle('toggle-off', !follow);
 }
 
 function setMelodyPage(nextIndex) {
@@ -7438,6 +7655,8 @@ function drawMelodyPianoRoll() {
     ctx.fillRect(0, 0, width, height);
 
     const notes = state.melody.notes || [];
+    syncMelodyDurationsToNotes(notes.length);
+    const durations = state.melody.durations || [];
     const page = getMelodyPageInfo();
     const { min, max } = getMelodyRollRange();
     if (!notes.length) {
@@ -7471,8 +7690,10 @@ function drawMelodyPianoRoll() {
         if (note == null) continue;
         const pitches = Array.isArray(note) ? note : [note];
         const x = local * stepW;
-        const noteW = Math.max(6, Math.min(stepW * 0.6, 26));
-        const rx = x + ((stepW - noteW) * 0.5);
+        const dur = clampMelodyDuration(durations[i]);
+        const baseW = stepW * dur;
+        const noteW = Math.max(2, Math.min(baseW - 2, baseW));
+        const rx = x + 2;
         const radius = Math.min(6, noteH * 0.4, noteW * 0.2);
         const isSelected = state.melody.roll && state.melody.roll.selection && state.melody.roll.selection.has(i);
         pitches.forEach(p => {
@@ -7492,7 +7713,20 @@ function drawMelodyPianoRoll() {
             ctx.arcTo(rx, ry, rx + noteW, ry, radius);
             ctx.closePath();
             ctx.fill();
+            if (isSelected) {
+                const handleW = Math.min(noteW, getMelodyResizeHandleWidth(noteW));
+                ctx.fillStyle = 'rgba(255,255,255,0.55)';
+                ctx.fillRect(rx + noteW - handleW, ry + 2, handleW, Math.max(4, noteH - 4));
+            }
         });
+        if (isSelected) {
+            const endX = x + (stepW * dur);
+            ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+            ctx.beginPath();
+            ctx.moveTo(endX, 0);
+            ctx.lineTo(endX, height);
+            ctx.stroke();
+        }
     }
 
     if (Number.isFinite(state.melody.currentStep) && state.melody.currentStep >= page.start && state.melody.currentStep < page.end) {
@@ -7555,6 +7789,7 @@ function initEnhancedPianoRoll() {
         mode: 'edit', // 'edit', 'select', 'move'
         startNoteRaw: 0,
         initialNotes: [],
+        originalDurations: [],
         originalNotes: [],
         selectionAtStart: [],
         startStep: 0,
@@ -7563,7 +7798,10 @@ function initEnhancedPianoRoll() {
         startClientY: 0,
         startWasOnNote: false,
         suppressClick: false,
-        chordNoteIndex: null
+        chordNoteIndex: null,
+        resizeStep: null,
+        resizeStartDur: null,
+        resizeStartX: 0
     };
     let lastTap = { time: 0, step: -1, onNote: false };
     const DOUBLE_TAP_MS = 380;
@@ -7584,14 +7822,29 @@ function initEnhancedPianoRoll() {
         const { min, max } = getMelodyRollRange();
         // Calcolo preciso proporzionale all'area visibile
         const localStep = Math.max(0, Math.min(len - 1, Math.floor((x / rect.width) * len)));
-        const stepIdx = page.start + localStep;
+        let stepIdx = page.start + localStep;
         const noteFloat = max - ((y / rect.height) * (max - min));
-        return { stepIdx, noteFloat, x, y };
+        // Se clicchi sulla "coda" di una nota, seleziona lo step di inizio
+        const maxBack = Math.min(16, stepIdx - page.start);
+        for (let back = 0; back <= maxBack; back++) {
+            const s = stepIdx - back;
+            const dur = getMelodyNoteLength(s);
+            if (dur <= 0) continue;
+            if (back >= dur) continue;
+            const stepNote = state.melody.notes[s];
+            const stepNotes = getMelodyStepNotes(stepNote);
+            if (stepNotes.length && stepNotes.some(n => Math.abs(n - noteFloat) < 0.8)) {
+                stepIdx = s;
+                break;
+            }
+        }
+        return { stepIdx, noteFloat, x, y, localStep, page, rect };
     };
 
     roll.addEventListener('pointerdown', e => {
         if (e.pointerType === 'touch') e.preventDefault();
-        const { stepIdx, noteFloat } = getCoords(e);
+        const { stepIdx, noteFloat, x, localStep, page, rect } = getCoords(e);
+        syncMelodyDurationsToNotes(state.melody.notes.length);
         seqEnsureNotes();
         const existingNote = state.melody.notes[stepIdx];
         const existingNotes = getMelodyStepNotes(existingNote);
@@ -7605,6 +7858,17 @@ function initEnhancedPianoRoll() {
             }
         });
         const isOnNote = existingNotes.length > 0 && nearestDist < 0.8;
+        let isOnHandle = false;
+        if (isOnNote && page && rect) {
+            const stepW = rect.width / page.length;
+            const dur = getMelodyNoteLength(stepIdx);
+            const baseW = stepW * dur;
+            const noteW = Math.max(2, Math.min(baseW - 2, baseW));
+            const rx = localStep * stepW + 2;
+            const handleW = Math.min(noteW, getMelodyResizeHandleWidth(noteW));
+            const handleLeft = rx + noteW - handleW;
+            isOnHandle = x >= (handleLeft - 1) && x <= (rx + noteW + 1);
+        }
         dragData.startWasOnNote = isOnNote;
         dragData.moved = false;
         dragData.startClientX = e.clientX;
@@ -7612,9 +7876,21 @@ function initEnhancedPianoRoll() {
         dragData.startStep = stepIdx;
         dragData.startNoteRaw = noteFloat;
         dragData.originalNotes = state.melody.notes.slice();
+        dragData.originalDurations = state.melody.durations.slice();
         dragData.chordNoteIndex = isOnNote ? nearestIdx : null;
+        dragData.resizeStep = null;
+        dragData.resizeStartDur = null;
+        dragData.resizeStartX = x;
 
-        if (e.shiftKey) {
+        if (isOnHandle) {
+            dragData.mode = 'resize';
+            if (!state.melody.roll.selection.has(stepIdx)) {
+                state.melody.roll.selection.clear();
+                state.melody.roll.selection.add(stepIdx);
+            }
+            dragData.resizeStep = stepIdx;
+            dragData.resizeStartDur = getMelodyNoteLength(stepIdx);
+        } else if (e.shiftKey) {
             // Modalità SELEZIONE (Marquee)
             dragData.mode = 'select';
             if (!e.shiftKey) state.melody.roll.selection.clear();
@@ -7700,7 +7976,23 @@ function initEnhancedPianoRoll() {
             }
         }
 
-        if (dragData.mode === 'move') {
+        if (dragData.mode === 'resize') {
+            const { x, page, rect } = getCoords(e);
+            const baseStep = dragData.resizeStep;
+            if (Number.isFinite(baseStep) && page && rect) {
+                const localStart = baseStep - page.start;
+                if (localStart >= 0 && localStart < page.length) {
+                    const stepW = rect.width / page.length;
+                    const rawDur = (x / stepW) - localStart;
+                    const nextDur = clampMelodyDuration(rawDur);
+                    const curDur = getMelodyNoteLength(baseStep);
+                    if (nextDur !== curDur) {
+                        setMelodyNoteLength(baseStep, nextDur);
+                        dragData.moved = true;
+                    }
+                }
+            }
+        } else if (dragData.mode === 'move') {
             // SPOSTAMENTO FLUIDO SU X/Y: la nota segue il puntatore, nessun clone
             if (dragData.initialNotes.length === 1) {
                 const item = dragData.initialNotes[0];
@@ -7731,6 +8023,9 @@ function initEnhancedPianoRoll() {
                     if (newStep !== item.idx && isMelodyStepEmpty(state.melody.notes[newStep])) {
                         state.melody.notes[item.idx] = null;
                         state.melody.notes[newStep] = packed;
+                        const dur = getMelodyNoteLength(item.idx);
+                        setMelodyNoteLength(newStep, dur);
+                        setMelodyNoteLength(item.idx, 1);
                         dragData.startStep = newStep;
                         dragData.startNoteRaw = noteFloat;
                         dragData.initialNotes[0].idx = newStep;
@@ -7755,15 +8050,19 @@ function initEnhancedPianoRoll() {
                 });
                 if (conflict) return;
                 const newNotes = dragData.originalNotes.slice();
+                const newDurations = dragData.originalDurations.slice();
                 selected.forEach(idx => { newNotes[idx] = null; });
+                selected.forEach(idx => { newDurations[idx] = 1; });
                 selected.forEach(idx => {
                     const base = dragData.originalNotes[idx];
                     const baseNotes = getMelodyStepNotes(base);
                     if (!baseNotes.length) return;
                     const shifted = baseNotes.map(n => getNearestScaleNote(n + deltaPitch));
                     newNotes[idx + deltaStep] = packMelodyStepNotes(shifted);
+                    newDurations[idx + deltaStep] = dragData.originalDurations[idx] || 1;
                 });
                 state.melody.notes = newNotes;
+                state.melody.durations = newDurations;
                 state.melody.roll.selection = new Set(targets);
             }
         } else if (dragData.mode === 'edit') {
@@ -7829,7 +8128,7 @@ function initEnhancedPianoRoll() {
                 const add = existingNotes.length > 0;
                 applyMelodyEdit(stepIdx, note, { live: false, finalize: true, add });
                 showMelodyNotePanel(stepIdx, e.clientX, e.clientY);
-            } else if (dragData.mode === 'move' && dragData.startWasOnNote) {
+            } else if ((dragData.mode === 'move' || dragData.mode === 'resize') && dragData.startWasOnNote) {
                 showMelodyNotePanel(stepIdx, e.clientX, e.clientY);
             }
         } else {
@@ -7852,6 +8151,12 @@ function initEnhancedPianoRoll() {
                 drawMelodyPianoRoll();
                 ev.preventDefault();
             }
+        } else if (ev.key === 'ArrowLeft') {
+            adjustMelodyNoteLengthForSelection(-1);
+            ev.preventDefault();
+        } else if (ev.key === 'ArrowRight') {
+            adjustMelodyNoteLengthForSelection(1);
+            ev.preventDefault();
         } else if (ev.key === 'Escape') {
             hideMelodyNotePanel();
             if (state.melody.roll.selection) {
@@ -7906,6 +8211,7 @@ function initSequencerMatrix() {
         moved: false,
         startWasOnNote: false,
         initialNotes: [],
+        originalDurations: [],
         originalNotes: [],
         selectionAtStart: [],
         suppressClick: false
@@ -7934,6 +8240,7 @@ function initSequencerMatrix() {
     seq.addEventListener('pointerdown', (e) => {
         const idx = getStepFromTarget(e.target);
         if (!Number.isFinite(idx)) return;
+        syncMelodyDurationsToNotes(state.melody.notes.length);
         seqEnsureNotes();
         const note = state.melody.notes[idx];
         dragData.active = true;
@@ -7943,6 +8250,7 @@ function initSequencerMatrix() {
         dragData.startClientY = e.clientY;
         dragData.startWasOnNote = !isMelodyStepEmpty(note);
         dragData.originalNotes = state.melody.notes.slice();
+        dragData.originalDurations = state.melody.durations.slice();
 
         if (e.shiftKey && Number.isFinite(state.melody.roll.lastSelectedStep)) {
             const start = state.melody.roll.lastSelectedStep;
@@ -7991,6 +8299,9 @@ function initSequencerMatrix() {
                 if (newStep !== item.idx && isMelodyStepEmpty(state.melody.notes[newStep])) {
                     state.melody.notes[item.idx] = null;
                     state.melody.notes[newStep] = packed;
+                    const dur = getMelodyNoteLength(item.idx);
+                    setMelodyNoteLength(newStep, dur);
+                    setMelodyNoteLength(item.idx, 1);
                     dragData.startStep = stepIdx;
                     dragData.startClientY = e.clientY;
                     dragData.initialNotes[0].idx = newStep;
@@ -8013,15 +8324,19 @@ function initSequencerMatrix() {
                 });
                 if (conflict) return;
                 const newNotes = dragData.originalNotes.slice();
+                const newDurations = dragData.originalDurations.slice();
                 selected.forEach(step => { newNotes[step] = null; });
+                selected.forEach(step => { newDurations[step] = 1; });
                 selected.forEach(step => {
                     const base = dragData.originalNotes[step];
                     const baseNotes = getMelodyStepNotes(base);
                     if (!baseNotes.length) return;
                     const shifted = baseNotes.map(n => getNearestScaleNote(n + pitchDelta));
                     newNotes[step + deltaStep] = packMelodyStepNotes(shifted);
+                    newDurations[step + deltaStep] = dragData.originalDurations[step] || 1;
                 });
                 state.melody.notes = newNotes;
+                state.melody.durations = newDurations;
                 state.melody.roll.selection = new Set(targets);
             }
         }
@@ -8148,6 +8463,7 @@ function applyMelodyEdit(stepIdx, rootNote, options = {}) {
         if (!state.melody.notes.length) {
             state.melody.notes = new Array(state.melody.length || 16).fill(null);
         }
+        syncMelodyDurationsToNotes(state.melody.notes.length);
 
         // IMPORTANTE: Marca come manuale per bloccare rigenerazioni automatiche
         state.melody.imported = true;
@@ -8164,6 +8480,7 @@ function applyMelodyEdit(stepIdx, rootNote, options = {}) {
             } else {
                 state.melody.notes[clamped] = packed;
             }
+            setMelodyNoteLength(clamped, getMelodyNoteLength(clamped));
             if (options.live) {
                 if (Array.isArray(packed)) {
                     updateMelodyLiveNotes(packed[0], { minRelease: 0.1, notesOverride: packed, chord: true });
@@ -8198,7 +8515,12 @@ function updateMelodyFromUI(regenerate = false) {
     const styleConfig = getMelodyStyleConfig();
     state.melody.style = styleConfig.style;
     state.melody.cadence = els.melodyCadence.value || 'tonic';
+    state.melody.durationVar = Math.max(0, Math.min(1, (parseInt(els.melodyDurVar?.value, 10) || 0) / 100));
+    state.melody.rhythmVar = Math.max(0, Math.min(1, (parseInt(els.melodyRhythmVar?.value, 10) || 0) / 100));
+    state.melody.motifVar = Math.max(0, Math.min(1, (parseInt(els.melodyMotifVar?.value, 10) || 0) / 100));
+    state.melody.densityDrift = Math.max(0, Math.min(1, (parseInt(els.melodyDensityDrift?.value, 10) || 0) / 100));
     state.melody.rate = els.melodyRate.value || '1/16';
+    state.melody.bpm = getMelodyBpm();
     state.melody.poly = state.melody.poly || { enabled: false, chance: 0.35 };
     state.melody.poly.enabled = !!els.melodyPolyGen?.checked;
     state.melody.poly.chance = Math.max(0, Math.min(1, (parseInt(els.melodyPolyChance?.value, 10) || 0) / 100));
@@ -8994,6 +9316,27 @@ function snapImportedMelodyNotes(notes) {
             return Number.isFinite(n) ? getNearestScaleNote(n) : n;
         });
     }
+    const durations = new Array(length).fill(1);
+    if (durationVar > 0) {
+        const list = getMelodyDurationStepsList();
+        const baseIdx = Math.max(0, list.indexOf(1));
+        const span = Math.max(0, Math.round(durationVar * (list.length - 1)));
+        if (span > 0) {
+            const minIdx = Math.max(0, baseIdx - span);
+            const maxIdx = Math.min(list.length - 1, baseIdx + span);
+            const weights = [];
+            for (let i = minIdx; i <= maxIdx; i++) {
+                const dist = Math.abs(i - baseIdx);
+                const weight = 1 / (1 + dist);
+                weights.push({ value: list[i], weight });
+            }
+            for (let i = 0; i < length; i++) {
+                if (notes[i] == null) continue;
+                durations[i] = chooseWeighted(rng, weights);
+            }
+        }
+    }
+    state.melody.durations = durations;
     return notes;
 }
 
@@ -9162,7 +9505,7 @@ function getMelodyImportType(file) {
     return 'unknown';
 }
 
-function applyImportedMelody(notes, statusEl, label = 'Imported', features = null, meta = null) {
+function applyImportedMelody(notes, statusEl, label = 'Imported', features = null, meta = null, durations = null) {
     if (!Array.isArray(notes) || !notes.length) {
         if (statusEl) statusEl.textContent = 'No melody found.';
         return false;
@@ -9170,6 +9513,8 @@ function applyImportedMelody(notes, statusEl, label = 'Imported', features = nul
     const snappedNotes = snapImportedMelodyNotes(notes);
     const normalized = normalizeMelodyNotes(snappedNotes);
     state.melody.notes = normalized;
+    state.melody.durations = Array.isArray(durations) ? durations.slice(0) : [];
+    syncMelodyDurationsToNotes(normalized.length);
     state.melody.length = normalized.length;
     state.melody.imported = true;
     state.melody.importedFeatures = features || null;
@@ -11863,6 +12208,22 @@ function bindUI() {
         updateMelodyToggleUI();
         els.melodyPerfToggle.onclick = toggleMelody;
     }
+    if (els.melodyGenerate) {
+        els.melodyGenerate.onclick = () => {
+            if (state.melody.latchEnabled) return;
+            const wasImported = !!state.melody.imported;
+            const prevFeatures = state.melody.importedFeatures;
+            const prevMeta = state.melody.importedMeta;
+            clearMelodyContinuationState();
+            state.melody.imported = false;
+            updateMelodyFromUI(true);
+            state.melody.imported = wasImported;
+            state.melody.importedFeatures = prevFeatures;
+            state.melody.importedMeta = prevMeta;
+            restartMelodyGenerator();
+            updateMelodyStatusUI();
+        };
+    }
     if (els.melodyLatchPerf) {
         updateMelodyLatchUI();
         els.melodyLatchPerf.onclick = () => {
@@ -11943,7 +12304,13 @@ function bindUI() {
     }
     if (els.melodyPageGo) {
         els.melodyPageGo.onclick = () => {
-            goToCurrentMelodyStep(true);
+            if (!state.melody.roll) state.melody.roll = {};
+            const follow = state.melody.roll.followPlayhead !== false;
+            state.melody.roll.followPlayhead = !follow;
+            updateMelodyFollowUI();
+            if (state.melody.roll.followPlayhead) {
+                goToCurrentMelodyStep(true);
+            }
         };
     }
     updateMelodyPageUI();
@@ -11962,6 +12329,7 @@ function bindUI() {
             updateMelodyFromUI(false);
             state.melody.saves[name] = {
                 notes: state.melody.notes.map(step => (Array.isArray(step) ? step.slice(0) : step)),
+                durations: Array.isArray(state.melody.durations) ? state.melody.durations.slice(0) : [],
                 params: getMelodySaveParams(),
                 imported: !!state.melody.imported
             };
@@ -11976,6 +12344,8 @@ function bindUI() {
             const saved = state.melody.saves?.[name];
             if (!saved || !Array.isArray(saved.notes)) return;
             state.melody.notes = normalizeMelodyNotes(saved.notes);
+            state.melody.durations = Array.isArray(saved.durations) ? saved.durations.slice(0) : [];
+            syncMelodyDurationsToNotes(state.melody.notes.length);
             state.melody.stepIndex = 0;
             state.melody.imported = !!saved.imported;
             state.melody.importedFeatures = null;
@@ -12025,6 +12395,7 @@ function bindUI() {
                 }
                 const result = buildNotesFromNoteSequence(seq);
                 const notes = result?.notes || [];
+                const durations = Array.isArray(result?.durations) ? result.durations : [];
                 if (!notes.length) {
                     if (els.melodyImportAdvancedStatus) els.melodyImportAdvancedStatus.textContent = 'No melody found.';
                     return;
@@ -12033,6 +12404,8 @@ function bindUI() {
                 state.melody.imported = true;
                 state.melody.importedFeatures = result?.features || null;
                 state.melody.notes = snappedNotes;
+                state.melody.durations = durations.slice(0);
+                syncMelodyDurationsToNotes(snappedNotes.length);
                 state.melody.length = snappedNotes.length;
                 clearMelodyContinuationState();
                 state.melody.stepIndex = 0;
@@ -12281,6 +12654,7 @@ function bindUI() {
     const melodyLegend = document.getElementById('melodyHumanLegend');
     const melodyLegendMap = new Map([
         [els.melodyToggle, 'Melody on/off: start or stop the generator.'],
+        [els.melodyGenerate, 'Generate: rebuild the melody using current parameters.'],
         [els.melodyRebuild, 'Rebuild: regenerate using the current params.'],
         [els.melodyKeepImported, 'Keep: keep the imported melody without rebuilding.'],
         [els.melodyStyle, 'Pattern: choose melodic motion, rules bias, or a rhythm pattern.'],
@@ -12292,6 +12666,10 @@ function bindUI() {
         [els.melodyCadence, 'Cadence: forces the ending note (tonic/dominant/none).'],
         [els.melodyPolyGen, 'Poly Gen: generate chords in the sequence.'],
         [els.melodyPolyChance, 'Chord %: probability of generating a chord per step.'],
+        [els.melodyDurVar, 'Dur Var: randomness of note length during auto-generation.'],
+        [els.melodyRhythmVar, 'Rhythm Var: loosen/tighten the rhythm mask each bar.'],
+        [els.melodyMotifVar, 'Motif Var: mutate the motif repeats.'],
+        [els.melodyDensityDrift, 'Density Drift: slow density changes per bar.'],
         [els.melodyRuleSelect, 'Rules: choose the rule bias for melody generation.'],
         [els.melodyRhythmMode, 'Rhythm mode: off, rules-based, or fixed pattern.'],
         [els.melodyRhythmPattern, 'Rhythm pattern: pick a predefined groove family.'],
@@ -12353,10 +12731,15 @@ function bindUI() {
         els.melodyDensity,
         els.melodyRange,
         els.melodySeed,
-        els.melodyCadence
+        els.melodyCadence,
+        els.melodyDurVar,
+        els.melodyRhythmVar,
+        els.melodyMotifVar,
+        els.melodyDensityDrift
     ]);
     const melodyPlaybackInputs = new Set([
         els.melodyRate,
+        els.melodyBpm,
         els.melodyHumanizeAmount,
         els.melodyHumanTiming,
         els.melodyHumanVelocity,
@@ -12387,7 +12770,6 @@ function bindUI() {
         const isGen = melodyGenInputs.has(target);
         const isPlayback = melodyPlaybackInputs.has(target);
         if (isGen) {
-            state.melody.imported = false;
             clearMelodyContinuationState();
         }
         updateMelodyFromUI(!!isGen);
@@ -12408,6 +12790,46 @@ function bindUI() {
             if (els.melodyRate) els.melodyRate.value = e.target.value;
             onMelodyParamChange({ target: els.melodyRate });
         };
+    }
+    if (els.melodyGeneratePerf) {
+        els.melodyGeneratePerf.onclick = () => {
+            if (els.melodyGenerate) {
+                els.melodyGenerate.click();
+            } else {
+                if (state.melody.latchEnabled) return;
+                const wasImported = !!state.melody.imported;
+                const prevFeatures = state.melody.importedFeatures;
+                const prevMeta = state.melody.importedMeta;
+                clearMelodyContinuationState();
+                state.melody.imported = false;
+                updateMelodyFromUI(true);
+                state.melody.imported = wasImported;
+                state.melody.importedFeatures = prevFeatures;
+                state.melody.importedMeta = prevMeta;
+                restartMelodyGenerator();
+                updateMelodyStatusUI();
+            }
+        };
+    }
+    if (els.melodyBpmPerf) {
+        els.melodyBpmPerf.onchange = e => {
+            if (els.melodyBpm) els.melodyBpm.value = e.target.value;
+            onMelodyParamChange({ target: els.melodyBpm });
+        };
+    }
+    const bumpPerfBpm = (delta) => {
+        if (!els.melodyBpm) return;
+        const cur = parseInt(els.melodyBpm.value, 10) || 120;
+        const next = Math.max(40, Math.min(240, cur + delta));
+        els.melodyBpm.value = next;
+        if (els.melodyBpmPerf) els.melodyBpmPerf.value = String(next);
+        onMelodyParamChange({ target: els.melodyBpm });
+    };
+    if (els.melodyBpmPerfDown) {
+        els.melodyBpmPerfDown.onclick = () => bumpPerfBpm(-5);
+    }
+    if (els.melodyBpmPerfUp) {
+        els.melodyBpmPerfUp.onclick = () => bumpPerfBpm(5);
     }
     if (els.melodyHumanPreset) {
         els.melodyHumanPreset.onchange = e => {
@@ -12458,40 +12880,9 @@ function bindUI() {
         els.melodyVolumePerf.oninput = applyVol;
         applyVol();
     }
-    if (els.melodySeedPerfDown) {
-        els.melodySeedPerfDown.onclick = () => {
-            if (!els.melodySeed) return;
-            const current = parseInt(els.melodySeed.value, 10) || 1;
-            const next = Math.max(1, current - 1);
-            els.melodySeed.value = next;
-            onMelodyParamChange({ target: els.melodySeed });
-        };
-    }
-    if (els.melodySeedPerfUp) {
-        els.melodySeedPerfUp.onclick = () => {
-            if (!els.melodySeed) return;
-            const current = parseInt(els.melodySeed.value, 10) || 1;
-            const next = Math.min(9999, current + 1);
-            els.melodySeed.value = next;
-            onMelodyParamChange({ target: els.melodySeed });
-        };
-    }
-    if (els.melodyCadencePerf) {
-        els.melodyCadencePerf.onchange = e => {
-            if (els.melodyCadence) els.melodyCadence.value = e.target.value;
-            onMelodyParamChange({ target: els.melodyCadence });
-        };
-    }
-    if (els.melodyLayerPerf) {
-        els.melodyLayerPerf.onclick = () => {
-            if (state.melody.latchEnabled) return;
-            state.melody.layer.enabled = !state.melody.layer.enabled;
-            updateLayerToggleUI();
-            updateMelodyFromUI(false);
-            if (state.melody.running) restartMelodyGenerator();
-            syncMelodyPerfControls();
-        };
-    }
+    // seed perf removed
+    // cadence perf removed
+    // layer perf removed
     updateMelodyRuleSummary();
     updateMelodyStatusUI();
     updateMelodyEditStatus();
