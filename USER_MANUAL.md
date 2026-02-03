@@ -78,7 +78,7 @@ Transform simple input into professional arrangements.
 * **Microtonal Editor:** Adjust the tuning of individual notes in **Cents** (1/100th of a semitone). Perfect for non-Western tunings or Just Intonation.
 * **Custom Scale:** Activate/Deactivate specific notes on the grid and save your layout.
 
-### Chord Generator (GROUP Menu)
+### Chord Generator
 
 * **Auto (Diatonic):** Automatically plays the correct chord for the selected scale (e.g., plays a Minor 7th if that fits the current key).
 * **Fixed Structures:** Forces every note to play a specific chord type (Sus4, Add9, 13th, etc.).

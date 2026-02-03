@@ -11,10 +11,15 @@ const els = {
     uiAdvancedToggle: document.getElementById('uiAdvancedToggle'),
     midiInSelect: document.getElementById('midiInSelect'),
     midiOutSelect: document.getElementById('midiOutSelect'),
+    midiOutSelectB: document.getElementById('midiOutSelectB'),
+    dualMode: document.getElementById('dualMode'),
     rootNote: document.getElementById('rootNote'),
     scaleType: document.getElementById('scaleType'),
     microScaleSelect: document.getElementById('microScaleSelect'),
     microtonalizeIn: document.getElementById('microtonalizeIn'),
+    sclFile: document.getElementById('sclFile'),
+    sclName: document.getElementById('sclName'),
+    sclImport: document.getElementById('sclImport'),
     visibleOctaves: document.getElementById('visibleOctaves'),
     scaleModeDiatonic: document.getElementById('scaleModeDiatonic'),
     scaleModeMicro: document.getElementById('scaleModeMicro'),
@@ -98,7 +103,9 @@ const els = {
     arpParamsPanel: document.getElementById('arpParamsPanel'),
     keepBtn: document.getElementById('keepBtn'),
     midiStatus: document.getElementById('midiStatus'),
+    dualSplitLine: document.getElementById('dualSplitLine'),
     audioStart: document.getElementById('audioStart'),
+    audioZoneSelect: document.getElementById('audioZoneSelect'),
     audioStatus: document.getElementById('audioStatus'),
     sampleSetSelect: document.getElementById('sampleSetSelect'),
     sampleSetSelectMini: document.getElementById('sampleSetSelectMini'),
@@ -113,6 +120,7 @@ const els = {
     fxChorusToggle: document.getElementById('fxChorusToggle'),
     fxDelayToggle: document.getElementById('fxDelayToggle'),
     fxReverbToggle: document.getElementById('fxReverbToggle'),
+    fxTubeToggle: document.getElementById('fxTubeToggle'),
     wtMode: document.getElementById('wtMode'),
     wtSelect: document.getElementById('wtSelect'),
     wtMix: document.getElementById('wtMix'),
@@ -164,6 +172,7 @@ const els = {
     fxReverbDry: document.getElementById('fxReverbDry'),
     fxReverbWet: document.getElementById('fxReverbWet'),
     fxMix: document.getElementById('fxMix'),
+    fxTubeDrive: document.getElementById('fxTubeDrive'),
     sampleClear1: document.getElementById('sampleClear1'),
     sampleClear2: document.getElementById('sampleClear2'),
     sampleClear3: document.getElementById('sampleClear3'),
@@ -425,7 +434,9 @@ if (setToggleBtn) {
 function triggerBow(voiceObj, attackTime = 0.05) {
     if (!voiceObj || !state.audio.ctx) return;
     voiceObj.bowFlash = 1.0;
-    const key = `${voiceObj.chan}:${voiceObj.note}`;
+    const zoneId = voiceObj.zone || 'A';
+    const internalChan = getInternalAudioChannel(voiceObj.chan, zoneId);
+    const key = `${internalChan}:${voiceObj.note}`;
     
     // Stop existing voice with quick fade
     const activeVoice = state.audio.voices.get(key);
@@ -446,12 +457,13 @@ function triggerBow(voiceObj, attackTime = 0.05) {
     const m = voiceObj.lastM || { press: 90 };
     const press = m.press || 90;
     // Restart with override - creates new voice with fresh startTime
-    noteOnInternal(voiceObj.note, press, voiceObj.chan, attackTime);
+    noteOnInternal(voiceObj.note, press, internalChan, attackTime, { zoneId });
 }
 const PRESET_KEY = 'genca_presets_v1';
 const MPE_PRESET_KEY = 'genca_mpe_presets_v1';
 const MELODY_SAVE_KEY = 'genca_melody_saves_v1';
 const CUSTOM_SCALE_KEY = 'genca_custom_scales_v1';
+const MICROTONAL_USER_KEY = 'genca_microtonal_scales_v1';
 const MICROTONAL_SCALES = {
     '12-TET (Standard)': { cents: makeEqualTemperament(12) },
     'Balinese Slendro': { cents: [0, 240, 480, 720, 960] },
@@ -470,6 +482,7 @@ const DEFAULT_CUSTOM_SCALES = {
 };
 const SAMPLE_SLOT_COUNT = 7;
 const DEFAULT_SAMPLE_ROOTS = [36, 48, 60, 72, 84, 96, 108];
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const FACTORY_LIBRARY = {
     'Bass': [
         { root: 45, file: 'samples/Bass__a2.wav', loop: false },
@@ -558,7 +571,9 @@ const DEFAULT_FX = {
     reverbDecay: 2.5,
     reverbDry: 1,
     reverbWet: 0.2,
-    fxMix: 0.3
+    fxMix: 0.3,
+    tubeOn: false,
+    tubeDrive: 0.2
 };
 const WAVETABLES = {
     Saw: 'saw',
@@ -661,19 +676,21 @@ const FX_PRESETS = {
 const LOCAL_SUPPRESS_MS = 140;
 const GHOST_NOTE_MS = 220;
 const state = {
-    midi: { output: null, input: null, access: null, hardwareOutput: null, outputWrapper: null },
+    midi: { output: null, outputB: null, input: null, access: null, hardwareOutput: null, hardwareOutputB: null, outputWrapper: null, outputWrapperB: null },
     currentOctave: 0,
     perfHeight: 0,
     canvasRect: canvas.getBoundingClientRect(),
     activeTouches: new Map(),
     physicalNotes: new Map(),
     mpeChannels: Array.from({length: 15}, (_, i) => i + 2),
+    mpeChannelsB: Array.from({length: 15}, (_, i) => i + 2),
     localNoteOnTimes: new Map(),
     externalNoteMap: new Map(),
     keepEnabled: false,
     presets: {},
     mpePresets: {},
     customScales: {},
+    microScales: {},
     fxUserPresets: {},
     scaleNotes: { notes: [], root: 0, scale: '' },
     gridCache: null,
@@ -807,6 +824,10 @@ const state = {
             type: 'Saw',
             mix: 0.35
         },
+        zones: {
+            A: { wavetable: { mode: 'layer', type: 'Saw', mix: 0.35 }, samplerGain: 1, activeSet: 'Default', samples: [], morph: 0.5 },
+            B: { wavetable: { mode: 'layer', type: 'Saw', mix: 0.35 }, samplerGain: 1, activeSet: 'Default', samples: [], morph: 0.5 }
+        },
         macro: {
             morph: 0.5,
             texture: 0
@@ -915,16 +936,18 @@ initSampleSlots();
 initFactoryUI();
 
 function initSampleSlots() {
-    const activeSet = getActiveSampleSetName();
-    state.audio.activeSet = activeSet;
-    const roots = loadSampleRootsForSet(activeSet);
-    const gains = loadSampleGainsForSet(activeSet);
-    state.audio.samplerGain = loadSamplerGainForSet(activeSet);
-    state.audio.samples = DEFAULT_SAMPLE_ROOTS.map((fallback, idx) => {
-        const root = roots[idx] ?? fallback;
-        const gain = gains[idx] ?? DEFAULT_SAMPLE_GAINS[idx] ?? 1;
-        return { buffer: null, root, name: '', data: null, gain };
+    ['A', 'B'].forEach(zoneKey => {
+        const activeSet = getActiveSampleSetName(zoneKey);
+        const roots = loadSampleRootsForSet(activeSet);
+        const gains = loadSampleGainsForSet(activeSet);
+        if (state.audio.zones && state.audio.zones[zoneKey]) {
+            state.audio.zones[zoneKey].activeSet = activeSet;
+            state.audio.zones[zoneKey].samplerGain = loadSamplerGainForSet(activeSet);
+            state.audio.zones[zoneKey].samples = createSampleSlots(roots, gains);
+        }
     });
+    setActiveSampleZone(getActiveAudioZoneId());
+    updateSampleSlotsUI();
     state.audio.fx = { ...DEFAULT_FX };
 }
 
@@ -936,11 +959,14 @@ function initFactoryUI() {
     els.factoryLoadBtn.onclick = async () => {
         const setName = els.factorySelect.value;
         if (!setName || !FACTORY_LIBRARY[setName]) return;
+        const zoneKey = getActiveAudioZoneId();
+        setActiveSampleZone(zoneKey);
         if (!state.audio.ctx) await initAudioContext();
         if (state.audio.ctx.state === 'suspended') await state.audio.ctx.resume();
         els.midiStatus.innerText = "LOADING FACTORY SET...";
         if(els.sampleSetName) els.sampleSetName.value = setName;
-        setActiveSampleSetName(setName);
+        setActiveSampleSetName(setName, zoneKey);
+        refreshSampleSetSelect(setName, zoneKey);
         const presets = FACTORY_LIBRARY[setName];
         stopAllVoicesInternal();
         for (let i = 0; i < SAMPLE_SLOT_COUNT; i++) {
@@ -1023,16 +1049,29 @@ function ensureSampleSet(name, stateObj) {
     }
 }
 
-function getActiveSampleSetName() {
-    const raw = localStorage.getItem(SAMPLE_ACTIVE_SET_KEY);
+function getSampleActiveSetKey(zoneId) {
+    const zoneKey = getAudioZoneId(zoneId);
+    if (zoneKey === 'B') return `${SAMPLE_ACTIVE_SET_KEY}_B`;
+    return `${SAMPLE_ACTIVE_SET_KEY}_A`;
+}
+
+function getActiveSampleSetName(zoneId = getActiveAudioZoneId()) {
+    const zoneKey = getAudioZoneId(zoneId);
+    const key = getSampleActiveSetKey(zoneKey);
+    const raw = localStorage.getItem(key) || (zoneKey === 'A' ? localStorage.getItem(SAMPLE_ACTIVE_SET_KEY) : null);
     const name = raw && raw.trim() ? raw.trim() : 'Default';
     return name;
 }
 
-function setActiveSampleSetName(name) {
+function setActiveSampleSetName(name, zoneId = getActiveAudioZoneId()) {
+    const zoneKey = getAudioZoneId(zoneId);
     const key = name.trim() || 'Default';
-    localStorage.setItem(SAMPLE_ACTIVE_SET_KEY, key);
+    localStorage.setItem(getSampleActiveSetKey(zoneKey), key);
+    if (zoneKey === 'A') localStorage.setItem(SAMPLE_ACTIVE_SET_KEY, key);
     state.audio.activeSet = key;
+    if (state.audio.zones && state.audio.zones[zoneKey]) {
+        state.audio.zones[zoneKey].activeSet = key;
+    }
 }
 
 function loadSampleRootsForSet(setName) {
@@ -1282,6 +1321,17 @@ async function normalizeSampleData(data) {
     return null;
 }
 
+function makeTubeCurve(amount) {
+    const drive = Math.max(0.01, Math.min(1, amount)) * 20;
+    const samples = 44100;
+    const curve = new Float32Array(samples);
+    for (let i = 0; i < samples; i++) {
+        const x = (i / (samples - 1)) * 2 - 1;
+        curve[i] = (1 + drive) * x / (1 + drive * Math.abs(x));
+    }
+    return curve;
+}
+
 async function initAudioContext() {
     if (state.audio.ctx) return;
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -1306,6 +1356,10 @@ async function initAudioContext() {
     state.audio.convolver = state.audio.ctx.createConvolver();
     state.audio.reverbWetGain = state.audio.ctx.createGain();
     state.audio.reverbDryGain = state.audio.ctx.createGain();
+    state.audio.tubeIn = state.audio.ctx.createGain();
+    state.audio.tubeShaper = state.audio.ctx.createWaveShaper();
+    state.audio.tubeDryGain = state.audio.ctx.createGain();
+    state.audio.tubeWetGain = state.audio.ctx.createGain();
     state.audio.master.gain.value = 0.8;
     state.audio.melodyGain.gain.value = Math.max(0, Math.min(1, Number.isFinite(state.melody?.volume) ? state.melody.volume : 1));
     state.audio.chorusDelay.delayTime.value = 0.015;
@@ -1318,7 +1372,9 @@ async function initAudioContext() {
     state.audio.reverbWetGain.gain.value = state.audio.fx.reverbWet;
     state.audio.reverbDryGain.gain.value = state.audio.fx.reverbDry;
     state.audio.fxSend.gain.value = state.audio.fx.fxMix;
-    state.audio.dryGain.connect(state.audio.master);
+    state.audio.tubeShaper.oversample = '4x';
+    state.audio.tubeShaper.curve = makeTubeCurve(state.audio.fx.tubeDrive);
+    state.audio.dryGain.connect(state.audio.tubeIn);
     state.audio.melodyGain.connect(state.audio.dryGain);
     state.audio.melodyGain.connect(state.audio.fxSend);
     state.audio.fxSend.connect(state.audio.fxBus);
@@ -1338,7 +1394,12 @@ async function initAudioContext() {
     state.audio.reverbWetGain.connect(state.audio.wetGain);
     state.audio.reverbInput.connect(state.audio.reverbDryGain);
     state.audio.reverbDryGain.connect(state.audio.wetGain);
-    state.audio.wetGain.connect(state.audio.master);
+    state.audio.wetGain.connect(state.audio.tubeIn);
+    state.audio.tubeIn.connect(state.audio.tubeDryGain);
+    state.audio.tubeIn.connect(state.audio.tubeShaper);
+    state.audio.tubeShaper.connect(state.audio.tubeWetGain);
+    state.audio.tubeDryGain.connect(state.audio.master);
+    state.audio.tubeWetGain.connect(state.audio.master);
     state.audio.master.connect(state.audio.ctx.destination);
     rebuildReverbImpulse();
     updateFxNodes();
@@ -2118,6 +2179,10 @@ function updateFxToggleButtons() {
         els.fxReverbToggle.className = `menu-btn fx-toggle ${fx.reverbOn ? 'toggle-on' : 'toggle-off'}`;
         els.fxReverbToggle.textContent = fx.reverbOn ? 'REVERB ON' : 'REVERB OFF';
     }
+    if (els.fxTubeToggle) {
+        els.fxTubeToggle.className = `menu-btn fx-toggle ${fx.tubeOn ? 'toggle-on' : 'toggle-off'}`;
+        els.fxTubeToggle.textContent = fx.tubeOn ? 'TUBE ON' : 'TUBE OFF';
+    }
     if (els.fxToggle) {
         els.fxToggle.className = `menu-btn btn-square fx-toggle ${state.audio.fxEnabled ? 'toggle-on' : 'toggle-off'}`;
     }
@@ -2175,7 +2240,7 @@ function formatFxValue(id, value) {
     if (id === 'fxDelayReverse') {
         return `${Math.round(parseFloat(value) * 100)}%`;
     }
-    if (id === 'fxDelayDry' || id === 'fxDelayWet' || id === 'fxReverbDry' || id === 'fxReverbWet' || id === 'fxMix' || id === 'fxSustain') {
+    if (id === 'fxDelayDry' || id === 'fxDelayWet' || id === 'fxReverbDry' || id === 'fxReverbWet' || id === 'fxMix' || id === 'fxSustain' || id === 'fxTubeDrive') {
         return `${Math.round(parseFloat(value) * 100)}%`;
     }
     return value;
@@ -2212,6 +2277,17 @@ function updateAllSampleNames() {
         updateSampleName(i);
     }
 }
+
+function updateSampleSlotsUI() {
+    for (let i = 0; i < SAMPLE_SLOT_COUNT; i++) {
+        const sample = state.audio.samples[i];
+        if (sampleRootEls[i]) sampleRootEls[i].value = midiToNoteName(sample?.root ?? (DEFAULT_SAMPLE_ROOTS[i] || 60));
+        if (sampleGainEls[i]) sampleGainEls[i].value = (sample?.gain ?? DEFAULT_SAMPLE_GAINS[i] ?? 1).toFixed(2);
+        updateSampleName(i);
+    }
+}
+
+
 
 function midiToFreq(note) {
     return 440 * Math.pow(2, (note - 69) / 12);
@@ -2260,13 +2336,19 @@ function updateWavetableUI() {
     }
 }
 
-function setWavetableMode(mode) {
+function setWavetableMode(mode, zoneId = getActiveAudioZoneId()) {
     const next = mode === 'layer' ? 'layer' : (mode === 'wt' ? 'wt' : 'sampler');
-    state.audio.wavetable.mode = next;
-    if (els.wtMode) els.wtMode.value = next;
-    if (els.wtMixBox) els.wtMixBox.style.display = next === 'layer' ? '' : 'none';
-    updateSamplerGainNodes();
-    updateWavetableMix();
+    const zoneKey = getAudioZoneId(zoneId);
+    if (state.audio.zones && state.audio.zones[zoneKey]) {
+        state.audio.zones[zoneKey].wavetable.mode = next;
+    }
+    if (zoneKey === getActiveAudioZoneId()) {
+        state.audio.wavetable.mode = next;
+        if (els.wtMode) els.wtMode.value = next;
+        if (els.wtMixBox) els.wtMixBox.style.display = next === 'layer' ? '' : 'none';
+    }
+    updateSamplerGainNodes(zoneKey);
+    updateWavetableMix(zoneKey);
     if (state.audio.enabled) restartInternalFromActiveNotes();
 }
 
@@ -2297,7 +2379,7 @@ function getEffectiveWavetableMix() {
     return Math.max(0, Math.min(1, getMacroWavetableBlend()));
 }
 
-function getWavetableMorphState() {
+function getWavetableMorphState(mixOverride = null) {
     const order = getWavetableOrder();
     if (!order.length) return null;
     if (order.length === 1) {
@@ -2309,7 +2391,7 @@ function getWavetableMorphState() {
     const frac = pos - idx;
     const aType = order[idx];
     const bType = order[Math.min(order.length - 1, idx + 1)];
-    const mix = getEffectiveWavetableMix();
+    const mix = Number.isFinite(mixOverride) ? clamp01(mixOverride) : getEffectiveWavetableMix();
     return { aType, bType, aGain: mix * (1 - frac), bGain: mix * frac };
 }
 
@@ -2317,8 +2399,8 @@ function applyWavetableMorphToVoice(voice) {
     if (!voice || !voice.oscA || !voice.oscB || !voice.wtGainA || !voice.wtGainB || !state.audio.ctx) return;
     const order = getWavetableOrder();
     if (!order.length) return;
-    const morph = clamp01(state.audio.macro.morph);
-    const mix = getEffectiveWavetableMix();
+    const mix = Number.isFinite(voice.wtMix) ? clamp01(voice.wtMix) : getEffectiveWavetableMix();
+    const morph = clamp01(Number.isFinite(voice.wtMorph) ? voice.wtMorph : state.audio.macro.morph);
     if (order.length === 1) {
         const wave = state.audio.wavetables[order[0]];
         if (wave) {
@@ -2397,28 +2479,42 @@ function applyWavetableMorphToVoice(voice) {
     voice.wtGainB.gain.setTargetAtTime(highGain, state.audio.ctx.currentTime, 0.02);
 }
 
-function updateWavetableMix() {
+function updateWavetableMix(zoneId = null) {
     if (!state.audio.ctx) return;
+    const zoneKey = zoneId ? getAudioZoneId(zoneId) : null;
     state.audio.voices.forEach(v => {
+        if (zoneKey && (v.zone || 'A') !== zoneKey) return;
         applyWavetableMorphToVoice(v);
     });
 }
 
-function updateSamplerGainNodes() {
+function updateSamplerGainNodes(zoneId = null) {
     if (!state.audio.ctx) return;
+    const zoneKey = zoneId ? getAudioZoneId(zoneId) : null;
     state.audio.voices.forEach(v => {
         if (!v.sampleGain || v.sampleGainValue == null) return;
-        const blend = getMacroSamplerBlend();
-        const next = Math.max(0, Math.min(5, state.audio.samplerGain * v.sampleGainValue * blend));
+        if (zoneKey && (v.zone || 'A') !== zoneKey) return;
+        const mode = v.zoneMode || state.audio.wavetable.mode;
+        const mix = Number.isFinite(v.wtMix) ? v.wtMix : state.audio.wavetable.mix;
+        const blend = mode === 'layer' ? (1 - clamp01(mix)) : 1;
+        const gainBase = Number.isFinite(v.zoneSamplerGain) ? v.zoneSamplerGain : state.audio.samplerGain;
+        const next = Math.max(0, Math.min(5, gainBase * v.sampleGainValue * blend));
         v.sampleGain.gain.setTargetAtTime(next, state.audio.ctx.currentTime, 0.02);
     });
 }
 
 function getModDepthHz(value) {
     const norm = clamp01(value);
-    const maxHz = 4000;
-    const scaled = (Math.pow(10, norm * 2) - 1) / (Math.pow(10, 2) - 1);
+    const maxHz = 8000;
+    const expo = Math.pow(norm, 1.2);
+    const scaled = (Math.pow(10, expo * 2.0) - 1) / (Math.pow(10, 2.0) - 1);
     return scaled * maxHz;
+}
+
+function getModDepthRatio(value) {
+    const norm = clamp01(value);
+    const expo = Math.pow(norm, 0.8);
+    return expo * 0.35;
 }
 
 function applyVoiceModRouting(voice) {
@@ -2426,8 +2522,8 @@ function applyVoiceModRouting(voice) {
     const now = state.audio.ctx.currentTime;
     const mode = state.audio.crossMod.mode;
     const depth = clamp01(state.audio.crossMod.depth);
-    const depthScaled = depth;
-    const amBias = clamp01(state.audio.crossMod.amBias);
+    const depthScaled = Math.min(1, Math.pow(depth, 0.7) * 1.2);
+    const amBias = clamp01(Math.pow(state.audio.crossMod.amBias, 0.7) * 1.2);
     const hasModSource = !!voice.modSourceGain && !!voice.modGain;
 
     if (voice.modSourceGain) {
@@ -2455,9 +2551,12 @@ function applyVoiceModRouting(voice) {
         }
         voice.modSourceGain.connect(voice.modFilterLP);
         voice.modFilterLP.connect(voice.modGain);
-        voice.modGain.gain.setTargetAtTime(getModDepthHz(depthScaled), now, 0.02);
+        const useSampleRate = !!voice.source && !voice.oscA && !voice.oscB && voice.source.playbackRate;
+        const depthValue = useSampleRate ? getModDepthRatio(depthScaled) : getModDepthHz(depthScaled * 1.2);
+        voice.modGain.gain.setTargetAtTime(depthValue, now, 0.02);
         if (voice.oscA) voice.modGain.connect(voice.oscA.frequency);
-        if (voice.oscB) voice.modGain.connect(voice.oscB.frequency);
+        if (voice.oscB && voice.modSourceType !== 'oscB') voice.modGain.connect(voice.oscB.frequency);
+        if (useSampleRate) voice.modGain.connect(voice.source.playbackRate);
         voice.ringGain.gain.setTargetAtTime(1, now, 0.02);
     } else {
         if (depthScaled <= 0 && amBias <= 0) {
@@ -2473,7 +2572,7 @@ function applyVoiceModRouting(voice) {
         } else {
             voice.modFilterHP.connect(voice.modGain);
         }
-        const effectiveDepth = amBias + (1 - amBias) * depthScaled;
+        const effectiveDepth = clamp01(amBias + (1 - amBias) * depthScaled * 1.3);
         voice.modGain.gain.setTargetAtTime(effectiveDepth, now, 0.02);
         voice.modGain.connect(voice.ringGain.gain);
         voice.ringGain.gain.setTargetAtTime(0, now, 0.02);
@@ -2499,28 +2598,48 @@ function updateOverlayModeButton() {
     els.overlayModeToggle.textContent = state.audio.crossMod.mode.toUpperCase();
 }
 
-function setMacroMorph(value) {
-    state.audio.macro.morph = clamp01(value);
+function setMacroMorph(value, zoneId = getActiveAudioZoneId()) {
+    const next = clamp01(value);
+    state.audio.macro.morph = next;
+    if (state.audio.zones && state.audio.zones[getAudioZoneId(zoneId)]) {
+        state.audio.zones[getAudioZoneId(zoneId)].morph = next;
+    }
     const morphState = getWavetableMorphState();
     if (morphState) {
         state.audio.wavetable.type = morphState.aType;
         if (els.wtSelect) els.wtSelect.value = morphState.aType;
     }
-    updateWavetableMix();
+    state.audio.voices.forEach(v => {
+        if ((v.zone || 'A') === getAudioZoneId(zoneId)) v.wtMorph = next;
+    });
+    syncAudioZoneFromState(zoneId);
+    updateWavetableMix(getAudioZoneId(zoneId));
     if (!state.audio.matrix.enabled) {
         updateOverlayFaderValue('morph', state.audio.macro.morph);
     }
 }
 
-function setWavetableMix(value) {
-    state.audio.wavetable.mix = clamp01(value);
-    if (els.wtMix) {
-        els.wtMix.value = state.audio.wavetable.mix.toFixed(2);
-        updateRangeProgress(els.wtMix);
+function setWavetableMix(value, zoneId = getActiveAudioZoneId()) {
+    const next = clamp01(value);
+    const zoneKey = getAudioZoneId(zoneId);
+    if (state.audio.zones && state.audio.zones[zoneKey]) {
+        state.audio.zones[zoneKey].wavetable.mix = next;
     }
-    updateSamplerGainNodes();
-    updateWavetableMix();
-    if (!state.audio.matrix.enabled) {
+    if (zoneKey === getActiveAudioZoneId()) {
+        state.audio.wavetable.mix = next;
+        if (els.wtMix) {
+            els.wtMix.value = state.audio.wavetable.mix.toFixed(2);
+            updateRangeProgress(els.wtMix);
+        }
+    }
+    const zoneMode = state.audio.zones && state.audio.zones[zoneKey] ? state.audio.zones[zoneKey].wavetable.mode : state.audio.wavetable.mode;
+    const mixValue = zoneMode === 'layer' ? next : 1;
+    state.audio.voices.forEach(v => {
+        if ((v.zone || 'A') === zoneKey) v.wtMix = mixValue;
+    });
+    updateSamplerGainNodes(zoneKey);
+    updateWavetableMix(zoneKey);
+    if (zoneKey === getActiveAudioZoneId() && !state.audio.matrix.enabled) {
         updateOverlayFaderValue('wtmix', state.audio.wavetable.mix);
     }
 }
@@ -2684,12 +2803,108 @@ function enforcePolyphonyLimit(isSamplerNeeded) {
     }
 }
 
-function getWavetableModeFlags() {
-    const mode = state.audio.wavetable.mode;
+function getWavetableModeFlags(mode = state.audio.wavetable.mode) {
     return {
         sampler: mode === 'sampler' || mode === 'layer',
         wt: mode === 'wt' || mode === 'layer'
     };
+}
+
+function getAudioZoneId(zoneId) {
+    return zoneId === 'B' ? 'B' : 'A';
+}
+
+function getActiveAudioZoneId() {
+    return els.audioZoneSelect && els.audioZoneSelect.value === 'B' ? 'B' : 'A';
+}
+
+function getAudioZoneSettings(zoneId) {
+    const zoneKey = getAudioZoneId(zoneId);
+    return (state.audio.zones && state.audio.zones[zoneKey]) ? state.audio.zones[zoneKey] : { wavetable: state.audio.wavetable, samplerGain: state.audio.samplerGain };
+}
+
+function getZoneAudioMode(zoneId) {
+    const zone = getAudioZoneSettings(zoneId);
+    return zone?.wavetable?.mode || state.audio.wavetable.mode;
+}
+
+function getInternalAudioChannel(chan, zoneId) {
+    const base = Number.isFinite(chan) ? chan : 0;
+    return getAudioZoneId(zoneId) === 'B' ? base + 16 : base;
+}
+
+function getZoneSamples(zoneId) {
+    const zoneKey = getAudioZoneId(zoneId);
+    return (state.audio.zones && state.audio.zones[zoneKey] && Array.isArray(state.audio.zones[zoneKey].samples))
+        ? state.audio.zones[zoneKey].samples
+        : state.audio.samples;
+}
+
+function setActiveSampleZone(zoneId) {
+    const zoneKey = getAudioZoneId(zoneId);
+    if (!state.audio.zones || !state.audio.zones[zoneKey]) return;
+    state.audio.samples = state.audio.zones[zoneKey].samples;
+    state.audio.activeSet = state.audio.zones[zoneKey].activeSet || 'Default';
+    state.audio.samplerGain = Number.isFinite(state.audio.zones[zoneKey].samplerGain) ? state.audio.zones[zoneKey].samplerGain : state.audio.samplerGain;
+}
+
+function createSampleSlots(roots, gains) {
+    return DEFAULT_SAMPLE_ROOTS.map((fallback, idx) => {
+        const root = roots[idx] ?? fallback;
+        const gain = gains[idx] ?? DEFAULT_SAMPLE_GAINS[idx] ?? 1;
+        return { buffer: null, root, name: '', data: null, gain };
+    });
+}
+
+function syncZoneSamplerGain(zoneId) {
+    const zoneKey = getAudioZoneId(zoneId);
+    if (state.audio.zones && state.audio.zones[zoneKey]) {
+        state.audio.zones[zoneKey].samplerGain = state.audio.samplerGain;
+    }
+}
+
+function syncAudioZoneFromState(zoneId) {
+    const zoneKey = getAudioZoneId(zoneId);
+    if (!state.audio.zones || !state.audio.zones[zoneKey]) return;
+    state.audio.zones[zoneKey].wavetable.mode = state.audio.wavetable.mode;
+    state.audio.zones[zoneKey].wavetable.type = state.audio.wavetable.type;
+    state.audio.zones[zoneKey].wavetable.mix = state.audio.wavetable.mix;
+    state.audio.zones[zoneKey].samplerGain = state.audio.samplerGain;
+    state.audio.zones[zoneKey].morph = clamp01(state.audio.macro.morph);
+}
+
+function applyAudioZoneToUI(zoneId) {
+    const zone = getAudioZoneSettings(zoneId);
+    if (!zone || !zone.wavetable) return;
+    state.audio.wavetable.mode = zone.wavetable.mode;
+    state.audio.wavetable.type = zone.wavetable.type;
+    state.audio.wavetable.mix = zone.wavetable.mix;
+    state.audio.samplerGain = zone.samplerGain;
+    if (Number.isFinite(zone.morph)) state.audio.macro.morph = clamp01(zone.morph);
+    if (els.audioZoneSelect) els.audioZoneSelect.value = getAudioZoneId(zoneId);
+    if (els.wtMode) els.wtMode.value = state.audio.wavetable.mode;
+    if (els.wtSelect) els.wtSelect.value = state.audio.wavetable.type;
+    if (els.wtMix) {
+        els.wtMix.value = state.audio.wavetable.mix.toFixed(2);
+        updateRangeProgress(els.wtMix);
+    }
+    if (els.wtMixBox) els.wtMixBox.style.display = state.audio.wavetable.mode === 'layer' ? '' : 'none';
+    if (els.samplerGain) {
+        els.samplerGain.value = state.audio.samplerGain.toFixed(2);
+        updateRangeProgress(els.samplerGain);
+    }
+    if (!state.audio.matrix.enabled) {
+        updateOverlayFaderValue('morph', state.audio.macro.morph, true);
+    }
+}
+
+function getZoneHueOffset(zoneId) {
+    return zoneId === 'B' ? 160 : 0;
+}
+
+function getZoneColor(hue, zoneId) {
+    const base = Number.isFinite(hue) ? hue : 0;
+    return `hsl(${(base + getZoneHueOffset(zoneId)) % 360}, 85%, 55%)`;
 }
 
 function readFxFromUI() {
@@ -2713,6 +2928,7 @@ function readFxFromUI() {
     fx.reverbDry = Math.max(0, Math.min(1, parseFloat(els.fxReverbDry.value) || 0));
     fx.reverbWet = Math.max(0, Math.min(1, parseFloat(els.fxReverbWet.value) || 0.2));
     fx.fxMix = Math.max(0, Math.min(1, parseFloat(els.fxMix.value) || 0.3));
+    fx.tubeDrive = Math.max(0, Math.min(1, parseFloat(els.fxTubeDrive ? els.fxTubeDrive.value : fx.tubeDrive) || 0.2));
     updateFxToggleButtons();
 }
 
@@ -2737,12 +2953,13 @@ function applyFxToUI() {
     els.fxReverbDry.value = fx.reverbDry.toFixed(2);
     els.fxReverbWet.value = fx.reverbWet.toFixed(2);
     els.fxMix.value = fx.fxMix.toFixed(2);
+    if (els.fxTubeDrive) els.fxTubeDrive.value = fx.tubeDrive.toFixed(2);
     // Update range slider progress bars
     [els.fxAttack, els.fxDecay, els.fxSustain, els.fxRelease, 
      els.fxCutoff, els.fxResonance, els.fxFilterEnv,
      els.fxChorusRate, els.fxChorusDepth,
      els.fxDelayTime, els.fxDelayFeedback, els.fxDelayDry, els.fxDelayWet, els.fxDelayReverse,
-     els.fxReverbDecay, els.fxReverbDry, els.fxReverbWet, els.fxMix
+     els.fxReverbDecay, els.fxReverbDry, els.fxReverbWet, els.fxMix, els.fxTubeDrive
     ].forEach(input => { if (input) updateRangeProgress(input); });
     updateFxToggleButtons();
     updateFxValueDisplays();
@@ -2776,6 +2993,12 @@ function updateFxNodes() {
     }
     if (state.audio.chorusLfo) state.audio.chorusLfo.frequency.value = fx.chorusRate;
     if (state.audio.chorusLfoGain) state.audio.chorusLfoGain.gain.value = (state.audio.fxEnabled && fx.chorusOn) ? fx.chorusDepth : 0;
+    const tubeActive = state.audio.fxEnabled && fx.tubeOn;
+    if (state.audio.tubeShaper) state.audio.tubeShaper.curve = makeTubeCurve(fx.tubeDrive);
+    const tubeWet = tubeActive ? Math.max(0, Math.min(1, fx.tubeDrive)) : 0;
+    const tubeDry = tubeActive ? Math.max(0, 1 - tubeWet * 0.4) : 1;
+    if (state.audio.tubeWetGain) state.audio.tubeWetGain.gain.value = tubeWet;
+    if (state.audio.tubeDryGain) state.audio.tubeDryGain.gain.value = tubeDry;
     updateActiveFilters();
 }
 
@@ -3222,22 +3445,32 @@ function buildWavetableMorphGrid(ctx, coeffs, order, steps) {
 }
 
 function ensureOutputWrapper() {
-    if (state.midi.outputWrapper) return;
-    state.midi.outputWrapper = {
-        send: data => {
-            if (state.midi.hardwareOutput) state.midi.hardwareOutput.send(data);
-            if (state.audio.enabled) handleInternalMidi(data);
-        }
-    };
+    if (!state.midi.outputWrapper) {
+        state.midi.outputWrapper = {
+            send: data => {
+                if (state.midi.hardwareOutput) state.midi.hardwareOutput.send(data);
+                if (state.audio.enabled) handleInternalMidi(data, 'A');
+            }
+        };
+    }
+    if (!state.midi.outputWrapperB) {
+        state.midi.outputWrapperB = {
+            send: data => {
+                if (state.midi.hardwareOutputB) state.midi.hardwareOutputB.send(data);
+                if (state.audio.enabled) handleInternalMidi(data, 'B');
+            }
+        };
+    }
 }
 
 function updateMidiStatusBase() {
     if (!els.midiStatus) return;
+    const hasMidiOut = !!(state.midi.hardwareOutput || state.midi.hardwareOutputB);
     if (state.audio.enabled) {
-        els.midiStatus.innerText = state.midi.hardwareOutput ? 'AUDIO+MIDI READY' : 'AUDIO READY';
+        els.midiStatus.innerText = hasMidiOut ? 'AUDIO+MIDI READY' : 'AUDIO READY';
         return;
     }
-    if (state.midi.hardwareOutput) {
+    if (hasMidiOut) {
         els.midiStatus.innerText = 'MIDI OUT READY';
     } else if (state.midi.access) {
         els.midiStatus.innerText = 'NESSUN MIDI OUT';
@@ -3249,6 +3482,7 @@ function updateMidiStatusBase() {
 function updateActiveOutput() {
     ensureOutputWrapper();
     state.midi.output = state.audio.enabled ? state.midi.outputWrapper : state.midi.hardwareOutput;
+    state.midi.outputB = state.audio.enabled ? state.midi.outputWrapperB : state.midi.hardwareOutputB;
     updateMidiStatusBase();
 }
 
@@ -3272,10 +3506,11 @@ function getChannelPbSemis(chan) {
     return ((pbValue - 8192) / 8192) * pbRange;
 }
 
-function findBestSample(note) {
+function findBestSample(note, zoneId = 'A') {
     let best = null;
     let bestDist = Infinity;
-    state.audio.samples.forEach(sample => {
+    const samples = getZoneSamples(zoneId) || state.audio.samples;
+    samples.forEach(sample => {
         if (!sample.buffer) return;
         const dist = Math.abs(note - sample.root);
         if (dist < bestDist) {
@@ -3345,8 +3580,14 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null, o
     await initAudioContext();
     if (!state.audio.ctx || !state.audio.master) return;
     const isMelodyVoice = !!options?.isMelody;
-    const modeFlags = getWavetableModeFlags();
-    const sample = modeFlags.sampler ? findBestSample(note) : null;
+    const zoneId = getAudioZoneId(options?.zoneId);
+    const zone = getAudioZoneSettings(zoneId);
+    const zoneMode = zone?.wavetable?.mode || state.audio.wavetable.mode;
+    const zoneMix = Number.isFinite(zone?.wavetable?.mix) ? zone.wavetable.mix : state.audio.wavetable.mix;
+    const zoneSamplerGain = Number.isFinite(zone?.samplerGain) ? zone.samplerGain : state.audio.samplerGain;
+    const zoneWave = zone?.wavetable?.type || state.audio.wavetable.type;
+    const modeFlags = getWavetableModeFlags(zoneMode);
+    const sample = modeFlags.sampler ? findBestSample(note, zoneId) : null;
     const wtEnabled = modeFlags.wt && Object.keys(state.audio.wavetables || {}).length;
     if (!sample && !wtEnabled) return;
     
@@ -3398,24 +3639,31 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null, o
     filter.frequency.setValueAtTime(cutoff, now);
     filter.frequency.linearRampToValueAtTime(envTarget, now + attack);
     filter.frequency.linearRampToValueAtTime(cutoff, now + attack + fx.decay);
-    const modSourceGain = (sample && wtEnabled) ? state.audio.ctx.createGain() : null;
-    const modFilterLP = (sample && wtEnabled) ? state.audio.ctx.createBiquadFilter() : null;
-    const modFilterHP = (sample && wtEnabled) ? state.audio.ctx.createBiquadFilter() : null;
-    const modGain = (sample && wtEnabled) ? state.audio.ctx.createGain() : null;
-    const ringGain = wtEnabled ? state.audio.ctx.createGain() : null;
+    const useMod = !!sample || wtEnabled;
+    const modSourceGain = useMod ? state.audio.ctx.createGain() : null;
+    const modFilterLP = useMod ? state.audio.ctx.createBiquadFilter() : null;
+    const modFilterHP = useMod ? state.audio.ctx.createBiquadFilter() : null;
+    const modGain = useMod ? state.audio.ctx.createGain() : null;
+    const ringGain = (wtEnabled || !!sample) ? state.audio.ctx.createGain() : null;
     const wtGainA = wtEnabled ? state.audio.ctx.createGain() : null;
     const wtGainB = wtEnabled ? state.audio.ctx.createGain() : null;
     const oscA = wtEnabled ? state.audio.ctx.createOscillator() : null;
     const oscB = wtEnabled ? state.audio.ctx.createOscillator() : null;
+    let modSourceType = null;
     if (sample && sampleGain) {
-        const blend = getMacroSamplerBlend();
-        const gainValue = Math.max(0, Math.min(5, state.audio.samplerGain * (sample.gain ?? 1) * blend));
+        const blend = zoneMode === 'layer' ? (1 - clamp01(zoneMix)) : 1;
+        const gainValue = Math.max(0, Math.min(5, zoneSamplerGain * (sample.gain ?? 1) * blend));
         sampleGain.gain.value = gainValue;
         source.connect(sampleGain);
-        sampleGain.connect(filter);
+        if (ringGain) {
+            sampleGain.connect(ringGain);
+        } else {
+            sampleGain.connect(filter);
+        }
         if (modSourceGain) {
             modSourceGain.gain.value = 1;
             source.connect(modSourceGain);
+            modSourceType = 'sample';
         }
     }
     if (modFilterLP) {
@@ -3428,9 +3676,10 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null, o
     }
     if (oscA && oscB && wtGainA && wtGainB && ringGain) {
         const grid = state.audio.wavetableMorphGrid;
+        const mix = zoneMode === 'layer' ? clamp01(zoneMix) : 1;
+        const morph = clamp01(Number.isFinite(zone?.morph) ? zone.morph : state.audio.macro.morph);
         if (grid && grid.length) {
             const order = getWavetableOrder();
-            const morph = clamp01(state.audio.macro.morph);
             const pos = morph * (order.length - 1);
             const segIdx = Math.min(grid.length - 1, Math.floor(pos));
             const seg = grid[segIdx];
@@ -3443,17 +3692,24 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null, o
             const waveB = seg[stepNext] || waveA;
             if (waveA) oscA.setPeriodicWave(waveA);
             if (waveB) oscB.setPeriodicWave(waveB);
-            const mix = getEffectiveWavetableMix();
             wtGainA.gain.value = mix * (1 - stepFrac);
             wtGainB.gain.value = mix * stepFrac;
         } else {
-            const morphState = getWavetableMorphState();
-            const waveA = morphState ? state.audio.wavetables[morphState.aType] : null;
-            const waveB = morphState ? state.audio.wavetables[morphState.bType] : null;
-            if (waveA) oscA.setPeriodicWave(waveA);
-            if (waveB) oscB.setPeriodicWave(waveB);
-            wtGainA.gain.value = morphState ? morphState.aGain : 0;
-            wtGainB.gain.value = morphState ? morphState.bGain : 0;
+            const morphState = getWavetableMorphState(mix);
+            if (morphState) {
+                const order = getWavetableOrder();
+                const pos = morph * (order.length - 1);
+                const idx = Math.floor(pos);
+                const frac = pos - idx;
+                const aType = order[idx];
+                const bType = order[Math.min(order.length - 1, idx + 1)];
+                const waveA = state.audio.wavetables[aType];
+                const waveB = state.audio.wavetables[bType];
+                if (waveA) oscA.setPeriodicWave(waveA);
+                if (waveB) oscB.setPeriodicWave(waveB);
+                wtGainA.gain.value = mix * (1 - frac);
+                wtGainB.gain.value = mix * frac;
+            }
         }
         oscA.frequency.value = midiToFreq(note + pbSemis);
         oscB.frequency.value = midiToFreq(note + pbSemis);
@@ -3461,6 +3717,15 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null, o
         oscB.connect(wtGainB);
         wtGainA.connect(ringGain);
         wtGainB.connect(ringGain);
+        ringGain.gain.value = 1;
+        ringGain.connect(filter);
+        if (modSourceGain && !sample) {
+            modSourceGain.gain.value = 1;
+            oscB.connect(modSourceGain);
+            modSourceType = 'oscB';
+        }
+    }
+    if (ringGain && !wtEnabled) {
         ringGain.gain.value = 1;
         ringGain.connect(filter);
     }
@@ -3498,8 +3763,15 @@ async function noteOnInternal(note, velocity, chan, tempAttackOverride = null, o
         modFilterLP,
         modFilterHP,
         modGain,
+        modSourceType,
         note, 
         chan, 
+        zone: zoneId,
+        zoneMode,
+        wtMix: zoneMode === 'layer' ? clamp01(zoneMix) : 1,
+        wtType: zoneWave,
+        wtMorph: Number.isFinite(zone?.morph) ? clamp01(zone.morph) : clamp01(state.audio.macro.morph),
+        zoneSamplerGain,
         sampleRoot: sample ? sample.root : null, 
         baseGain: initVel, 
         initVelocity: initVel, 
@@ -3567,15 +3839,17 @@ function updateChannelPress(chan) {
     });
 }
 
-function handleInternalMidi(data) {
+function handleInternalMidi(data, zoneId = 'A') {
     if (!state.audio.enabled) return;
     const status = data[0] & 0xF0;
-    const chan = (data[0] & 0x0F) + 1;
+    const baseChan = (data[0] & 0x0F) + 1;
+    const zoneKey = getAudioZoneId(zoneId);
+    const chan = zoneKey === 'B' ? baseChan + 16 : baseChan;
     if (status === 0x90) {
         const note = data[1];
         const vel = data[2];
         if (vel === 0) noteOffInternal(note, chan);
-        else noteOnInternal(note, vel, chan);
+        else noteOnInternal(note, vel, chan, null, { zoneId: zoneKey });
         return;
     }
     if (status === 0x80) {
@@ -3605,7 +3879,7 @@ function handleInternalMidi(data) {
     }
 }
 
-function refreshSampleSetSelect(activeName) {
+function refreshSampleSetSelect(activeName, zoneId = getActiveAudioZoneId()) {
     if (!els.sampleSetSelect && !els.sampleSetSelectMini) return;
     const sets = getSampleSetsState();
     ensureSampleSet('Default', sets);
@@ -3619,13 +3893,18 @@ function refreshSampleSetSelect(activeName) {
     const selected = activeName && sets.names.includes(activeName) ? activeName : sets.names[0];
     if (els.sampleSetSelect) els.sampleSetSelect.value = selected;
     if (els.sampleSetSelectMini) els.sampleSetSelectMini.value = selected;
+    if (state.audio.zones && state.audio.zones[getAudioZoneId(zoneId)]) {
+        state.audio.zones[getAudioZoneId(zoneId)].activeSet = selected;
+    }
 }
 
-async function loadSampleSet(name) {
+async function loadSampleSet(name, zoneId = getActiveAudioZoneId()) {
+    const zoneKey = getAudioZoneId(zoneId);
     const setName = name.trim() || 'Default';
-    if (els.midiStatus) els.midiStatus.innerText = `LOADING SET "${setName}"...`;
-    setActiveSampleSetName(setName);
-    refreshSampleSetSelect(setName);
+    if (els.midiStatus) els.midiStatus.innerText = `LOADING SET "${setName}" (${zoneKey})...`;
+    setActiveSampleSetName(setName, zoneKey);
+    setActiveSampleZone(zoneKey);
+    refreshSampleSetSelect(setName, zoneKey);
     if (els.sampleSetName) els.sampleSetName.value = setName;
     stopAllVoicesInternal();
     const roots = loadSampleRootsForSet(setName);
@@ -3644,6 +3923,7 @@ async function loadSampleSet(name) {
         updateSampleName(idx);
     });
     state.audio.samplerGain = loadSamplerGainForSet(setName);
+    syncZoneSamplerGain(zoneKey);
     if (els.samplerGain) {
         els.samplerGain.value = state.audio.samplerGain.toFixed(2);
         updateRangeProgress(els.samplerGain);
@@ -3651,7 +3931,7 @@ async function loadSampleSet(name) {
     if (sampleFileEls) sampleFileEls.forEach(input => { if (input) input.value = ''; });
     await loadSavedSamples(setName);
     updateAudioStatus();
-    if (els.midiStatus) els.midiStatus.innerText = `SET "${setName}" LOADED`;
+    if (els.midiStatus) els.midiStatus.innerText = `SET "${setName}" LOADED (${zoneKey})`;
 }
 
 async function saveSampleSet(name) {
@@ -3659,8 +3939,10 @@ async function saveSampleSet(name) {
     const sets = getSampleSetsState();
     ensureSampleSet(setName, sets);
     saveSampleSetsState(sets);
-    setActiveSampleSetName(setName);
-    refreshSampleSetSelect(setName);
+    const zoneKey = getActiveAudioZoneId();
+    setActiveSampleZone(zoneKey);
+    setActiveSampleSetName(setName, zoneKey);
+    refreshSampleSetSelect(setName, zoneKey);
     sampleGainEls.forEach((input, idx) => {
         if (!input || !state.audio.samples[idx]) return;
         const next = Math.max(0, Math.min(5, parseFloat(input.value) || 0));
@@ -3800,7 +4082,6 @@ const SCALES = {
     hirajoshi: [0, 2, 3, 7, 8], bhairav: [0, 1, 4, 5, 7, 8, 11], arabic: [0, 1, 4, 5, 7, 8, 11],
     wholeTone: [0, 2, 4, 6, 8, 10], diminished: [0, 2, 3, 5, 6, 8, 9, 11]
 };
-const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const CHORDS = {
     off: [0],
     power: [0, 7],
@@ -3825,25 +4106,26 @@ const CHORDS = {
 };
 
 function setPitchBendRange(semitones) {
-    if (!state.midi.output) return;
-    for (let ch = 0; ch < 16; ch++) {
-        state.midi.output.send([0xB0 + ch, 101, 0]);
-        state.midi.output.send([0xB0 + ch, 100, 0]);
-        state.midi.output.send([0xB0 + ch, 6, semitones]);
-        state.midi.output.send([0xB0 + ch, 38, 0]);
-        state.midi.output.send([0xB0 + ch, 101, 127]);
-        state.midi.output.send([0xB0 + ch, 100, 127]);
-    }
+    const targets = [state.midi.output, state.midi.outputB].filter(Boolean);
+    if (!targets.length) return;
+    targets.forEach(out => {
+        for (let ch = 0; ch < 16; ch++) {
+            out.send([0xB0 + ch, 101, 0]);
+            out.send([0xB0 + ch, 100, 0]);
+            out.send([0xB0 + ch, 6, semitones]);
+            out.send([0xB0 + ch, 38, 0]);
+            out.send([0xB0 + ch, 101, 127]);
+            out.send([0xB0 + ch, 100, 127]);
+        }
+    });
 }
 
 function releaseHeldNotes() {
-    if (!state.midi.output) return;
     state.heldVoices.forEach(v => {
-        sendMidi([0x80 + v.chan - 1, v.note, 0]);
-        state.mpeChannels.push(v.chan);
+        sendMidi([0x80 + v.chan - 1, v.note, 0], getZoneOutput(v.zone || 'A'));
+        releaseMpeChannel(v.zone || 'A', v.chan);
     });
     state.heldVoices = [];
-    state.mpeChannels.sort((a,b)=>a-b);
 }
 
 function releaseArpHoldNotes() {
@@ -3863,14 +4145,18 @@ function releaseHeldCollections() {
 
 function allNotesOff() {
     stopMelodyGenerator();
-    if (!state.midi.output) return;
-    for (let ch = 0; ch < 16; ch++) {
-        state.midi.output.send([0xB0 + ch, 123, 0]);
-        state.midi.output.send([0xB0 + ch, 120, 0]);
-    }
+    const targets = [state.midi.output, state.midi.outputB].filter(Boolean);
+    if (!targets.length) return;
+    targets.forEach(out => {
+        for (let ch = 0; ch < 16; ch++) {
+            out.send([0xB0 + ch, 123, 0]);
+            out.send([0xB0 + ch, 120, 0]);
+        }
+    });
     state.activeTouches.clear();
     state.physicalNotes.clear();
     state.mpeChannels.splice(0, state.mpeChannels.length, ...Array.from({length: 15}, (_, i) => i + 2));
+    state.mpeChannelsB.splice(0, state.mpeChannelsB.length, ...Array.from({length: 15}, (_, i) => i + 2));
     state.heldVoices = [];
     state.arpHoldTouches = [];
     state.arp.notes = [];
@@ -3891,10 +4177,10 @@ function applyChordVoicing(notes, inversion, spread) {
     return result;
 }
 
-function nextArpColor() {
+function nextArpColor(zoneId = 'A') {
     const hue = (state.arpColorIndex * 137.5) % 360;
     state.arpColorIndex = (state.arpColorIndex + 1) % 10000;
-    return `hsl(${hue.toFixed(1)}, 85%, 55%)`;
+    return getZoneColor(hue, zoneId);
 }
 
 function getPresetState() {
@@ -3918,6 +4204,7 @@ function getPresetState() {
         deadCenter: els.deadCenter.checked,
         deadCenterForce: els.deadCenterForce.value,
         midiOutId: els.midiOutSelect.value || "",
+        midiOutIdB: els.midiOutSelectB ? (els.midiOutSelectB.value || "") : "",
         midiInId: els.midiInSelect.value || "",
         linkPressToY: els.linkPressToY.checked,
         linkYToVelocity: els.linkYToVelocity.checked,
@@ -3930,6 +4217,7 @@ function getPresetState() {
         pbRange: els.pbRange.value,
         midiThru: els.midiThru.checked,
         midiInMpe: els.midiInMpe ? els.midiInMpe.checked : false,
+        dualMode: els.dualMode ? !!els.dualMode.checked : false,
         arpEnabled: els.arpEnabled.checked,
         arpRate: els.arpRate.value,
         arpGate: els.arpGate.value,
@@ -4010,7 +4298,7 @@ function applyPresetState(presetState) {
     } else {
         els.scaleModeDiatonic.checked = true;
     }
-    if (presetState.microScaleName && MICROTONAL_SCALES[presetState.microScaleName]) {
+    if (presetState.microScaleName && getMicrotonalScaleMap()[presetState.microScaleName]) {
         els.microScaleSelect.value = presetState.microScaleName;
     }
     if (els.microtonalizeIn) els.microtonalizeIn.checked = !!presetState.microtonalizeIn;
@@ -4048,6 +4336,11 @@ function applyPresetState(presetState) {
             state.midi.hardwareOutput = state.midi.access.outputs.get(presetState.midiOutId);
             updateActiveOutput();
         }
+        if (els.midiOutSelectB && presetState.midiOutIdB && state.midi.access.outputs.has(presetState.midiOutIdB)) {
+            els.midiOutSelectB.value = presetState.midiOutIdB;
+            state.midi.hardwareOutputB = state.midi.access.outputs.get(presetState.midiOutIdB);
+            updateActiveOutput();
+        }
         if (presetState.midiInId && state.midi.access.inputs.has(presetState.midiInId)) {
             els.midiInSelect.value = presetState.midiInId;
             if (state.midi.input) state.midi.input.onmidimessage = null;
@@ -4075,6 +4368,10 @@ function applyPresetState(presetState) {
     if (els.pbRange) els.pbRange.value = presetState.pbRange;
     if (els.midiThru) els.midiThru.checked = presetState.midiThru;
     if (els.midiInMpe) els.midiInMpe.checked = presetState.midiInMpe ?? els.midiInMpe.checked;
+    if (els.dualMode) {
+        els.dualMode.checked = !!presetState.dualMode;
+    }
+    updateDualModeUI();
     if (els.arpEnabled) els.arpEnabled.checked = !!presetState.arpEnabled;
     if (els.arpRate) els.arpRate.value = presetState.arpRate ?? els.arpRate.value;
     if (els.arpGate) els.arpGate.value = presetState.arpGate ?? els.arpGate.value;
@@ -4202,7 +4499,7 @@ function applyPresetState(presetState) {
         if (targetSet !== state.audio.activeSet) {
             loadSampleSet(targetSet).then(applySampleSlotOverrides);
         } else {
-            refreshSampleSetSelect(state.audio.activeSet);
+            refreshSampleSetSelect(state.audio.activeSet, getActiveAudioZoneId());
             applySampleSlotOverrides();
         }
     } else {
@@ -4215,6 +4512,15 @@ function applyPresetState(presetState) {
             updateRangeProgress(els.samplerGain);
         }
         updateSamplerGainNodes();
+    }
+    if (state.audio.zones) {
+        ['A', 'B'].forEach(zoneKey => {
+            if (!state.audio.zones[zoneKey]) return;
+            state.audio.zones[zoneKey].wavetable.mode = state.audio.wavetable.mode;
+            state.audio.zones[zoneKey].wavetable.type = state.audio.wavetable.type;
+            state.audio.zones[zoneKey].wavetable.mix = state.audio.wavetable.mix;
+            state.audio.zones[zoneKey].samplerGain = state.audio.samplerGain;
+        });
     }
     // Fade settings
     if (presetState.fadeSeconds !== undefined && (els.fadeSeconds || els.fadeTime)) {
@@ -4245,6 +4551,8 @@ function applyPresetState(presetState) {
         if (els.fxReverbWet) { els.fxReverbWet.value = state.audio.fx.reverbWet; updateRangeProgress(els.fxReverbWet); }
         if (els.fxReverbToggle) els.fxReverbToggle.classList.toggle('active', !!state.audio.fx.reverbOn);
         if (els.fxMix) { els.fxMix.value = state.audio.fx.fxMix; updateRangeProgress(els.fxMix); }
+        if (els.fxTubeDrive) { els.fxTubeDrive.value = state.audio.fx.tubeDrive; updateRangeProgress(els.fxTubeDrive); }
+        if (els.fxTubeToggle) els.fxTubeToggle.classList.toggle('active', !!state.audio.fx.tubeOn);
         // Apply FX to audio nodes if initialized
         if (state.audio.ctx) updateFxNodes();
     }
@@ -4364,6 +4672,15 @@ function saveCustomScales(scales) {
     localStorage.setItem(CUSTOM_SCALE_KEY, JSON.stringify(scales));
 }
 
+function loadUserMicroScales() {
+    const raw = localStorage.getItem(MICROTONAL_USER_KEY);
+    return safeParseJson(raw, {});
+}
+
+function saveUserMicroScales(scales) {
+    localStorage.setItem(MICROTONAL_USER_KEY, JSON.stringify(scales));
+}
+
 function loadUserFxPresets() {
     const raw = localStorage.getItem(FX_USER_PRESETS_KEY);
     const parsed = safeParseJson(raw, {});
@@ -4389,6 +4706,79 @@ function parseCentsList(input) {
     const unique = Array.from(new Set(cents)).sort((a, b) => a - b);
     if (!unique.length || unique[0] !== 0) unique.unshift(0);
     return unique;
+}
+
+function getMicrotonalScaleMap() {
+    return { ...MICROTONAL_SCALES, ...(state.microScales || {}) };
+}
+
+function parseSclText(text) {
+    if (!text) return null;
+    const rawLines = text.split(/\r?\n/);
+    const lines = rawLines
+        .map(line => line.split('!')[0].trim())
+        .filter(Boolean);
+    if (!lines.length) return null;
+    let description = lines[0] || 'SCL Scale';
+    let countIdx = 1;
+    let count = parseInt(lines[countIdx], 10);
+    if (!Number.isFinite(count)) {
+        countIdx = lines.findIndex((line, idx) => idx > 0 && /^\d+/.test(line));
+        count = countIdx > 0 ? parseInt(lines[countIdx], 10) : NaN;
+    }
+    if (!Number.isFinite(count)) return null;
+    const intervalLines = lines.slice(countIdx + 1, countIdx + 1 + count);
+    const cents = [];
+    intervalLines.forEach(line => {
+        if (!line) return;
+        const cleaned = line.replace(/cents?/i, '').trim();
+        if (!cleaned) return;
+        if (cleaned.includes('/')) {
+            const parts = cleaned.split('/');
+            const num = parseFloat(parts[0]);
+            const den = parseFloat(parts[1]);
+            if (Number.isFinite(num) && Number.isFinite(den) && den !== 0) {
+                const ratio = num / den;
+                if (ratio > 0) cents.push(1200 * Math.log2(ratio));
+            }
+        } else {
+            const val = parseFloat(cleaned);
+            if (Number.isFinite(val)) {
+                if (cleaned.includes('.') || val <= 1200) {
+                    cents.push(val);
+                } else if (val > 0) {
+                    cents.push(1200 * Math.log2(val));
+                }
+            }
+        }
+    });
+    if (!cents.length) return null;
+    const normalized = cents
+        .map(v => Math.max(0, Math.min(1200, v)))
+        .filter(n => Number.isFinite(n))
+        .sort((a, b) => a - b);
+    if (!normalized.length) return null;
+    if (normalized[0] !== 0) normalized.unshift(0);
+    return { description, cents: normalized };
+}
+
+function registerMicrotonalScale(name, cents) {
+    const cleanName = (name || '').trim();
+    if (!cleanName || !Array.isArray(cents) || !cents.length) return false;
+    state.microScales = state.microScales || {};
+    state.microScales[cleanName] = { cents };
+    saveUserMicroScales(state.microScales);
+    populateMicrotonalSelect();
+    if (els.microScaleSelect) els.microScaleSelect.value = cleanName;
+    if (els.scaleModeMicro) els.scaleModeMicro.checked = true;
+    updateScaleModeUI();
+    scheduleScaleUpdate();
+    return true;
+}
+
+function deriveSclName(fileName, fallback = 'SCL Scale') {
+    if (!fileName) return fallback;
+    return fileName.replace(/\.[^.]+$/, '');
 }
 
 function formatCentsList(cents) {
@@ -4633,7 +5023,7 @@ function loadCustomScaleByName(name) {
 }
 
 function populateMicrotonalSelect() {
-    const names = Object.keys(MICROTONAL_SCALES).sort();
+    const names = Object.keys(getMicrotonalScaleMap()).sort();
     fillSelectFromNames(els.microScaleSelect, names);
 }
 
@@ -4673,7 +5063,7 @@ function getScaleDefinition() {
     let def = null;
     if (mode === 'microtonal') {
         const name = els.microScaleSelect.value;
-        const micro = MICROTONAL_SCALES[name];
+        const micro = getMicrotonalScaleMap()[name];
         if (micro && Array.isArray(micro.cents) && micro.cents.length) {
             def = { root, name, mode, degrees: micro.cents.map(c => c / 100) };
         } else {
@@ -4853,7 +5243,7 @@ function retuneActiveNotes(deltaSemis) {
     const canSendMidi = !!state.midi.output;
     const keepHeld = !!state.keepEnabled;
     const clampNote = note => Math.max(0, Math.min(127, Math.round(note)));
-    const retuneVoice = (chan, voice, m) => {
+    const retuneVoice = (chan, voice, m, output) => {
         if (!chan || !voice) return;
         const noteFloat = getVoiceNoteFloat(voice);
         const nextFloat = noteFloat + deltaSemis;
@@ -4863,25 +5253,27 @@ function retuneActiveNotes(deltaSemis) {
         const vel = Math.max(1, Math.min(127, Math.round(m?.press ?? 90)));
         const oldKey = `${chan}:${oldNote}`;
         const wasMelody = !!state.melody.voiceKeys?.has?.(oldKey);
+        const zoneId = voice.zone || 'A';
+        const internalChan = getInternalAudioChannel(chan, zoneId);
 
         // Keep the internal synth in sync with the MIDI retune to avoid stuck notes.
-        stopVoiceInternal(`${chan}:${oldNote}`);
+        stopVoiceInternal(`${internalChan}:${oldNote}`);
         sendMidiHardware([0x80 + chan - 1, oldNote, 0], { isMelody: wasMelody });
-        if (canSendMidi) sendMidi([0x80 + chan - 1, oldNote, 0]);
+        if (canSendMidi) sendMidi([0x80 + chan - 1, oldNote, 0], output);
         state.melody.voiceKeys?.delete?.(oldKey);
 
         if (m) {
             const pb = getVoicePb(m, nextVoice);
             if (canSendMidi) {
-                sendMidi([0xB0 + chan - 1, 74, m.slide || 0]);
-                sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-                sendMidi([0xD0 + chan - 1, m.press ?? 90]);
+                sendMidi([0xB0 + chan - 1, 74, m.slide || 0], output);
+                sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F], output);
+                sendMidi([0xD0 + chan - 1, m.press ?? 90], output);
             }
         }
 
-        void noteOnInternal(newNote, vel, chan, null, { isMelody: wasMelody });
+        void noteOnInternal(newNote, vel, internalChan, null, { isMelody: wasMelody, zoneId });
         sendMidiHardware([0x90 + chan - 1, newNote, vel], { isMelody: wasMelody });
-        if (canSendMidi) sendMidi([0x90 + chan - 1, newNote, vel]);
+        if (canSendMidi) sendMidi([0x90 + chan - 1, newNote, vel], output);
         if (wasMelody) state.melody.voiceKeys?.add?.(`${chan}:${newNote}`);
         voice.note = newNote;
         voice.basePb = nextVoice.basePb;
@@ -4889,7 +5281,8 @@ function retuneActiveNotes(deltaSemis) {
 
     state.activeTouches.forEach(t => {
         const m = t.lastM || { slide: 0, press: 90, pbValue: 8192 };
-        t.voices.forEach(v => retuneVoice(v.chan, v, m));
+        const output = getZoneOutput(t.zone || 'A');
+        t.voices.forEach(v => retuneVoice(v.chan, v, m, output));
         if (Number.isFinite(t.initialExact)) t.initialExact += deltaSemis;
         if (t.lastM && Number.isFinite(t.lastM.exact)) t.lastM.exact += deltaSemis;
     });
@@ -4897,7 +5290,7 @@ function retuneActiveNotes(deltaSemis) {
     if (!keepHeld) {
         state.heldVoices.forEach(v => {
             const m = v.lastM || { slide: 0, press: 90, pbValue: 8192 };
-            retuneVoice(v.chan, v, m);
+            retuneVoice(v.chan, v, m, getZoneOutput(v.zone || 'A'));
             if (Number.isFinite(v.rootNote)) v.rootNote += deltaSemis;
             if (v.lastM && Number.isFinite(v.lastM.exact)) v.lastM.exact += deltaSemis;
         });
@@ -4920,8 +5313,9 @@ function retuneActiveNotes(deltaSemis) {
                 const oldNote = clampNote(entry.note);
                 const newNote = clampNote(entry.note + deltaSemis);
                 if (canSendMidi) {
-                    sendMidi([0x80 + entry.chan - 1, oldNote, 0]);
-                    sendMidi([0x90 + entry.chan - 1, newNote, 80]);
+                    const output = getZoneOutput(entry.zone || 'A');
+                    sendMidi([0x80 + entry.chan - 1, oldNote, 0], output);
+                    sendMidi([0x90 + entry.chan - 1, newNote, 80], output);
                 }
                 entry.note = newNote;
             });
@@ -4948,6 +5342,18 @@ function setupMIDI() {
                 updateActiveOutput();
                 setPitchBendRange(parseInt(els.pbRange.value, 10));
             };
+            if (els.midiOutSelectB) {
+                clearChildren(els.midiOutSelectB);
+                appendOption(els.midiOutSelectB, '', 'Scegli Output B...');
+                outputs.forEach(o => appendOption(els.midiOutSelectB, o.id, o.name || o.id || 'MIDI OUT B'));
+                state.midi.hardwareOutputB = null;
+                els.midiOutSelectB.value = '';
+                els.midiOutSelectB.onchange = () => {
+                    state.midi.hardwareOutputB = access.outputs.get(els.midiOutSelectB.value) || null;
+                    updateActiveOutput();
+                    setPitchBendRange(parseInt(els.pbRange.value, 10));
+                };
+            }
             updateMidiStatusBase();
             setPitchBendRange(parseInt(els.pbRange.value, 10));
 
@@ -4969,6 +5375,11 @@ function setupMIDI() {
                 if (preset.midiOutId && access.outputs.has(preset.midiOutId)) {
                     els.midiOutSelect.value = preset.midiOutId;
                     state.midi.hardwareOutput = access.outputs.get(preset.midiOutId);
+                    updateActiveOutput();
+                }
+                if (els.midiOutSelectB && preset.midiOutIdB && access.outputs.has(preset.midiOutIdB)) {
+                    els.midiOutSelectB.value = preset.midiOutIdB;
+                    state.midi.hardwareOutputB = access.outputs.get(preset.midiOutIdB);
                     updateActiveOutput();
                 }
                 if (preset.midiInId && access.inputs.has(preset.midiInId)) {
@@ -5135,15 +5546,47 @@ function applySmoothing(touch, m) {
     };
 }
 
-function sendMidi(data) {
-    if (!state.midi.output) return;
+function isDualModeEnabled() {
+    return !!els.dualMode?.checked;
+}
+
+function getZoneForY(clientY) {
+    if (!isDualModeEnabled()) return 'A';
+    const splitY = state.canvasRect.top + (state.canvasRect.height / 2);
+    return clientY < splitY ? 'A' : 'B';
+}
+
+function getZoneOutput(zoneId) {
+    if (zoneId === 'B') return state.midi.outputB || state.midi.output;
+    return state.midi.output;
+}
+
+function getZoneMpePool(zoneId) {
+    return zoneId === 'B' ? state.mpeChannelsB : state.mpeChannels;
+}
+
+function allocateMpeChannel(zoneId) {
+    const pool = getZoneMpePool(zoneId);
+    return pool.shift();
+}
+
+function releaseMpeChannel(zoneId, chan) {
+    if (!chan) return;
+    const pool = getZoneMpePool(zoneId);
+    pool.push(chan);
+    pool.sort((a, b) => a - b);
+}
+
+function sendMidi(data, output) {
+    const out = output || state.midi.output;
+    if (!out) return;
     if (data && data.length >= 3) {
         const status = data[0] & 0xF0;
         if (status === 0x90 && data[2] > 0) {
             markLocalNoteOn(data[1]);
         }
     }
-    state.midi.output.send(data);
+    out.send(data);
 }
 
 function sendMidiHardware(data, options = {}) {
@@ -7277,6 +7720,28 @@ function seqEnsureNotes() {
     }
 }
 
+function updateDualModeUI() {
+    const enabled = isDualModeEnabled();
+    document.body.classList.toggle('dual-active', enabled);
+    if (els.midiOutSelectB) {
+        els.midiOutSelectB.disabled = !enabled;
+    }
+    if (els.audioZoneSelect) {
+        els.audioZoneSelect.disabled = !enabled;
+        if (!enabled) {
+            els.audioZoneSelect.value = 'A';
+            setActiveSampleZone('A');
+            refreshSampleSetSelect(state.audio.activeSet, 'A');
+            if (els.sampleSetName) els.sampleSetName.value = state.audio.activeSet;
+            applyAudioZoneToUI('A');
+            updateSampleSlotsUI();
+        }
+    }
+    if (els.dualSplitLine) {
+        els.dualSplitLine.style.top = '50%';
+    }
+}
+
 function syncMelodyDurationsToNotes(len) {
     const target = Math.max(0, len || 0);
     if (!Array.isArray(state.melody.durations)) state.melody.durations = [];
@@ -8623,41 +9088,44 @@ function updateMelodyFromUI(regenerate = false) {
 
 
 function stopAllArpNotes() {
-    if (!state.midi.output) return;
     state.arp.active.forEach(entry => {
         if (entry.offTimer) {
             clearTimeout(entry.offTimer);
             entry.offTimer = null;
         }
-        state.midi.output.send([0x80 + entry.chan - 1, entry.note, 0]);
-        state.mpeChannels.push(entry.chan);
+        const output = getZoneOutput(entry.zone || 'A');
+        if (output) {
+            output.send([0x80 + entry.chan - 1, entry.note, 0]);
+        }
+        releaseMpeChannel(entry.zone || 'A', entry.chan);
     });
     state.arp.active = [];
-    state.mpeChannels.sort((a,b)=>a-b);
 }
 
-function stopArpActiveNote(note) {
-    if (!state.midi.output || note == null) return;
+function stopArpActiveNote(note, zoneId) {
+    if (note == null) return;
     const remaining = [];
     state.arp.active.forEach(entry => {
-        if (entry.note === note) {
+        if (entry.note === note && (!zoneId || entry.zone === zoneId)) {
             if (entry.offTimer) {
                 clearTimeout(entry.offTimer);
                 entry.offTimer = null;
             }
-            state.midi.output.send([0x80 + entry.chan - 1, entry.note, 0]);
-            state.mpeChannels.push(entry.chan);
+            const output = getZoneOutput(entry.zone || 'A');
+            if (output) {
+                output.send([0x80 + entry.chan - 1, entry.note, 0]);
+            }
+            releaseMpeChannel(entry.zone || 'A', entry.chan);
         } else {
             remaining.push(entry);
         }
     });
     state.arp.active = remaining;
-    state.mpeChannels.sort((a,b)=>a-b);
 }
 
 function stopArpActiveNotes(noteObjs) {
     if (!noteObjs || !noteObjs.length) return;
-    noteObjs.forEach(n => stopArpActiveNote(n.note));
+    noteObjs.forEach(n => stopArpActiveNote(n.note, n.zone));
 }
 
 function normalizeArpMode(mode) {
@@ -8963,7 +9431,8 @@ function generateArpSequence() {
             noteFloat: snapped,
             note: voice.note,
             basePb: voice.basePb,
-            color: baseNoteObj.color
+            color: baseNoteObj.color,
+            zone: baseNoteObj.zone
         };
     });
 }
@@ -8982,8 +9451,10 @@ function getArpSequenceCached(stepIdx) {
 }
 
 function arpNoteOn(noteObj, stepMs, stepIdx, offsetMs = 0) {
-    if (!state.midi.output) return;
-    const chan = state.mpeChannels.shift();
+    const zoneId = noteObj.zone || 'A';
+    const output = getZoneOutput(zoneId);
+    if (!output) return;
+    const chan = allocateMpeChannel(zoneId);
     if (!chan) {
         els.midiStatus.innerText = 'MPE CHANNELS FULL';
         return;
@@ -9030,25 +9501,23 @@ function arpNoteOn(noteObj, stepMs, stepIdx, offsetMs = 0) {
     slide = Math.max(0, Math.min(127, Math.round(slide)));
     velocity = Math.max(0, Math.min(127, Math.round(velocity)));
     if (velocity <= 0) {
-        state.mpeChannels.push(chan);
-        state.mpeChannels.sort((a,b)=>a-b);
+        releaseMpeChannel(zoneId, chan);
         return;
     }
     const m = { ...baseM, press, slide, pbValue };
     const sendNote = () => {
         const pb = getVoicePb(m, noteObj);
-        sendMidi([0xB0 + chan - 1, 74, slide]);
-        sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-        sendMidi([0xD0 + chan - 1, press]);
-        sendMidi([0x90 + chan - 1, noteObj.note, velocity]);
+        sendMidi([0xB0 + chan - 1, 74, slide], output);
+        sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F], output);
+        sendMidi([0xD0 + chan - 1, press], output);
+        sendMidi([0x90 + chan - 1, noteObj.note, velocity], output);
         markLocalNoteOn(noteObj.note);
-        const entry = { chan, note: noteObj.note, color: noteObj.color, offTimer: null };
+        const entry = { chan, note: noteObj.note, color: noteObj.color, offTimer: null, zone: zoneId };
         state.arp.active.push(entry);
         entry.offTimer = setTimeout(() => {
             if (!state.arp.active.includes(entry)) return;
-            sendMidi([0x80 + entry.chan - 1, entry.note, 0]);
-            state.mpeChannels.push(entry.chan);
-            state.mpeChannels.sort((a,b)=>a-b);
+            sendMidi([0x80 + entry.chan - 1, entry.note, 0], output);
+            releaseMpeChannel(zoneId, entry.chan);
             state.arp.active = state.arp.active.filter(e => e !== entry);
         }, gateMs);
     };
@@ -9230,6 +9699,9 @@ function getMPEData(e, voice = null, forceSnap = false) {
     let finalExact = currentExact;
     let detune = 0;
     if (voice) {
+        if (!Number.isFinite(voice.initialExact)) {
+            voice.initialExact = currentExact;
+        }
         const nearestNote = noteA;
         const distanceToNote = Math.abs(currentExact - nearestNote);
         const dcZone = round * (0.2 + (dcForce * 0.8));
@@ -9247,23 +9719,10 @@ function getMPEData(e, voice = null, forceSnap = false) {
     const pbRange = parseInt(els.pbRange.value, 10) || 48;
     let pbValue = Math.floor(8192 + (detune * (8192 / pbRange)));
     pbValue = Math.max(0, Math.min(16383, pbValue));
-    const top = state.canvasRect.top;
-    const bottom = getCanvasBottomY();
-    const yRange = Math.max(1, bottom - top);
-    const yClamped = Math.max(top, Math.min(e.clientY, bottom));
-    const yNorm = Math.max(0, Math.min(1, 1 - ((yClamped - top) / yRange)));
-    const dz = parseInt(els.yDeadzone.value, 10) / 100;
-    let slideNorm = yNorm;
-    if (dz > 0) {
-        slideNorm = slideNorm < dz ? 0 : (slideNorm - dz) / (1 - dz);
-    }
-    slideNorm = applyCurve(slideNorm);
-    const slide = Math.floor(slideNorm * 127);
-    const useYForVelocity = els.linkPressToY.checked && els.linkYToVelocity.checked;
-    const sens = parseInt(els.touchSensitivity ? els.touchSensitivity.value : 75, 10) || 75;
-    let pressNorm = useYForVelocity ? slideNorm : Math.min(((e.width + e.height) / sens), 1.0);
-    pressNorm = applyCurve(pressNorm);
-    const press = Math.floor(pressNorm * 127);
+    const zoneId = voice?.zone || getZoneForY(e.clientY);
+    const yData = getYDataFromEvent(e, zoneId);
+    const slide = yData.slide;
+    const press = yData.press;
     return { pbValue, slide, press, x: e.clientX, y: e.clientY, exact: finalExact };
 }
 
@@ -10190,10 +10649,11 @@ function snapHoldVoicesToScale(t) {
         const basePb = Math.round((noteFloat - (v.note || 0)) * (8192 / pbRange));
         v.basePb = Math.max(-8192, Math.min(8191, basePb));
         const pb = getVoicePb(m, v);
+        const output = getZoneOutput(v.zone || t.zone || 'A');
         if (v.chan) {
-            sendMidi([0xB0 + v.chan - 1, 74, m.slide]);
-            sendMidi([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-            sendMidi([0xD0 + v.chan - 1, m.press]);
+            sendMidi([0xB0 + v.chan - 1, 74, m.slide], output);
+            sendMidi([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F], output);
+            sendMidi([0xD0 + v.chan - 1, m.press], output);
         }
     }
 }
@@ -10214,18 +10674,29 @@ function drawGridBaseToContext(gctx, width, height, grid, numOct, noteW, baseMID
         gctx.beginPath(); gctx.moveTo(x, 0); gctx.lineTo(x, height); gctx.stroke();
         const degree = grid.degrees[i % grid.stepsPerOct];
         if (!(degree === 12 && i < (numOct * grid.stepsPerOct - 1))) {
-            gctx.font = `bold ${Math.max(13, Math.floor(noteW * 0.5))}px ${CANVAS_FONT_FAMILY}`; gctx.textAlign = 'center';
+            gctx.font = `bold ${Math.max(13, Math.floor(noteW * 0.5))}px ${CANVAS_FONT_FAMILY}`;
+            gctx.textAlign = 'center';
             gctx.fillStyle = isRoot ? '#ff4444' : '#ffffff';
-            gctx.strokeStyle = '#000'; gctx.lineWidth = 4;
-            const noteY = Math.floor(height * 0.5);
-            gctx.strokeText(NOTE_NAMES[nRound % 12], x + noteW/2, noteY);
-            gctx.fillText(NOTE_NAMES[nRound % 12], x + noteW/2, noteY);
-            if (mode !== 'diatonic' && noteW >= 48) {
-                const cents = Math.round((degree % 12) * 100);
-                gctx.font = `bold 9px ${CANVAS_FONT_FAMILY}`; gctx.textAlign = 'center';
-                gctx.fillStyle = '#ffaa00';
-                gctx.fillText(`${cents}c`, x + noteW/2, noteY + 16);
-            }
+            gctx.strokeStyle = '#000';
+            gctx.lineWidth = 4;
+            const labelYs = isDualModeEnabled()
+                ? [Math.floor(height * 0.25), Math.floor(height * 0.75)]
+                : [Math.floor(height * 0.5)];
+            labelYs.forEach(noteY => {
+                gctx.strokeText(NOTE_NAMES[nRound % 12], x + noteW/2, noteY);
+                gctx.fillText(NOTE_NAMES[nRound % 12], x + noteW/2, noteY);
+                if (mode !== 'diatonic' && noteW >= 48) {
+                    const cents = Math.round((degree % 12) * 100);
+                    gctx.font = `bold 9px ${CANVAS_FONT_FAMILY}`;
+                    gctx.textAlign = 'center';
+                    gctx.fillStyle = '#ffaa00';
+                    gctx.fillText(`${cents}c`, x + noteW/2, noteY + 16);
+                    gctx.font = `bold ${Math.max(13, Math.floor(noteW * 0.5))}px ${CANVAS_FONT_FAMILY}`;
+                    gctx.fillStyle = isRoot ? '#ff4444' : '#ffffff';
+                    gctx.strokeStyle = '#000';
+                    gctx.lineWidth = 4;
+                }
+            });
         }
     }
 }
@@ -10240,7 +10711,7 @@ function updateGridCache() {
     const noteW = width / totalNotes;
     const key = [
         width, height, numOct, state.currentOctave, grid.root, grid.degrees.join(','),
-        getScaleMode()
+        getScaleMode(), isDualModeEnabled() ? 'dual' : 'single'
     ].join('|');
     const cols = [];
     for (let i = 0; i < totalNotes; i++) {
@@ -10331,13 +10802,53 @@ function isDoubleTapKey(key, x, y) {
     return (now - last.t) <= DOUBLE_TAP_MS && (dx * dx + dy * dy) <= (DOUBLE_TAP_PX * DOUBLE_TAP_PX);
 }
 
-function getCanvasBottomY() {
-    return state.canvasRect.top + Math.max(1, state.canvasRect.height);
+function getZoneBounds(zoneId) {
+    const top = state.canvasRect.top;
+    const height = Math.max(1, state.canvasRect.height);
+    if (!isDualModeEnabled()) {
+        return { top, bottom: top + height };
+    }
+    const mid = top + (height / 2);
+    return zoneId === 'B'
+        ? { top: mid, bottom: top + height }
+        : { top, bottom: mid };
 }
 
-function getSlideFromY(y) {
-    const top = state.canvasRect.top;
-    const bottom = getCanvasBottomY();
+function getCanvasBottomY(zoneId) {
+    return getZoneBounds(zoneId).bottom;
+}
+
+function getYDataFromEvent(e, zoneId) {
+    const bounds = getZoneBounds(zoneId || getZoneForY(e.clientY));
+    const top = bounds.top;
+    const bottom = bounds.bottom;
+    const yRange = Math.max(1, bottom - top);
+    const yClamped = Math.max(top, Math.min(e.clientY, bottom));
+    const yNorm = Math.max(0, Math.min(1, 1 - ((yClamped - top) / yRange)));
+    const dz = parseInt(els.yDeadzone.value, 10) / 100;
+    let slideNorm = yNorm;
+    if (dz > 0) {
+        slideNorm = slideNorm < dz ? 0 : (slideNorm - dz) / (1 - dz);
+    }
+    slideNorm = applyCurve(slideNorm);
+    const slide = Math.floor(slideNorm * 127);
+    const useYForVelocity = els.linkPressToY.checked && els.linkYToVelocity.checked;
+    const sens = parseInt(els.touchSensitivity ? els.touchSensitivity.value : 75, 10) || 75;
+    let pressNorm = useYForVelocity ? slideNorm : Math.min(((e.width + e.height) / sens), 1.0);
+    pressNorm = applyCurve(pressNorm);
+    const press = Math.floor(pressNorm * 127);
+    return { slide, press, y: e.clientY, yNorm };
+}
+
+function getHoldLastMForZone(t, zoneId) {
+    if (!t?.lastM) return { press: 90, slide: 0, pbValue: 8192, x: 0, y: getCanvasBottomY(zoneId) };
+    return t.lastM;
+}
+
+function getSlideFromY(y, zoneId) {
+    const bounds = getZoneBounds(zoneId || getZoneForY(y));
+    const top = bounds.top;
+    const bottom = bounds.bottom;
     const yRange = Math.max(1, bottom - top);
     const yClamped = Math.max(top, Math.min(y, bottom));
     let yNorm = Math.max(0, Math.min(1, 1 - ((yClamped - top) / yRange)));
@@ -10351,10 +10862,11 @@ function getSlideFromY(y) {
 
 function startHoldDrop(voice) {
     if (!voice || voice.dropActive) return;
-    const m = voice.lastM || { x: 0, y: getCanvasBottomY(), press: 90, slide: 0 };
+    const zoneId = voice.zone || 'A';
+    const m = voice.lastM || { x: 0, y: getCanvasBottomY(zoneId), press: 90, slide: 0 };
     voice.dropActive = true;
     const startY = m.y;
-    const endY = getCanvasBottomY();
+    const endY = getCanvasBottomY(zoneId);
     const startPress = Number.isFinite(m.press) ? m.press : 90;
     const start = performance.now();
 
@@ -10362,22 +10874,22 @@ function startHoldDrop(voice) {
         const t = Math.min(1, (now - start) / DROP_DURATION_MS);
         const y = startY + (endY - startY) * t;
         const press = Math.max(0, Math.round(startPress * (1 - t)));
-        const slide = getSlideFromY(y);
+        const slide = getSlideFromY(y, zoneId);
         m.y = y;
         m.press = press;
         m.slide = slide;
         voice.lastM = m;
         if (voice.chan) {
-            sendMidi([0xB0 + voice.chan - 1, 74, slide]);
-            sendMidi([0xD0 + voice.chan - 1, press]);
+            const output = getZoneOutput(voice.zone || 'A');
+            sendMidi([0xB0 + voice.chan - 1, 74, slide], output);
+            sendMidi([0xD0 + voice.chan - 1, press], output);
         }
         if (t < 1) {
             voice.dropRaf = requestAnimationFrame(tick);
         } else {
             if (voice.chan) {
-                sendMidi([0x80 + voice.chan - 1, voice.note, 0]);
-                state.mpeChannels.push(voice.chan);
-                state.mpeChannels.sort((a,b)=>a-b);
+                sendMidi([0x80 + voice.chan - 1, voice.note, 0], getZoneOutput(voice.zone || 'A'));
+                releaseMpeChannel(voice.zone || 'A', voice.chan);
             }
             state.heldVoices = state.heldVoices.filter(v => v !== voice);
             voice.dropActive = false;
@@ -10388,10 +10900,11 @@ function startHoldDrop(voice) {
 
 function startArpHoldDrop(hold, noteObj) {
     if (!hold || !noteObj || noteObj.dropActive) return;
-    const baseM = noteObj.lastM || hold.lastM || { x: 0, y: getCanvasBottomY(), press: 90, slide: 0 };
+    const zoneId = noteObj.zone || hold.zone || 'A';
+    const baseM = noteObj.lastM || hold.lastM || { x: 0, y: getCanvasBottomY(zoneId), press: 90, slide: 0 };
     noteObj.dropActive = true;
     const startY = baseM.y;
-    const endY = getCanvasBottomY();
+    const endY = getCanvasBottomY(zoneId);
     const startPress = Number.isFinite(baseM.press) ? baseM.press : 90;
     const start = performance.now();
 
@@ -10399,7 +10912,7 @@ function startArpHoldDrop(hold, noteObj) {
         const t = Math.min(1, (now - start) / DROP_DURATION_MS);
         const y = startY + (endY - startY) * t;
         const press = Math.max(0, Math.round(startPress * (1 - t)));
-        const slide = getSlideFromY(y);
+        const slide = getSlideFromY(y, zoneId);
         baseM.y = y;
         baseM.press = press;
         baseM.slide = slide;
@@ -10407,7 +10920,7 @@ function startArpHoldDrop(hold, noteObj) {
         if (t < 1) {
             noteObj.dropRaf = requestAnimationFrame(tick);
         } else {
-            stopArpActiveNote(noteObj.note);
+            stopArpActiveNote(noteObj.note, noteObj.zone);
             removeArpNotes([noteObj]);
             if (hold.noteObjs) {
                 hold.noteObjs = hold.noteObjs.filter(n => n !== noteObj);
@@ -10469,17 +10982,18 @@ function collectActiveNotes() {
 
 function collectInternalNotesForRestart() {
     const map = new Map();
-    function addNote(chan, note, press) {
+    function addNote(chan, note, press, zone) {
         if (!chan || note == null) return;
-        const key = `${chan}:${note}`;
+        const zoneId = zone || 'A';
+        const key = `${zoneId}:${chan}:${note}`;
         const vel = Math.max(1, Math.min(127, Math.round(press || 80)));
-        map.set(key, { chan, note, vel });
+        map.set(key, { chan, note, vel, zone: zoneId });
     }
     state.activeTouches.forEach(t => {
-        t.voices.forEach(v => addNote(v.chan, v.note, t.lastM?.press));
+        t.voices.forEach(v => addNote(v.chan, v.note, t.lastM?.press, v.zone || t.zone || 'A'));
     });
-    state.heldVoices.forEach(v => addNote(v.chan, v.note, v.lastM?.press));
-    state.arp.active.forEach(v => addNote(v.chan, v.note, 80));
+    state.heldVoices.forEach(v => addNote(v.chan, v.note, v.lastM?.press, v.zone || 'A'));
+    state.arp.active.forEach(v => addNote(v.chan, v.note, 80, v.zone || 'A'));
     return Array.from(map.values());
 }
 
@@ -10490,8 +11004,10 @@ function restartInternalFromActiveNotes() {
     stopAllVoicesInternal();
     notes.forEach(entry => {
         const press = Math.max(1, Math.min(127, Math.round(entry.vel)));
-        state.audio.channelPress.set(entry.chan, press);
-        noteOnInternal(entry.note, press, entry.chan);
+        const zoneId = entry.zone || 'A';
+        const internalChan = getInternalAudioChannel(entry.chan, zoneId);
+        state.audio.channelPress.set(internalChan, press);
+        noteOnInternal(entry.note, press, internalChan, null, { zoneId });
     });
 }
 
@@ -10622,7 +11138,8 @@ function computeChordNotes(rootNote) {
     return applyChordVoicing(chordNotes, inversion, spread);
 }
 
-function refreshArpNotes(noteObjs, m, rootNote) {
+function refreshArpNotes(noteObjs, m, rootNote, zoneId) {
+    const zone = zoneId || noteObjs?.[0]?.zone || 'A';
     const chordNotes = computeChordNotes(rootNote);
     ensureVisibleForNotes(chordNotes);
     if (noteObjs.length > chordNotes.length) {
@@ -10633,7 +11150,8 @@ function refreshArpNotes(noteObjs, m, rootNote) {
             noteFloat,
             ...makeVoiceFromNote(noteFloat),
             lastM: m,
-            color: nextArpColor()
+            color: nextArpColor(zone),
+            zone
         }));
         noteObjs.push(...add);
         state.arp.notes.push(...add);
@@ -10645,6 +11163,7 @@ function refreshArpNotes(noteObjs, m, rootNote) {
         noteObjs[i].note = voice.note;
         noteObjs[i].basePb = voice.basePb;
         noteObjs[i].lastM = m;
+        noteObjs[i].zone = noteObjs[i].zone || zone;
     }
     return chordNotes;
 }
@@ -10655,13 +11174,13 @@ function convertHeldToArp() {
     const noteObjs = held.map(v => {
         const noteFloat = getVoiceNoteFloat(v);
         const voice = makeVoiceFromNote(noteFloat);
-        return { noteFloat, ...voice, lastM: v.lastM, color: v.color || nextArpColor() };
+        return { noteFloat, ...voice, lastM: v.lastM, color: v.color || nextArpColor(v.zone || 'A'), zone: v.zone || 'A' };
     });
     const lastM = held[0].lastM;
     const color = held[0].color || '#ffaa00';
     releaseHeldNotes();
     state.arp.notes = noteObjs;
-    state.arpHoldTouches = [{ lastM, color, phase: 0, noteObjs }];
+    state.arpHoldTouches = [{ lastM, color, phase: 0, noteObjs, zone: noteObjs?.[0]?.zone || 'A' }];
     requestDraw();
 }
 
@@ -10674,15 +11193,18 @@ function keepArpHoldAsHeld() {
         const list = t.noteObjs || [];
         const groupId = state.holdGroupSeq++;
         list.forEach(n => {
+            const zoneId = n.zone || 'A';
+            const output = getZoneOutput(zoneId);
+            if (!output) return;
             const noteFloat = n.noteFloat ?? n.note ?? 60;
             const voice = makeVoiceFromNote(noteFloat);
-            const chan = state.mpeChannels.shift();
+            const chan = allocateMpeChannel(zoneId);
             if (!chan) return;
             const pb = getVoicePb(m, voice);
-            sendMidi([0xB0 + chan - 1, 74, m.slide || 0]);
-            sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-            sendMidi([0xD0 + chan - 1, m.press ?? 90]);
-            sendMidi([0x90 + chan - 1, voice.note, Math.max(1, Math.min(127, Math.round(m.press || 90)))]);
+            sendMidi([0xB0 + chan - 1, 74, m.slide || 0], output);
+            sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F], output);
+            sendMidi([0xD0 + chan - 1, m.press ?? 90], output);
+            sendMidi([0x90 + chan - 1, voice.note, Math.max(1, Math.min(127, Math.round(m.press || 90)))], output);
             held.push({
                 chan,
                 note: voice.note,
@@ -10691,7 +11213,8 @@ function keepArpHoldAsHeld() {
                 color: n.color || t.color || '#ffaa00',
                 phase: t.phase || 0,
                 group: groupId,
-                rootNote: null
+                rootNote: null,
+                zone: zoneId
             });
         });
     });
@@ -10740,7 +11263,7 @@ function updateArpChords() {
             touch.noteObjs[0].basePb = voice.basePb;
         } else {
             // Refresh with new chord notes
-            refreshArpNotes(touch.noteObjs, m, rootNote);
+            refreshArpNotes(touch.noteObjs, m, rootNote, touch.zone);
         }
     });
     
@@ -10757,7 +11280,7 @@ function updateArpChords() {
 
 function updateHeldChords() {
     if (state.keepEnabled) return;
-    if (!state.heldVoices.length || !state.midi.output) return;
+    if (!state.heldVoices.length) return;
     const groups = new Map();
     state.heldVoices.forEach(v => {
         const groupId = v.group || v.chan || 0;
@@ -10767,28 +11290,33 @@ function updateHeldChords() {
     const nextHeld = [];
     groups.forEach(list => {
         const ref = list[0];
+        const zoneId = ref.zone || 'A';
+        const output = getZoneOutput(zoneId);
+        if (!output) {
+            nextHeld.push(...list);
+            return;
+        }
         const rootNote = ref.rootNote;
         if (rootNote == null) {
             nextHeld.push(...list);
             return;
         }
         list.forEach(v => {
-            sendMidi([0x80 + v.chan - 1, v.note, 0]);
-            state.mpeChannels.push(v.chan);
+            sendMidi([0x80 + v.chan - 1, v.note, 0], output);
+            releaseMpeChannel(zoneId, v.chan);
         });
-        state.mpeChannels.sort((a,b)=>a-b);
         const m = ref.lastM || { pbValue: 8192, slide: 0, press: 90 };
         const chordNotes = computeChordNotes(rootNote);
         ensureVisibleForNotes(chordNotes);
         chordNotes.forEach(noteFloat => {
-            const chan = state.mpeChannels.shift();
+            const chan = allocateMpeChannel(zoneId);
             if (!chan) return;
             const voice = makeVoiceFromNote(noteFloat);
             const pb = getVoicePb(m, voice);
-            sendMidi([0xB0 + chan - 1, 74, m.slide]);
-            sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-            sendMidi([0xD0 + chan - 1, m.press]);
-            sendMidi([0x90 + chan - 1, voice.note, Math.max(1, Math.min(127, Math.round(m.press || 90)))]);
+            sendMidi([0xB0 + chan - 1, 74, m.slide], output);
+            sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F], output);
+            sendMidi([0xD0 + chan - 1, m.press], output);
+            sendMidi([0x90 + chan - 1, voice.note, Math.max(1, Math.min(127, Math.round(m.press || 90)))], output);
             nextHeld.push({
                 chan,
                 note: voice.note,
@@ -10797,7 +11325,8 @@ function updateHeldChords() {
                 color: ref.color,
                 phase: ref.phase,
                 group: ref.group || 0,
-                rootNote
+                rootNote,
+                zone: zoneId
             });
         });
     });
@@ -10814,8 +11343,10 @@ canvas.addEventListener('pointerdown', e => {
     if (state.audio.enabled) resumeAudioContext().then(updateAudioStatus);
     const uiRect = els.ui.getBoundingClientRect();
     const inUi = els.ui.contains(e.target);
-    if (!state.midi.output || (els.ui.classList.contains('active') && e.clientY < (uiRect.height + 5)) || inUi) {
-        if (!state.midi.output) els.midiStatus.innerText = 'NESSUN MIDI OUT';
+    const zoneId = getZoneForY(e.clientY);
+    const output = getZoneOutput(zoneId);
+    if (!output || (els.ui.classList.contains('active') && e.clientY < (uiRect.height + 5)) || inUi) {
+        if (!output) els.midiStatus.innerText = 'NESSUN MIDI OUT';
         state.pointerIds.delete(e.pointerId);
         document.body.classList.remove('note-dragging');
         return;
@@ -10859,9 +11390,11 @@ canvas.addEventListener('pointerdown', e => {
         }
     }
 
-    const holdHit = findHeldVoiceAt(e.clientX, e.clientY);
-    if (holdHit) {
-        const hv = state.heldVoices[holdHit.idx];
+        const holdHit = findHeldVoiceAt(e.clientX, e.clientY);
+        if (holdHit) {
+            const hv = state.heldVoices[holdHit.idx];
+            const holdZone = hv?.zone || zoneId;
+            const holdOutput = getZoneOutput(holdZone);
         if (state.audio.bowMode) {
             triggerBow(hv);
             return;
@@ -10882,14 +11415,15 @@ canvas.addEventListener('pointerdown', e => {
         const m = getMPEData(e, tmpVoice);
         grabbed.forEach(gv => {
             const pb = getVoicePb(m, gv);
-            sendMidi([0xE0 + gv.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-            sendMidi([0xB0 + gv.chan - 1, 74, m.slide]);
-            sendMidi([0xD0 + gv.chan - 1, m.press]);
+            sendMidi([0xE0 + gv.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F], holdOutput);
+            sendMidi([0xB0 + gv.chan - 1, 74, m.slide], holdOutput);
+            sendMidi([0xD0 + gv.chan - 1, m.press], holdOutput);
         });
         state.activeTouches.set(e.pointerId, { 
-            voices: grabbed.map(gv => ({ chan: gv.chan, note: gv.note, basePb: gv.basePb, group: gv.group })), 
+            voices: grabbed.map(gv => ({ chan: gv.chan, note: gv.note, basePb: gv.basePb, group: gv.group, zone: gv.zone || holdZone })), 
             initialExact: voiceNoteFloat, lastX: e.clientX, isGrab: false, isHoldGrab: true, holdGroup: groupId,
-            vibratoSpeed: 0, phase: hv.phase || 0, color: hv.color, lastM: m, rootNote: hv.rootNote, isChordHold: !!hv.chordHold
+            vibratoSpeed: 0, phase: hv.phase || 0, color: hv.color, lastM: m, rootNote: hv.rootNote, isChordHold: !!hv.chordHold,
+            zone: holdZone
         });
         return;
     }
@@ -10916,7 +11450,8 @@ canvas.addEventListener('pointerdown', e => {
             vibratoSpeed: 0,
             phase: hold.phase || 0,
             color: noteObj.color || hold.color || '#ffaa00',
-            lastM: m
+            lastM: m,
+            zone: noteObj.zone || hold.zone || zoneId
         });
         return;
     }
@@ -10935,13 +11470,14 @@ canvas.addEventListener('pointerdown', e => {
             vibratoSpeed: 0,
             phase: hold.phase || 0,
             color: hold.color || '#ffaa00',
-            lastM: m
+            lastM: m,
+            zone: hold.zone || zoneId
         });
         return;
     }
 
     const touchState = { smoothPb: null, smoothSlide: null, smoothPress: null };
-    const m = applySmoothing(touchState, getMPEData(e));
+    const baseM = applySmoothing(touchState, getMPEData(e));
 
     // STANDALONE: Produzione suono diretta
     const root = parseInt(els.rootNote.value, 10);
@@ -10950,8 +11486,9 @@ canvas.addEventListener('pointerdown', e => {
     if (!state.scaleNotes.notes.length || state.scaleNotes.root !== root || state.scaleNotes.scale !== scaleKey) {
         updateScaleNotes();
     }
-    const rootNote = state.scaleNotes.notes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
-    const touchColor = `hsl(${(e.pointerId * 47) % 360}, 85%, 55%)`;
+    const rootNote = state.scaleNotes.notes.reduce((prev, curr) => Math.abs(curr - baseM.exact) < Math.abs(prev - baseM.exact) ? curr : prev);
+    const initialExact = Number.isFinite(rootNote) ? rootNote : baseM.exact;
+    const touchColor = getZoneColor((e.pointerId * 47) % 360, zoneId);
 
     // AUTO-GRAB: Se tocchi una nota gia' attiva fisicamente
     if (state.physicalNotes.has(rootNote)) {
@@ -10960,9 +11497,10 @@ canvas.addEventListener('pointerdown', e => {
         if (pNote) {
             pNote.grabbed = true;
         state.activeTouches.set(e.pointerId, { 
-            voices: [{ chan: pNote.chan, note: rootNote }], 
-            initialExact: rootNote, lastX: e.clientX, isGrab: true,
-            vibratoSpeed: 0, phase: 0, color: '#00ff44', lastM: m
+            voices: [{ chan: pNote.chan, note: rootNote, zone: zoneId }], 
+            initialExact, lastX: e.clientX, isGrab: true,
+            vibratoSpeed: 0, phase: 0, color: '#00ff44', lastM: baseM,
+            zone: zoneId
         });
         return;
     }
@@ -10976,46 +11514,48 @@ canvas.addEventListener('pointerdown', e => {
         const noteObjs = chordNotes.map(noteFloat => ({
             noteFloat,
             ...makeVoiceFromNote(noteFloat),
-            lastM: m,
-            color: nextArpColor()
+            lastM: baseM,
+            color: nextArpColor(zoneId),
+            zone: zoneId
         }));
         state.arp.notes.push(...noteObjs);
         if (state.arp.sync === 'internal' && !state.arp.timer && !state.fadeState.active) {
             restartInternalArp();
         }
         state.activeTouches.set(e.pointerId, {
-            voices: noteObjs.map(n => ({ chan: 0, note: n.note, basePb: n.basePb })),
+            voices: noteObjs.map(n => ({ chan: 0, note: n.note, basePb: n.basePb, zone: n.zone })),
             arpNotes: noteObjs,
-            initialExact: rootNote,
+            initialExact,
             lastX: e.clientX,
             isGrab: false,
             isArp: true,
             vibratoSpeed: 0,
             phase: 0,
             color: touchColor,
-            lastM: m,
+            lastM: baseM,
             smoothPb: touchState.smoothPb,
             smoothSlide: touchState.smoothSlide,
-            smoothPress: touchState.smoothPress
+            smoothPress: touchState.smoothPress,
+            zone: zoneId
         });
         return;
     }
-    for(let i=0; i<chordNotes.length; i++) {
-        const chan = state.mpeChannels.shift();
-        if(chan) {
+    for (let i = 0; i < chordNotes.length; i++) {
+        const chan = allocateMpeChannel(zoneId);
+        if (chan) {
             const voice = makeVoiceFromNote(chordNotes[i]);
-            const pb = getVoicePb(m, voice);
+            const pb = getVoicePb(baseM, voice);
             // FIX: Usa ?? 90 invece di || 90 per permettere velocity/pressure pari a 0
-            const rawPress = m.press ?? 90;
+            const rawPress = baseM.press ?? 90;
             const vel = Math.max(1, Math.min(127, Math.round(rawPress)));
-            
-            sendMidi([0xB0 + chan - 1, 74, m.slide]);
-            sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
+
+            sendMidi([0xB0 + chan - 1, 74, baseM.slide], output);
+            sendMidi([0xE0 + chan - 1, pb & 0x7F, (pb >> 7) & 0x7F], output);
             // FIX: Invia Channel Pressure PRIMA del NoteOn per inizializzare correttamente il volume del synth interno
-            sendMidi([0xD0 + chan - 1, rawPress]);
-            sendMidi([0x90 + chan - 1, voice.note, vel]);
+            sendMidi([0xD0 + chan - 1, rawPress], output);
+            sendMidi([0x90 + chan - 1, voice.note, vel], output);
             markLocalNoteOn(voice.note);
-            voices.push({ chan, note: voice.note, basePb: voice.basePb });
+            voices.push({ chan, note: voice.note, basePb: voice.basePb, zone: zoneId });
         } else {
             els.midiStatus.innerText = 'MPE CHANNELS FULL';
         }
@@ -11023,17 +11563,18 @@ canvas.addEventListener('pointerdown', e => {
     if (!voices.length) return;
     state.activeTouches.set(e.pointerId, {
         voices,
-        initialExact: rootNote,
+        initialExact,
         lastX: e.clientX,
         isGrab: false,
         isChordHold: chordNotes.length > 1,
         vibratoSpeed: 0,
         phase: 0,
-        color: `hsl(${voices[0]?.chan * 25 || 0}, 85%, 55%)`,
-        lastM: m,
+        color: getZoneColor((voices[0]?.chan * 25 || 0), zoneId),
+        lastM: baseM,
         smoothPb: touchState.smoothPb,
         smoothSlide: touchState.smoothSlide,
-        smoothPress: touchState.smoothPress
+        smoothPress: touchState.smoothPress,
+        zone: zoneId
     });
 });
 
@@ -11043,7 +11584,9 @@ const POINTER_MOVE_THROTTLE_MS = 16; // ~60fps max
 
 canvas.addEventListener('pointermove', e => {
     const t = state.activeTouches.get(e.pointerId);
-    if (!t || !state.midi.output) return;
+    const baseZone = t?.zone || t?.voices?.[0]?.zone || getZoneForY(e.clientY);
+    const output = t ? getZoneOutput(baseZone) : null;
+    if (!t || !output) return;
     
     // Throttle pointermove events to reduce CPU load
     const now = performance.now();
@@ -11060,6 +11603,7 @@ canvas.addEventListener('pointermove', e => {
     t.lastX = e.clientX;
     t.lastM = t.lastM ? { ...t.lastM, x: e.clientX, y: e.clientY } : { x: e.clientX, y: e.clientY, press: 0, slide: 0, pbValue: 8192, exact: t.initialExact ?? 0 };
     const m = applySmoothing(t, getMPEData(e, t));
+    if (!Number.isFinite(m.pbValue)) m.pbValue = 8192;
     t.lastM = m;
     if (t.isArpHoldGrab) {
         const hold = state.arpHoldTouches[t.holdIdx];
@@ -11078,7 +11622,7 @@ canvas.addEventListener('pointermove', e => {
                 t.arpNoteObj.basePb = voice.basePb;
                 t.arpNoteObj.lastM = m;
                 t.initialExact = rootNote;
-                if (m.press <= 0) stopArpActiveNote(t.arpNoteObj.note);
+                if (m.press <= 0) stopArpActiveNote(t.arpNoteObj.note, t.arpNoteObj.zone || t.zone);
             } else {
                 const root = parseInt(els.rootNote.value, 10);
                 const def = getScaleDefinition();
@@ -11088,7 +11632,7 @@ canvas.addEventListener('pointermove', e => {
                 }
                 const rootNote = state.scaleNotes.notes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
                 if (hold.noteObjs) {
-                    refreshArpNotes(hold.noteObjs, m, rootNote);
+                    refreshArpNotes(hold.noteObjs, m, rootNote, t.zone);
                 }
                 const pbRange = parseInt(els.pbRange.value, 10) || 48;
                 const detune = m.exact - rootNote;
@@ -11097,6 +11641,7 @@ canvas.addEventListener('pointermove', e => {
                 hold.lastM = m;
                 hold.phase = t.phase;
                 hold.color = hold.noteObjs?.[0]?.color || t.color;
+                hold.zone = t.zone || hold.zone;
                 if (m.press <= 0) stopArpActiveNotes(hold.noteObjs);
             }
         }
@@ -11111,7 +11656,7 @@ canvas.addEventListener('pointermove', e => {
                 updateScaleNotes();
             }
             const rootNote = state.scaleNotes.notes.reduce((prev, curr) => Math.abs(curr - m.exact) < Math.abs(prev - m.exact) ? curr : prev);
-            refreshArpNotes(t.arpNotes, m, rootNote);
+            refreshArpNotes(t.arpNotes, m, rootNote, t.zone);
             const pbRange = parseInt(els.pbRange.value, 10) || 48;
             const detune = m.exact - rootNote;
             m.pbValue = clampPb(Math.round(8192 + (detune * (8192 / pbRange))));
@@ -11121,10 +11666,14 @@ canvas.addEventListener('pointermove', e => {
         return;
     }
     t.voices.forEach(v => {
-        const pb = getVoicePb(m, v);
-        sendMidi([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-        sendMidi([0xB0 + v.chan - 1, 74, m.slide]);
-        sendMidi([0xD0 + v.chan - 1, m.press]);
+        const voiceOutput = getZoneOutput(v.zone || baseZone);
+        if (!voiceOutput) return;
+        const yData = getYDataFromEvent(e, v.zone || baseZone);
+        const mV = { ...m, slide: yData.slide, press: yData.press, y: yData.y };
+        const pb = getVoicePb(mV, v);
+        sendMidi([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F], voiceOutput);
+        sendMidi([0xB0 + v.chan - 1, 74, mV.slide], voiceOutput);
+        sendMidi([0xD0 + v.chan - 1, mV.press], voiceOutput);
     });
 });
 
@@ -11143,6 +11692,7 @@ canvas.addEventListener('pointerup', e => {
     const t = state.activeTouches.get(e.pointerId);
     if (t) {
         requestDraw();
+        const output = getZoneOutput(t.zone || 'A');
         const hold = !!els.holdNotes.checked;
         const keepHeld = state.keepEnabled;
         if (t.isArpHoldGrab) {
@@ -11155,6 +11705,7 @@ canvas.addEventListener('pointerup', e => {
                 }
                 item.phase = t.phase;
                 item.color = item.noteObjs?.[0]?.color || t.color;
+                item.zone = t.zone || item.zone;
             }
             state.activeTouches.delete(e.pointerId);
             finalizePointerUp();
@@ -11166,9 +11717,11 @@ canvas.addEventListener('pointerup', e => {
             t.lastM = snapM;
             t.voices.forEach(v => {
                 const pb = getVoicePb(snapM, v);
-                sendMidi([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-                sendMidi([0xB0 + v.chan - 1, 74, snapM.slide]);
-                sendMidi([0xD0 + v.chan - 1, snapM.press]);
+                const voiceOutput = getZoneOutput(v.zone || t.zone || baseZone);
+                if (!voiceOutput) return;
+                sendMidi([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F], voiceOutput);
+                sendMidi([0xB0 + v.chan - 1, 74, snapM.slide], voiceOutput);
+                sendMidi([0xD0 + v.chan - 1, snapM.press], voiceOutput);
             });
         }
         if (t.isArp) {
@@ -11178,7 +11731,8 @@ canvas.addEventListener('pointerup', e => {
                 removeArpNotes(t.arpNotes);
             } else {
                 const holdColor = t.arpNotes?.[0]?.color || t.color;
-                state.arpHoldTouches.push({ lastM: t.lastM, color: holdColor, phase: t.phase || 0, noteObjs: t.arpNotes });
+                const holdZone = t.arpNotes?.[0]?.zone || t.zone || 'A';
+                state.arpHoldTouches.push({ lastM: t.lastM, color: holdColor, phase: t.phase || 0, noteObjs: t.arpNotes, zone: holdZone });
             }
             state.activeTouches.delete(e.pointerId);
             finalizePointerUp();
@@ -11190,25 +11744,28 @@ canvas.addEventListener('pointerup', e => {
                 if (!freeDetune) snapHoldVoicesToScale(t);
                 const groupId = t.holdGroup || state.holdGroupSeq++;
                 t.voices.forEach(v => {
+                    const zone = v.zone || t.zone || 'A';
                     state.heldVoices.push({
                         chan: v.chan,
                         note: v.note,
                         basePb: v.basePb,
-                        lastM: t.lastM,
+                        lastM: getHoldLastMForZone(t, zone),
                         color: t.color,
                         phase: t.phase,
                         group: groupId,
                         rootNote: t.rootNote ?? t.initialExact,
-                        chordHold: !!t.isChordHold
+                        chordHold: !!t.isChordHold,
+                        zone
                     });
                 });
             } else {
                 t.voices.forEach(v => {
-                    sendMidi([0x80 + v.chan - 1, v.note, 0]);
-                    state.mpeChannels.push(v.chan);
+                    const voiceOutput = getZoneOutput(v.zone || t.zone || baseZone);
+                    if (!voiceOutput) return;
+                    sendMidi([0x80 + v.chan - 1, v.note, 0], voiceOutput);
+                    releaseMpeChannel(v.zone || t.zone || 'A', v.chan);
                 });
             }
-            state.mpeChannels.sort((a,b)=>a-b);
             state.activeTouches.delete(e.pointerId);
             finalizePointerUp();
             return;
@@ -11221,23 +11778,27 @@ canvas.addEventListener('pointerup', e => {
             if(!t.isGrab) {
                 if (hold) {
                     const groupId = t.holdGroup || state.holdGroupSeq++;
-                    sendMidi([0xB0 + v.chan - 1, 74, t.lastM.slide]);
-                    sendMidi([0xD0 + v.chan - 1, t.lastM.press]);
+                    const zone = v.zone || t.zone || 'A';
+                    sendMidi([0xB0 + v.chan - 1, 74, t.lastM.slide], output);
+                    sendMidi([0xD0 + v.chan - 1, t.lastM.press], output);
                     state.heldVoices.push({
                         chan: v.chan,
                         note: v.note,
                         basePb: v.basePb,
-                        lastM: t.lastM,
+                        lastM: getHoldLastMForZone(t, zone),
                         color: t.color,
                         phase: t.phase,
                         group: groupId,
                         rootNote: t.initialExact,
-                        chordHold: !!t.isChordHold
+                        chordHold: !!t.isChordHold,
+                        zone
                     });
                     t.holdGroup = groupId;
                 } else {
-                    sendMidi([0x80 + v.chan - 1, v.note, 0]);
-                    state.mpeChannels.push(v.chan);
+                    const voiceOutput = getZoneOutput(v.zone || t.zone || baseZone);
+                    if (!voiceOutput) return;
+                    sendMidi([0x80 + v.chan - 1, v.note, 0], voiceOutput);
+                    releaseMpeChannel(v.zone || t.zone || 'A', v.chan);
                 }
             } else {
                 if (state.physicalNotes.has(v.note)) {
@@ -11246,14 +11807,13 @@ canvas.addEventListener('pointerup', e => {
                     if (pNote) {
                         pNote.grabbed = false;
                         const pb = pNote.lastPb || 8192;
-                        sendMidi([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F]);
-                        sendMidi([0xB0 + v.chan - 1, 74, pNote.lastSlide || 0]);
-                        sendMidi([0xD0 + v.chan - 1, pNote.lastPress || 0]);
+                        sendMidi([0xE0 + v.chan - 1, pb & 0x7F, (pb >> 7) & 0x7F], output);
+                        sendMidi([0xB0 + v.chan - 1, 74, pNote.lastSlide || 0], output);
+                        sendMidi([0xD0 + v.chan - 1, pNote.lastPress || 0], output);
                     }
                 }
             }
         });
-        if (!hold) state.mpeChannels.sort((a,b)=>a-b);
         state.activeTouches.delete(e.pointerId);
     }
     finalizePointerUp();
@@ -11275,15 +11835,15 @@ function cancelActivePointer(pointerId) {
         state.activeTouches.delete(pointerId);
         return;
     }
-    if (!state.midi.output) {
+    const output = getZoneOutput(t.zone || 'A');
+    if (!output) {
         state.activeTouches.delete(pointerId);
         return;
     }
     t.voices.forEach(v => {
-        sendMidi([0x80 + v.chan - 1, v.note, 0]);
-        state.mpeChannels.push(v.chan);
+        sendMidi([0x80 + v.chan - 1, v.note, 0], output);
+        releaseMpeChannel(v.zone || t.zone || 'A', v.chan);
     });
-    state.mpeChannels.sort((a,b)=>a-b);
     state.activeTouches.delete(pointerId);
     // Remove note-dragging class when no more active pointers
     if (state.pointerIds.size === 0) {
@@ -11646,6 +12206,7 @@ function findArpHoldAt(x, y) {
 state.presets = loadPresets();
 state.mpePresets = loadMpePresets();
 state.customScales = loadCustomScales();
+state.microScales = loadUserMicroScales();
 state.fxUserPresets = loadUserFxPresets();
 state.melody.saves = loadMelodySaves();
 refreshMelodySaveSelect(state.melody.saves);
@@ -12950,6 +13511,35 @@ function bindUI() {
             scheduleScaleUpdate();
         }
     };
+    if (els.sclFile) {
+        els.sclFile.onchange = () => {
+            const file = els.sclFile.files && els.sclFile.files[0];
+            if (!file) return;
+            if (els.sclName && !els.sclName.value.trim()) {
+                const base = deriveSclName(file.name, '');
+                els.sclName.value = base;
+            }
+        };
+    }
+    if (els.sclImport) {
+        els.sclImport.onclick = async () => {
+            const file = els.sclFile && els.sclFile.files && els.sclFile.files[0];
+            if (!file) return;
+            const text = await file.text();
+            const parsed = parseSclText(text);
+            if (!parsed) {
+                alert('Invalid SCL file.');
+                return;
+            }
+            const name = (els.sclName && els.sclName.value.trim())
+                || parsed.description
+                || deriveSclName(file.name, 'SCL Scale');
+            if (!registerMicrotonalScale(name, parsed.cents)) {
+                alert('Could not import SCL scale.');
+                return;
+            }
+        };
+    }
     els.scaleModeDiatonic.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
     els.scaleModeMicro.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
     els.scaleModeCustom.onchange = () => { updateScaleModeUI(); scheduleScaleUpdate(); };
@@ -13002,19 +13592,19 @@ function bindUI() {
     setupRecordingEditorEvents();
     
     if (els.sampleSetSelect || els.sampleSetSelectMini) {
-        refreshSampleSetSelect(state.audio.activeSet);
+        refreshSampleSetSelect(state.audio.activeSet, getActiveAudioZoneId());
         if (els.sampleSetSelect) {
             els.sampleSetSelect.onchange = () => {
                 const value = els.sampleSetSelect.value;
                 if (els.sampleSetSelectMini) els.sampleSetSelectMini.value = value;
-                loadSampleSet(value);
+                loadSampleSet(value, getActiveAudioZoneId());
             };
         }
         if (els.sampleSetSelectMini) {
             els.sampleSetSelectMini.onchange = () => {
                 const value = els.sampleSetSelectMini.value;
                 if (els.sampleSetSelect) els.sampleSetSelect.value = value;
-                loadSampleSet(value);
+                loadSampleSet(value, getActiveAudioZoneId());
             };
         }
     }
@@ -13025,7 +13615,7 @@ function bindUI() {
             const newName = els.sampleSetName.value.trim();
             if (newName && newName !== state.audio.activeSet) {
                 // Update active set name so new samples get saved to the new set
-                setActiveSampleSetName(newName);
+                setActiveSampleSetName(newName, getActiveAudioZoneId());
             }
         };
     }
@@ -13051,11 +13641,11 @@ function bindUI() {
                 updateSampleName(i);
             }
             // Create the new set
-            setActiveSampleSetName(name);
+            setActiveSampleSetName(name, getActiveAudioZoneId());
             const sets = getSampleSetsState();
             ensureSampleSet(name, sets);
             saveSampleSetsState(sets);
-            refreshSampleSetSelect(name);
+            refreshSampleSetSelect(name, getActiveAudioZoneId());
             if (els.sampleSetName) els.sampleSetName.value = name;
             if (els.midiStatus) els.midiStatus.innerText = `NEW SET "${name}" - Add samples then SAVE`;
         };
@@ -13072,7 +13662,7 @@ function bindUI() {
                 name = name.trim();
             }
             // Make sure this set name is registered
-            setActiveSampleSetName(name);
+            setActiveSampleSetName(name, getActiveAudioZoneId());
             await saveSampleSet(name);
             // Update UI
             if (els.sampleSetName) els.sampleSetName.value = name;
@@ -13167,6 +13757,17 @@ function bindUI() {
             updateCrossModDepth();
         };
     }
+    if (els.audioZoneSelect) {
+        els.audioZoneSelect.value = getActiveAudioZoneId();
+        els.audioZoneSelect.onchange = () => {
+            const zoneKey = getActiveAudioZoneId();
+            setActiveSampleZone(zoneKey);
+            refreshSampleSetSelect(state.audio.activeSet, zoneKey);
+            if (els.sampleSetName) els.sampleSetName.value = state.audio.activeSet;
+            applyAudioZoneToUI(zoneKey);
+            updateSampleSlotsUI();
+        };
+    }
     if (els.wtMode) {
         clearChildren(els.wtMode);
         appendOption(els.wtMode, 'sampler', 'Sampler only');
@@ -13183,14 +13784,17 @@ function bindUI() {
         Object.keys(WAVETABLES).forEach(name => appendOption(els.wtSelect, name, name));
         els.wtSelect.value = state.audio.wavetable.type;
         els.wtSelect.onchange = () => {
+            const zoneKey = getActiveAudioZoneId();
             const order = getWavetableOrder();
             const idx = order.indexOf(els.wtSelect.value);
             if (idx >= 0 && order.length > 1) {
-                setMacroMorph(idx / (order.length - 1));
+                const morph = idx / (order.length - 1);
+                setMacroMorph(morph, zoneKey);
             } else {
                 state.audio.wavetable.type = els.wtSelect.value;
+                syncAudioZoneFromState(zoneKey);
                 updateWavetableUI();
-                updateWavetableMix();
+                updateWavetableMix(zoneKey);
             }
         };
     }
@@ -13227,12 +13831,19 @@ function bindUI() {
             updateFxToggleButtons();
         };
     }
+    if (els.fxTubeToggle) {
+        els.fxTubeToggle.onclick = () => {
+            state.audio.fx.tubeOn = !state.audio.fx.tubeOn;
+            updateFxNodes();
+            updateFxToggleButtons();
+        };
+    }
     const fxInputs = [
         els.fxAttack, els.fxDecay, els.fxSustain, els.fxRelease,
         els.fxCutoff, els.fxResonance, els.fxFilterEnv,
         els.fxChorusRate, els.fxChorusDepth,
         els.fxDelayTime, els.fxDelayFeedback, els.fxDelayDry, els.fxDelayWet, els.fxDelayReverse,
-        els.fxReverbDecay, els.fxReverbDry, els.fxReverbWet, els.fxMix
+        els.fxReverbDecay, els.fxReverbDry, els.fxReverbWet, els.fxMix, els.fxTubeDrive
     ];
     fxInputs.forEach(input => {
         if (!input) return;
@@ -13277,9 +13888,15 @@ function bindUI() {
         els.samplerGain.value = state.audio.samplerGain.toFixed(2);
         updateRangeProgress(els.samplerGain);
         els.samplerGain.oninput = () => {
-            state.audio.samplerGain = Math.max(0, Math.min(5, parseFloat(els.samplerGain.value) || 0));
+            const next = Math.max(0, Math.min(5, parseFloat(els.samplerGain.value) || 0));
+            state.audio.samplerGain = next;
             saveSamplerGainForSet(state.audio.activeSet);
-            updateSamplerGainNodes();
+            const zoneKey = getActiveAudioZoneId();
+            if (state.audio.zones && state.audio.zones[zoneKey]) state.audio.zones[zoneKey].samplerGain = next;
+            state.audio.voices.forEach(v => {
+                if ((v.zone || 'A') === zoneKey) v.zoneSamplerGain = next;
+            });
+            updateSamplerGainNodes(zoneKey);
             updateRangeProgress(els.samplerGain);
         };
     }
@@ -13524,8 +14141,7 @@ function getClampedVisualY(y, radius, height) {
     return Math.min(y, maxY);
 }
 
-function getVisualModeFlags() {
-    const mode = state.audio.wavetable.mode;
+function getVisualModeFlags(mode = state.audio.wavetable.mode) {
     return {
         wt: mode === 'wt',
         sampler: mode === 'sampler',
@@ -13625,8 +14241,8 @@ function drawGrainyRing(x, y, radius, color, phase) {
 function drawHeldVoices(fadeMul, fadeDrop, height) {
     if (!state.heldVoices.length) return;
     const now = state.audio.ctx ? state.audio.ctx.currentTime : 0;
-    const visual = getVisualModeFlags();
     state.heldVoices.forEach((v, i) => {
+        const visual = getVisualModeFlags(getZoneAudioMode(v.zone || 'A'));
         const m = v.lastM;
         let flash = 0;
         if (v.bowFlash > 0) {
@@ -13643,7 +14259,8 @@ function drawHeldVoices(fadeMul, fadeDrop, height) {
         
         // --- CALCOLO SFUMATURA DEL SAMPLE ---
         let sampleOpacity = 1.0;
-        const key = `${v.chan}:${v.note}`;
+        const internalChan = getInternalAudioChannel(v.chan, v.zone || 'A');
+        const key = `${internalChan}:${v.note}`;
         const audioVoice = state.audio.voices.get(key);
 
         if (state.audio.enabled && v.note != null) { 
@@ -13701,8 +14318,10 @@ function drawArpHoldTouches(fadeMul, fadeDrop, height) {
 }
 
 function drawActiveTouches(fadeMul, fadeDrop, height) {
-    const visual = getVisualModeFlags();
     state.activeTouches.forEach(t => {
+        const zoneId = t.zone || t.voices?.[0]?.zone || 'A';
+        const visual = getVisualModeFlags(getZoneAudioMode(zoneId));
+        if (!t.lastM) return;
         const radius = 12 + (t.lastM.press / 127) * 22;
         t.phase += 0.2 + (t.vibratoSpeed * 0.06);
         let y = t.lastM.y + ((height - t.lastM.y) * fadeDrop);
@@ -13861,7 +14480,21 @@ document.addEventListener('visibilitychange', () => {
 });
 els.ui.addEventListener('transitionend', refreshLayout);
 els.performance.addEventListener('transitionend', refreshLayout);
-refreshLayout(); updateScaleModeUI(); updateScaleNotes(); syncArpFromUI(); updateHoldButtonUI(); updateArpParamsToggleLabel(); setupMIDI(); draw();
+if (els.dualMode) {
+    els.dualMode.addEventListener('change', () => {
+        updateDualModeUI();
+        requestDraw();
+    });
+}
+refreshLayout();
+updateScaleModeUI();
+updateScaleNotes();
+syncArpFromUI();
+updateHoldButtonUI();
+updateArpParamsToggleLabel();
+updateDualModeUI();
+setupMIDI();
+draw();
 
 function updateToggleLabels() {
     const uiLabel = uiToggle ? uiToggle.querySelector('.btn-text') : null;

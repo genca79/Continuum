@@ -91,10 +91,13 @@
                 <div id="presetDesc" style="font-size:8px; color:#888; margin-top:2px;">&nbsp;</div>
             </div>
             <div class="box"><label>MIDI In</label><select id="midiInSelect" data-param="midiInSelect"><option value="">Nessun Input</option></select></div>
-            <div class="box"><label>MIDI Out</label><select id="midiOutSelect" data-param="midiOutSelect"></select></div>
+            <div class="box"><label>MIDI Out A</label><select id="midiOutSelect" data-param="midiOutSelect"></select></div>
+            <div class="box"><label>MIDI Out B</label><select id="midiOutSelectB" data-param="midiOutSelectB"></select></div>
+            <div class="box" style="max-width:70px;"><label>DUAL Keyboard</label><input type="checkbox" id="dualMode" data-param="dualMode"></div>
             <div class="box" style="max-width:60px;"><label>Thru</label><input type="checkbox" id="midiThru" data-param="midiThru"></div>
             <div class="box" style="max-width:90px;"><label>MPE Out</label><input type="checkbox" id="midiInMpe" data-param="midiInMpe" checked></div>
             <div class="box"><label>Synth</label><button id="audioStart" class="menu-btn btn-ok audio-toggle"><span class="btn-text">INTERNAL SYNTH</span></button></div>
+            <div class="box" style="max-width:80px;"><label>KEYBOARD</label><select id="audioZoneSelect"><option value="A">A</option><option value="B">B</option></select></div>
             <div class="box"><label>Mode</label><select id="wtMode"></select></div>
             <div class="box"><label>Sampler Set</label><select id="sampleSetSelectMini"></select></div>
             <div class="box" id="wtMixBox"><label>Mix</label><input type="range" id="wtMix" min="0" max="1" step="0.01" value="0.35"></div>
@@ -279,6 +282,14 @@
             </div>
             <div class="box scale-menu" id="scaleMicroBox" data-scale-choice="microtonal"><label>Microtonal</label>
                 <select id="microScaleSelect"></select>
+                <div class="micro-scale-import">
+                    <div class="micro-scale-import-row">
+                        <input type="text" id="sclName" placeholder="SCL name (optional)" class="custom-scale-input-wide">
+                        <input type="file" id="sclFile" accept=".scl">
+                        <button id="sclImport" class="menu-btn btn-ok" aria-label="Import SCL"><span class="btn-text">IMPORT</span></button>
+                    </div>
+                    <div class="custom-scale-help">Import Scala .scl microtonal scales.</div>
+                </div>
             </div>
             <div class="box scale-menu scale-custom-wide" id="scaleCustomBox" data-scale-choice="custom"><label>Custom Scale</label>
                 <div class="custom-scale-row-compact">
@@ -1129,10 +1140,10 @@
 
 <div id="playArea">
     <canvas id="surface"></canvas>
+    <div id="dualSplitLine" class="dual-split-line" aria-hidden="true"></div>
     <div class="footer">
         <div id="midiStatus">HYBRID ENGINE READY</div>
-        <div>SPOSTA GIU' PER IL MENU</div>
-    </div>
+        </div>
 </div>
 
 <div id="gestureOverlay" class="gesture-overlay hidden" data-side="right" aria-hidden="true">
@@ -1294,6 +1305,12 @@
                 <div class="fx-item"><label>Rev Dry</label><input type="range" id="fxReverbDry" min="0" max="1" step="0.01" value="1"><div class="fx-value" data-fx-value="fxReverbDry"></div></div>
                 <div class="fx-item"><label>Rev Wet</label><input type="range" id="fxReverbWet" min="0" max="1" step="0.01" value="0.2"><div class="fx-value" data-fx-value="fxReverbWet"></div></div>
                 <div class="fx-item"><label>FX Mix</label><input type="range" id="fxMix" min="0" max="1" step="0.01" value="0.3"><div class="fx-value" data-fx-value="fxMix"></div></div>
+            </div>
+            <div class="fx-group" data-fx-group="tube">
+                <div class="fx-toggle-cell">
+                    <button id="fxTubeToggle" class="menu-btn fx-toggle toggle-off">TUBE ON/OFF</button>
+                </div>
+                <div class="fx-item"><label>Tube Amt</label><input type="range" id="fxTubeDrive" min="0" max="1" step="0.01" value="0.2"><div class="fx-value" data-fx-value="fxTubeDrive"></div></div>
             </div>
         </div>
     </div>
